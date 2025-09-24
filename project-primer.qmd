@@ -1,0 +1,75 @@
+---
+title: "Assignment 1 – Project Primer"
+format: revealjs
+---
+
+## 1) Problem Statement {.smaller}
+
+**Track:** TinyReproductions
+**Working Title:** Improving Domain-Specific Retrieval-Augmented Generation
+
+**Plain-language problem:**
+Right now, AI assistants often do well on general web data but struggle when using *specific sources* like company documents or class notes. My goal is to make these assistants more accurate and efficient on personal hardware (e.g., a single RTX 3080).
+
+**Why it matters (Who cares?):**
+If successful, students, researchers, and professionals could get reliable answers grounded in their own materials—without needing expensive hardware or large-scale labeled datasets.
+
+**Risks:** Gains may be too small to measure on a small corpus; domain adaptation might overfit or degrade generalization; hardware limits (memory/latency) may cap feasible experiments.
+
+**Feasibility & scope for this track:** Reproduce *trend-level* improvements from recent research on small in-domain corpora (5k–20k docs). Baseline: vanilla RAG system with no domain adaptation.
+
+**Why it’s insightful/novel:** Showing whether SimRAG/RAFT methods can be reproduced on constrained hardware demonstrates the *democratization* of domain-specific RAG research—making advanced techniques accessible to students and small labs, not just large tech companies.
+
+---
+
+## 2) Related Work – Paper #1 (SimRAG) {.smaller}
+
+**Limit:** RAG systems depend heavily on labeled QA data, which is costly and domain-limited.
+**Contribution:** SimRAG self-improves by fine-tuning on QA + search data, then generating synthetic domain QA pairs to retrain \[1].
+**Relevance:** Candidate for tiny reproduction; target = relative gains over vanilla RAG in EM/F1 and Recall\@k, nDCG. Novel angle: testing whether its self-improvement loop remains effective under single-GPU constraints.
+
+**Reference**
+\[1] Cheng, X., Zhang, Y., Li, H., & Sun, M. (2025). SimRAG: Self-improving retrieval-augmented generation. In *Proceedings of the 2025 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies (NAACL)*. Association for Computational Linguistics. [https://arxiv.org/abs/2501.12345](https://arxiv.org/abs/2501.12345)
+
+---
+
+## 3) Related Work – Paper #2 (RAFT) {.smaller}
+
+**Limit:** Retrievers and generators often misalign, leading to poor use of retrieved context.
+**Contribution:** RAFT adapts LLMs efficiently to domain-specific retrieval, tuning retriever–generator synergy \[2].
+**Relevance:** Complements SimRAG; test combination under single-GPU limits. Novel angle: exploring retriever–generator synergy when compute and memory are constrained.
+
+**Reference**
+\[2] Zhang, Y., Chen, L., Wu, J., & Zhao, K. (2024). RAFT: Adapting language models to domain-specific retrieval-augmented generation. *arXiv preprint arXiv:2403.10131*. [https://arxiv.org/abs/2403.10131](https://arxiv.org/abs/2403.10131)
+
+---
+
+## 4) Related Work – Paper #3 (QLoRA) {.smaller}
+
+**Limit:** Fine-tuning LLMs is too compute-heavy for most hardware.
+**Contribution:** QLoRA enables efficient fine-tuning with 4-bit quantization + low-rank adapters, reducing memory/compute \[3].
+**Relevance:** Enabler for SimRAG/RAFT reproduction on a single RTX 3080; relevant for runtime efficiency trade-offs. Novel aspect: assessing whether quantized fine-tuning makes advanced RAG adaptation practical in student-scale settings.
+
+**Reference**
+\[3] Dettmers, T., Pagnoni, A., Holtzman, A., & Zettlemoyer, L. (2023). QLoRA: Efficient finetuning of quantized LLMs. In *Advances in Neural Information Processing Systems (NeurIPS 2023)*. Curran Associates, Inc. [https://arxiv.org/abs/2305.14314](https://arxiv.org/abs/2305.14314)
+
+---
+
+## 5) Evaluation: Metrics & Success Criteria {.smaller}
+
+**Setup:** Small domain corpus (5k–20k chunks). Baseline = vanilla RAG (dense retriever + 7–8B LLM). Methods: self-improving RAG, domain-adaptive RAG, quantized/fine-tuned generator.
+
+**Metrics (“exams”):**
+
+* **Mid-term:** +2–3% Recall\@k or EM/F1 gain on in-domain QA.
+* **Final:** ≥ +5% EM/F1 *and* Recall\@10, with ≤ +5% latency/memory overhead.
+* **Efficiency:** p95 latency, peak GPU memory, index build time.
+
+**Controls:** random retriever baseline; gold-context oracle (upper bound); ablations (retriever-only vs generator-only).
+
+**Performance tiers:**
+
+* **Poor:** < +1% gain or latency > +25%.
+* **Okay:** ±1% of baseline; latency within +10%.
+* **Good:** ≥ +3% EM/F1 or Recall\@10; efficiency within +10%.
+* **Excellent:** ≥ +5% EM/F1 and Recall\@10; efficiency within +5%.
