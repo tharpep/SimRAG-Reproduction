@@ -1,0 +1,169 @@
+"""
+RAG System Orchestrator
+Coordinates vector storage, retrieval, and generation components
+"""
+
+from ai_providers import AIGateway
+from .vector_store import VectorStore
+from .retriever import DocumentRetriever
+
+
+class BasicRAG:
+    """RAG system that orchestrates vector storage, retrieval, and generation"""
+    
+    def __init__(self, collection_name="documents", use_persistent=False):
+        """
+        Initialize RAG system
+        
+        Args:
+            collection_name: Name for Qdrant collection
+            use_persistent: If True, use persistent Qdrant storage
+        """
+        self.collection_name = collection_name
+        
+        # Initialize components
+        self.gateway = AIGateway()
+        self.vector_store = VectorStore(use_persistent=use_persistent)
+        self.retriever = DocumentRetriever()
+        
+        # Setup collection
+        self._setup_collection()
+    
+    def _setup_collection(self):
+        """Setup the vector collection"""
+        embedding_dim = self.retriever.get_embedding_dimension()
+        success = self.vector_store.setup_collection(self.collection_name, embedding_dim)
+        if not success:
+            raise Exception(f"Failed to setup collection: {self.collection_name}")
+    
+    def add_documents(self, documents):
+        """
+        Add documents to the vector database
+        
+        Args:
+            documents: List of text documents to index
+            
+        Returns:
+            Number of documents added
+        """
+        # Create embeddings
+        embeddings = self.retriever.encode_documents(documents)
+        
+        # Create points for vector store
+        points = self.retriever.create_points(documents, embeddings)
+        
+        # Add to vector store
+        return self.vector_store.add_points(self.collection_name, points)
+    
+    def search(self, query, limit=3):
+        """
+        Search for relevant documents
+        
+        Args:
+            query: Search query
+            limit: Number of results to return
+            
+        Returns:
+            List of (text, score) tuples
+        """
+        # Create query embedding
+        query_embedding = self.retriever.encode_query(query)
+        
+        # Search vector store
+        return self.vector_store.search(self.collection_name, query_embedding, limit)
+    
+    def query(self, question, context_limit=3):
+        """
+        Answer a question using RAG
+        
+        Args:
+            question: Question to answer
+            context_limit: Number of documents to retrieve for context
+            
+        Returns:
+            Answer string
+        """
+        # Retrieve relevant documents
+        retrieved_docs = self.search(question, limit=context_limit)
+        
+        if not retrieved_docs:
+            return "No relevant documents found."
+        
+        # Build context
+        context = "\n\n".join([doc for doc, score in retrieved_docs])
+        
+        # Create prompt
+        prompt = f"""Context:
+{context}
+
+Question: {question}
+
+Answer:"""
+        
+        # Generate answer
+        answer = self.gateway.chat(prompt)
+        return answer
+    
+    def get_stats(self):
+        """Get collection statistics"""
+        stats = self.vector_store.get_collection_stats(self.collection_name)
+        if "error" not in stats:
+            stats.update({
+                "vector_size": self.retriever.get_embedding_dimension(),
+                "distance": "cosine",
+                "model_info": self.retriever.get_model_info()
+            })
+        return stats
+
+
+def main():
+    """Demo of Basic RAG system"""
+    print("=== Basic RAG Demo ===\n")
+    
+    # Sample documents
+    documents = [
+        "Machine learning is a subset of artificial intelligence that enables computers to learn from data without explicit programming.",
+        "Deep learning uses neural networks with multiple layers to model complex patterns in data.",
+        "Natural language processing (NLP) combines computational linguistics with machine learning to help computers understand human language.",
+        "Computer vision enables machines to interpret and understand visual information from images and videos.",
+        "Reinforcement learning is where agents learn optimal behavior by interacting with an environment and receiving rewards.",
+    ]
+    
+    # Initialize RAG
+    print("1. Initializing RAG system...")
+    rag = BasicRAG()
+    print(f"   Available providers: {rag.gateway.get_available_providers()}")
+    
+    # Add documents
+    print("\n2. Adding documents...")
+    count = rag.add_documents(documents)
+    print(f"   Added {count} documents")
+    
+    # Show stats
+    stats = rag.get_stats()
+    print(f"   Collection stats: {stats}")
+    
+    # Test queries
+    queries = [
+        "What is machine learning?",
+        "How does deep learning work?",
+        "What is computer vision?"
+    ]
+    
+    print("\n3. Testing queries...")
+    for query in queries:
+        print(f"\nQuery: {query}")
+        
+        # Get answer with RAG
+        answer = rag.query(query)
+        print(f"Answer: {answer}")
+        
+        # Show retrieved context
+        retrieved = rag.search(query, limit=2)
+        print(f"Retrieved docs: {len(retrieved)}")
+        for i, (doc, score) in enumerate(retrieved, 1):
+            print(f"  [{i}] (score: {score:.3f}) {doc[:100]}...")
+
+
+if __name__ == "__main__":
+    main()

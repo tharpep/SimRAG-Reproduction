@@ -1,6 +1,5 @@
 # AI Course Project Tracks
-ECE 57000, Purdue University  
-David I. Inouye  
+ECE 57000, Purdue University
 
 ---
 

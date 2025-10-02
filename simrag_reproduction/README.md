@@ -1,104 +1,119 @@
-# SimRAG Reproduction Project
+# SimRAG Reproduction
+
+A simplified implementation of the SimRAG paper for learning RAG and fine-tuning concepts.
 
 ## Overview
-This project reproduces the SimRAG (Self-improving Retrieval-Augmented Generation) paper on constrained hardware (single RTX 3080) to demonstrate the democratization of domain-specific RAG research.
 
-## Project Structure
+This codebase provides a clean, educational implementation focusing on:
+
+- **AI Providers**: Unified interface for Ollama (local) and Purdue GenAI
+- **RAG System**: Basic retrieval-augmented generation with Qdrant
+- **Testing**: Comprehensive test suite for all components
+
+## Quick Start
+
+```bash
+# Setup environment
+python run setup
+
+# Run tests
+python run test
+
+# Try the RAG demo
+python -m rag.basic_rag
+```
+
+## Architecture
+
 ```
 simrag_reproduction/
-├── README.md
-├── requirements.txt
-├── environment.yml
-├── config/
-│   ├── baseline_config.yaml
-│   ├── simrag_config.yaml
-│   └── evaluation_config.yaml
-├── src/
-│   ├── __init__.py
-│   ├── baseline/
-│   │   ├── __init__.py
-│   │   ├── retriever.py
-│   │   ├── generator.py
-│   │   └── rag_system.py
-│   ├── simrag/
-│   │   ├── __init__.py
-│   │   ├── self_improvement.py
-│   │   ├── synthetic_data_generator.py
-│   │   └── simrag_system.py
-│   ├── evaluation/
-│   │   ├── __init__.py
-│   │   ├── metrics.py
-│   │   ├── evaluator.py
-│   │   └── benchmark.py
-│   ├── data/
-│   │   ├── __init__.py
-│   │   ├── preprocessing.py
-│   │   └── dataset.py
-│   └── utils/
-│       ├── __init__.py
-│       ├── logging.py
-│       └── helpers.py
-├── experiments/
-│   ├── run_baseline.py
-│   ├── run_simrag.py
-│   └── compare_results.py
-├── data/
-│   ├── raw/
-│   ├── processed/
-│   └── synthetic/
-├── results/
-│   ├── baseline/
-│   ├── simrag/
-│   └── comparisons/
-└── tests/
-    ├── test_baseline.py
-    ├── test_simrag.py
-    └── test_evaluation.py
+├── ai_providers/          # LLM client abstractions
+│   ├── gateway.py         # Main AI gateway
+│   ├── local.py          # Ollama client
+│   ├── purdue_api.py     # Purdue GenAI client
+│   └── base_client.py    # Abstract base class
+├── rag/                   # RAG implementations
+│   └── basic_rag.py      # Basic RAG with Qdrant
+├── tests/                 # Test suite
+├── run                    # CLI tool
+└── requirements.txt       # Dependencies
 ```
 
-## Installation
+## Configuration
 
-### Prerequisites
-- Python 3.9+
-- CUDA-compatible GPU (RTX 3080 or similar)
-- 16GB+ RAM recommended
+Create a `.env` file:
 
-### Setup
-1. Clone the repository
-2. Create conda environment: `conda env create -f environment.yml`
-3. Activate environment: `conda activate simrag-reproduction`
-4. Install additional requirements: `pip install -r requirements.txt`
-
-## Usage
-
-### Running Baseline RAG
 ```bash
-python experiments/run_baseline.py --config config/baseline_config.yaml
+# For Ollama (local)
+USE_OLLAMA=true
+MODEL_NAME=qwen3:1.7b
+
+# OR for Purdue GenAI
+PURDUE_API_KEY=your-key-here
 ```
 
-### Running SimRAG
-```bash
-python experiments/run_simrag.py --config config/simrag_config.yaml
+## Components
+
+### AI Gateway
+Unified interface for different LLM providers:
+- Auto-selects available provider
+- Handles async/sync calls
+- Easy to extend with new providers
+
+### RAG System
+Basic retrieval-augmented generation:
+- Sentence transformers for embeddings
+- Qdrant for vector storage
+- Context-aware question answering
+
+### Testing
+Comprehensive test coverage:
+- Unit tests for all providers
+- Mocked external dependencies
+- Async test support
+
+## Development
+
+This is a learning-focused codebase. The implementation is intentionally simple to understand core concepts before building more complex features.
+
+## Document Formatting Tips
+
+For best RAG performance, structure your `.txt` and `.md` files:
+
+### Content Structure (Critical)
+- **Clear section headers** (`#`, `##`, `###`) - helps chunking at logical boundaries
+- **Complete thoughts** (200-500 words per concept) - optimal chunk size
+- **Consistent terminology** - improves semantic similarity matching
+
+### Chunk Size Optimization
+- **Current setting**: 1000 characters per chunk
+- **Sweet spot**: 200-500 words per "concept" or "section"
+- **Why it matters**: Too small = fragmented context, too large = diluted relevance
+
+### Semantic Clarity (Key for Retrieval)
+- **Write complete sentences** that stand alone
+- **Use descriptive language** - "machine learning algorithms" vs "ML stuff"
+- **Include context** - "The recommendation system achieved 95% accuracy" vs "95% accuracy"
+
+### Example Format
+```markdown
+# Project Alpha
+**Goal**: Build recommendation system
+**Status**: In progress
+
+## Key Findings
+- Collaborative filtering works best for our use case
+- Need at least 1000 user interactions for good results
+- Matrix factorization outperforms neural networks
 ```
 
-### Comparing Results
-```bash
-python experiments/compare_results.py --baseline results/baseline/ --simrag results/simrag/
-```
+### What Doesn't Matter
+- Markdown formatting (headers, bold, etc.) - gets stripped
+- Line breaks - normalized to spaces
+- File organization - each file becomes separate chunks
 
-## Evaluation Metrics
-- Exact Match (EM)
-- F1 Score
-- Recall@k (k=1,5,10)
-- nDCG
-- Latency (p95)
-- GPU Memory Usage
+## Hardware Notes
 
-## Success Criteria
-- **Mid-term:** +2-3% Recall@k or EM/F1 gain
-- **Final:** ≥ +5% EM/F1 and Recall@10, with ≤ +5% latency/memory overhead
-
-## References
-- SimRAG: Self-improving retrieval-augmented generation (Cheng et al., 2025)
-- RAFT: Adapting language models to domain-specific retrieval-augmented generation (Zhang et al., 2024)
-- QLoRA: Efficient finetuning of quantized LLMs (Dettmers et al., 2023)
+- RTX 3080 10GB VRAM
+- Supports both local (Ollama) and cloud (Purdue) LLMs
+- Qdrant can run in-memory or persistent mode

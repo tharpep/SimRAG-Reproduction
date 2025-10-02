@@ -1,0 +1,20 @@
+.env
+
+# Model files and caches
+*.bin
+*.safetensors
+*.gguf
+finetuned_model/
+my_finetuned_model/
+.cache/
+__pycache__/
+
+# Training outputs
+results/
+checkpoints/
+wandb/
+
+# Data files
+*.jsonl
+*.csv
+data/
