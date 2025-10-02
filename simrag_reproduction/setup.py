@@ -67,7 +67,7 @@ def install_dependencies():
         return False
     
     # Install requirements
-    return run_command(f"{pip_cmd} install -r requirements_simple.txt", "Installing dependencies")
+    return run_command(f"{pip_cmd} install -r requirements.txt", "Installing dependencies")
 
 
 def create_env_file():
@@ -150,7 +150,8 @@ def main():
     print(f"1. Activate virtual environment:")
     print(f"   {get_activation_command()}")
     print("2. Edit .env file with your configuration")
-    print("3. Run: python step1_basic_rag.py")
+    print("3. Try: python run demo")
+    print("4. Try: python run config local")
     print("\nFor Ollama:")
     print("- Install Ollama from https://ollama.ai")
     print("- Run: ollama pull qwen3:1.7b")

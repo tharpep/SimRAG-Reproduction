@@ -78,6 +78,121 @@ def run_tests():
         return e.returncode
 
 
+def run_demo():
+    """Run RAG demo with current config"""
+    if not check_venv():
+        return 1
+    
+    python_cmd = get_python_cmd()
+    print("Running RAG demo...")
+    
+    try:
+        result = subprocess.run([python_cmd, "-m", "rag.demo"], check=True)
+        return 0
+    except subprocess.CalledProcessError as e:
+        print(f"Demo failed with exit code {e.returncode}")
+        return e.returncode
+
+
+def run_interactive():
+    """Run interactive RAG mode"""
+    if not check_venv():
+        return 1
+    
+    python_cmd = get_python_cmd()
+    print("Starting interactive RAG mode...")
+    
+    try:
+        # Set interactive mode environment variable
+        env = os.environ.copy()
+        env['INTERACTIVE_MODE'] = 'true'
+        
+        result = subprocess.run([python_cmd, "-m", "rag.demo"], env=env, check=True)
+        return 0
+    except subprocess.CalledProcessError as e:
+        print(f"Interactive mode failed with exit code {e.returncode}")
+        return e.returncode
+
+
+def run_config_demo():
+    """Run demo with specific config"""
+    if not check_venv():
+        return 1
+    
+    if len(sys.argv) < 3:
+        print("Available configs:")
+        try:
+            from config import DEFAULT_CONFIGS
+            for name, config in DEFAULT_CONFIGS.items():
+                print(f"  {name}: {config}")
+        except ImportError:
+            print("  Error: Could not import config module")
+        return 1
+    
+    config_name = sys.argv[2].lower()
+    python_cmd = get_python_cmd()
+    
+    print(f"Running demo with '{config_name}' config...")
+    
+    try:
+        # Set config environment variables
+        env = os.environ.copy()
+        try:
+            from config import DEFAULT_CONFIGS
+            if config_name in DEFAULT_CONFIGS:
+                config_vars = DEFAULT_CONFIGS[config_name].to_env_dict()
+                env.update(config_vars)
+        except ImportError:
+            print("Error: Could not import config module")
+            return 1
+        
+        result = subprocess.run([python_cmd, "-m", "rag.demo"], env=env, check=True)
+        return 0
+    except subprocess.CalledProcessError as e:
+        print(f"Config demo failed with exit code {e.returncode}")
+        return e.returncode
+
+
+def run_tuning_demo():
+    """Run tuning demo with specific config"""
+    if not check_venv():
+        return 1
+    
+    if len(sys.argv) < 3:
+        print("Available tuning configs:")
+        try:
+            from config import TUNING_CONFIGS
+            for name, config in TUNING_CONFIGS.items():
+                print(f"  {name}: {config.model_name}")
+        except ImportError:
+            print("  Error: Could not import config module")
+        return 1
+    
+    config_name = sys.argv[2].lower()
+    python_cmd = get_python_cmd()
+    
+    print(f"Running tuning demo with '{config_name}' config...")
+    
+    try:
+        result = subprocess.run([
+            python_cmd, "-c", 
+            f"""
+from config import TUNING_CONFIGS
+from tuning.demo import TuningDemo
+
+config = TUNING_CONFIGS['{config_name}']
+config.print_config()
+
+demo = TuningDemo(config)
+demo.run_quick_demo()
+"""
+        ], check=True)
+        return 0
+    except subprocess.CalledProcessError as e:
+        print(f"Tuning demo failed with exit code {e.returncode}")
+        return e.returncode
+
+
 def main():
     """Main CLI function"""
     if len(sys.argv) < 2:
@@ -88,6 +203,9 @@ def main():
         print("Commands:")
         print("  setup  - Create venv and install dependencies")
         print("  test   - Run all tests")
+        print("  demo   - Run RAG demo with current config")
+        print("  interactive - Run interactive RAG mode")
+        print("  config <name> - Run demo with specific config")
         print("  help   - Show this help message")
         return 0
     
@@ -97,6 +215,14 @@ def main():
         return run_setup()
     elif command == "test":
         return run_tests()
+    elif command == "demo":
+        return run_demo()
+    elif command == "interactive":
+        return run_interactive()
+    elif command == "config":
+        return run_config_demo()
+    elif command == "tuning":
+        return run_tuning_demo()
     elif command == "help":
         print(" SimRAG CLI")
         print("=" * 20)
@@ -105,12 +231,23 @@ def main():
         print("Commands:")
         print("  setup  - Create venv and install dependencies")
         print("  test   - Run all tests")
+        print("  demo   - Run RAG demo with current config")
+        print("  interactive - Run interactive RAG mode")
+        print("  config <name> - Run demo with specific config")
         print("  help   - Show this help message")
+        print("")
+        print("Available configs:")
+        try:
+            from config import DEFAULT_CONFIGS
+            for name in DEFAULT_CONFIGS.keys():
+                print(f"  {name}")
+        except ImportError:
+            print("  Error: Could not import config module")
         return 0
     else:
         print(f"Unknown command: '{command}'")
         print("")
-        print("Available commands: setup, test, help")
+        print("Available commands: setup, test, demo, interactive, config, help")
         print("Use 'python run help' for more information")
         return 1
 
