@@ -6,24 +6,26 @@ Coordinates vector storage, retrieval, and generation components
 from ai_providers.gateway import AIGateway
 from .vector_store import VectorStore
 from .retriever import DocumentRetriever
+from config import get_rag_config
 
 
 class BasicRAG:
     """RAG system that orchestrates vector storage, retrieval, and generation"""
     
-    def __init__(self, collection_name="documents", use_persistent=False):
+    def __init__(self, collection_name=None, use_persistent=None):
         """
         Initialize RAG system
         
         Args:
-            collection_name: Name for Qdrant collection
-            use_persistent: If True, use persistent Qdrant storage
+            collection_name: Name for Qdrant collection (uses config default if None)
+            use_persistent: If True, use persistent Qdrant storage (uses config default if None)
         """
-        self.collection_name = collection_name
+        self.config = get_rag_config()
+        self.collection_name = collection_name or self.config.collection_name
         
         # Initialize components
         self.gateway = AIGateway()
-        self.vector_store = VectorStore(use_persistent=use_persistent)
+        self.vector_store = VectorStore(use_persistent=use_persistent if use_persistent is not None else self.config.use_persistent)
         self.retriever = DocumentRetriever()
         
         # Setup collection
@@ -55,46 +57,54 @@ class BasicRAG:
         # Add to vector store
         return self.vector_store.add_points(self.collection_name, points)
     
-    def search(self, query, limit=3):
+    def search(self, query, limit=None):
         """
         Search for relevant documents
         
         Args:
             query: Search query
-            limit: Number of results to return
+            limit: Number of results to return (uses config default if None)
             
         Returns:
             List of (text, score) tuples
         """
+        # Use config default if limit not specified
+        if limit is None:
+            limit = self.config.top_k
+            
         # Create query embedding
         query_embedding = self.retriever.encode_query(query)
         
         # Search vector store
         return self.vector_store.search(self.collection_name, query_embedding, limit)
     
-    def query(self, question, context_limit=3):
+    def query(self, question, context_limit=None):
         """
         Answer a question using RAG
         
         Args:
             question: Question to answer
-            context_limit: Number of documents to retrieve for context
+            context_limit: Number of documents to retrieve for context (uses config default if None)
             
         Returns:
             Answer string
         """
+        # Use config default if context_limit not specified
+        if context_limit is None:
+            context_limit = self.config.top_k
+            
         # Retrieve relevant documents
         retrieved_docs = self.search(question, limit=context_limit)
         
         if not retrieved_docs:
             return "No relevant documents found."
         
-        # Build context
-        context = "\n\n".join([doc for doc, score in retrieved_docs])
+        # Build RAG context from retrieved documents
+        rag_context = "\n\n".join([doc for doc, _ in retrieved_docs])
         
         # Create prompt
         prompt = f"""Context:
-{context}
+{rag_context}
 
 Question: {question}
 

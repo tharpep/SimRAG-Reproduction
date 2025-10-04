@@ -4,10 +4,12 @@ Basic testing for RAG functionality
 """
 
 import os
+import time
 from pathlib import Path
 from .rag_setup import BasicRAG
 from .document_ingester import DocumentIngester
 from config import get_rag_config
+from logging_config import log_rag_result
 
 
 def run_rag_demo(mode="automated"):
@@ -19,20 +21,10 @@ def run_rag_demo(mode="automated"):
     print(f"Using model: {config.model_name}")
     print(f"Provider: {'Ollama' if config.use_ollama else 'Purdue API'}")
     
-    # Set environment variables BEFORE initializing RAG system
-    os.environ["USE_LAPTOP"] = "true" if config.use_laptop else "false"
-    os.environ["USE_OLLAMA"] = "true" if config.use_ollama else "false"
-    os.environ["MODEL_NAME"] = config.model_name
-    os.environ["USE_PERSISTENT"] = "true" if config.use_persistent else "false"
-    os.environ["COLLECTION_NAME"] = config.collection_name
-    
     try:
-        # Initialize RAG system (after env vars are set)
+        # Initialize RAG system (uses config defaults automatically)
         print("\nInitializing RAG system...")
-        rag = BasicRAG(
-            collection_name=config.collection_name,
-            use_persistent=config.use_persistent
-        )
+        rag = BasicRAG()
         
         # Load documents
         print("Loading documents...")
@@ -66,11 +58,10 @@ def run_rag_demo(mode="automated"):
                 test_answer = rag.query("Hello, are you working?")
                 print(f"✅ Connection test successful: {test_answer[:50]}...")
             except Exception as e:
-                print(f"⚠️  Connection test failed: {e}")
-                if config.use_ollama:
-                    print("💡 Make sure Ollama is running: 'ollama serve'")
-                else:
-                    print("💡 Check your Purdue API key configuration")
+                print(f"⚠️  Connection test failed:")
+                print(f"Raw error: {e}")
+                import traceback
+                print(f"Full traceback:\n{traceback.format_exc()}")
                 print("Continuing anyway...")
             
             while True:
@@ -81,14 +72,27 @@ def run_rag_demo(mode="automated"):
                 if question:
                     print("RAG: Thinking...")
                     try:
+                        start_time = time.time()
                         answer = rag.query(question)
+                        response_time = time.time() - start_time
+                        
                         print(f"RAG: {answer}")
+                        
+                        # Log the result
+                        log_rag_result(
+                            question=question,
+                            answer=answer,
+                            response_time=response_time,
+                            model_name=config.model_name,
+                            provider="Ollama" if config.use_ollama else "Purdue API",
+                            context_length=len(answer)
+                        )
+                        
                     except Exception as e:
-                        print(f"❌ Error: {e}")
-                        if config.use_ollama:
-                            print("💡 Tip: Make sure Ollama is running: 'ollama serve'")
-                        else:
-                            print("💡 Tip: Check your Purdue API key configuration")
+                        print(f"❌ Error:")
+                        print(f"Raw error: {e}")
+                        import traceback
+                        print(f"Full traceback:\n{traceback.format_exc()}")
         else:
             # Automated mode - run test queries
             print("\n=== Automated Mode ===")
@@ -102,15 +106,35 @@ def run_rag_demo(mode="automated"):
             for query in test_queries:
                 print(f"\nQ: {query}")
                 try:
+                    start_time = time.time()
                     answer = rag.query(query)
+                    response_time = time.time() - start_time
+                    
                     print(f"A: {answer[:200]}...")  # Truncate long answers
+                    
+                    # Log the result
+                    log_rag_result(
+                        question=query,
+                        answer=answer,
+                        response_time=response_time,
+                        model_name=config.model_name,
+                        provider="Ollama" if config.use_ollama else "Purdue API",
+                        context_length=len(answer)  # Simplified context length
+                    )
+                    
                 except Exception as e:
-                    print(f"Error: {e}")
+                    print(f"Error:")
+                    print(f"Raw error: {e}")
+                    import traceback
+                    print(f"Full traceback:\n{traceback.format_exc()}")
         
         print("\n✅ RAG demo completed successfully!")
         
     except Exception as e:
-        print(f"❌ Demo failed: {e}")
+        print(f"❌ Demo failed:")
+        print(f"Raw error: {e}")
+        import traceback
+        print(f"Full traceback:\n{traceback.format_exc()}")
 
 
 def main():

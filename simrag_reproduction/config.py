@@ -46,10 +46,24 @@ class TuningConfig:
     device: str = "auto"  # Options: "auto", "cpu", "cuda", "mps" (for Apple Silicon)
     max_length: int = 512  # Maximum sequence length (256-1024 recommended)
     
-    # Training settings
+    # Training settings (will be optimized based on use_laptop)
     num_epochs: int = 3  # Number of training epochs (1-10 recommended)
     batch_size: int = 4  # Batch size (1-16, adjust based on GPU memory)
     learning_rate: float = 5e-5  # Learning rate (1e-5 to 1e-3 recommended)
+    
+    # Model versioning
+    version: str = "v1.0"  # Model version (e.g., v1.0, v1.1, v2.0)
+    create_version_dir: bool = True  # Whether to create versioned subdirectories
+    
+    @property
+    def optimized_batch_size(self) -> int:
+        """Get batch size optimized for hardware"""
+        return 1 if self.use_laptop else 8  # CPU: 1, GPU: 8
+    
+    @property
+    def optimized_num_epochs(self) -> int:
+        """Get number of epochs optimized for hardware"""
+        return 1 if self.use_laptop else 3  # CPU: 1 for speed, GPU: 3 for quality
     
     @property
     def model_name(self) -> str:
@@ -60,7 +74,17 @@ class TuningConfig:
     def output_dir(self) -> str:
         """Get output directory based on hardware configuration"""
         model_suffix = "1b" if self.use_laptop else "8b"
-        return f"./tuned_models/llama_{model_suffix}"
+        base_dir = f"./tuned_models/llama_{model_suffix}"
+        
+        if self.create_version_dir:
+            return f"{base_dir}/{self.version}"
+        return base_dir
+    
+    @property
+    def model_registry_path(self) -> str:
+        """Get path to model registry metadata file"""
+        model_suffix = "1b" if self.use_laptop else "8b"
+        return f"./tuned_models/llama_{model_suffix}/model_registry.json"
 
 
 # Default configurations

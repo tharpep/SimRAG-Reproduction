@@ -11,6 +11,16 @@ env/
 *.gguf
 finetuned_model/
 my_finetuned_model/
+# Exclude actual model files but keep registry/metadata
+tuned_models/*/v*/pytorch_model.bin
+tuned_models/*/v*/config.json
+tuned_models/*/v*/tokenizer.json
+tuned_models/*/v*/tokenizer_config.json
+tuned_models/*/v*/special_tokens_map.json
+tuned_models/*/v*/tokenizer_config.json
+tuned_models/*/v*/training_args.bin
+tuned_models/*/v*/trainer_state.json
+tuned_models/*/v*/rng_state.pth
 .cache/
 __pycache__/
 
@@ -26,3 +36,80 @@ data/
 
 # Qdrant database
 data/qdrant_db/
+
+# Python
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# IDE and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+logs/*.log
+logs/*/rag_results.log*
+logs/*/tuning_results.log*
+temp/
+
+# Environment and secrets
+.env.local
+.env.production
+.env.staging
+*.key
+*.pem
+secrets/
+
+# Hugging Face cache
+.cache/huggingface/
+transformers_cache/
+
+# PyTorch
+*.pth
+*.pt
+
+# TensorBoard
+runs/
+tensorboard/
+
+# MLflow
+mlruns/
+
+# API keys and credentials
+api_keys.txt
+credentials.json
+service_account.json
+
+# Large datasets (uncomment if you have large data files)
+# *.parquet
+# *.h5
+# *.hdf5
+# *.pkl
+# *.pickle
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

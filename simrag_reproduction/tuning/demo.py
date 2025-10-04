@@ -4,8 +4,10 @@ Basic testing for model fine-tuning functionality
 """
 
 import os
+import time
 from .basic_tuning import BasicTuner
 from config import get_tuning_config
+from logging_config import log_tuning_result
 
 
 def run_tuning_demo(mode="quick"):
@@ -23,7 +25,8 @@ def run_tuning_demo(mode="quick"):
         print("\nInitializing tuner...")
         tuner = BasicTuner(
             model_name=config.model_name,
-            device=config.device
+            device=config.device,
+            config=config
         )
         tuner.load_model()
         
@@ -64,22 +67,52 @@ def run_tuning_demo(mode="quick"):
         # Prepare data
         train_dataset = tuner.prepare_data(training_texts, max_length=config.max_length)
         
-        # Setup trainer
+        # Setup trainer with hardware-optimized settings
         tuner.setup_trainer(
             train_dataset=train_dataset,
             output_dir=config.output_dir,
-            num_epochs=epochs,
-            batch_size=config.batch_size,
+            num_epochs=config.optimized_num_epochs if mode == "full" else 1,
+            batch_size=config.optimized_batch_size,
             learning_rate=config.learning_rate
         )
         
-        # Train
+        # Train with versioning
         print("Starting training...")
-        tuner.train()
+        notes = f"Demo training - {mode} mode"
+        new_version = tuner.train(notes=notes)
         
         # Save model
-        tuner.save_model(config.output_dir)
+        tuner.save_model()  # Uses config.output_dir automatically
         print(f"Model saved to {config.output_dir}")
+        
+        # Show version info
+        if new_version:
+            print(f"\n=== Model Version Created ===")
+            print(f"Version: {new_version.version}")
+            print(f"Training time: {new_version.training_time_seconds:.1f}s")
+            if new_version.final_loss:
+                print(f"Final loss: {new_version.final_loss:.4f}")
+            if new_version.model_size_mb:
+                print(f"Model size: {new_version.model_size_mb:.1f} MB")
+            
+            # Log the tuning result
+            log_tuning_result(
+                model_name=config.model_name,
+                version=new_version.version,
+                training_time=new_version.training_time_seconds,
+                final_loss=new_version.final_loss,
+                model_size_mb=new_version.model_size_mb,
+                epochs=config.optimized_num_epochs if mode == "full" else 1,
+                batch_size=config.optimized_batch_size,
+                learning_rate=config.learning_rate,
+                device=config.device,
+                notes=notes
+            )
+        
+        # Show all versions
+        if tuner.registry:
+            print(f"\n=== Model Registry ===")
+            tuner.registry.list_versions()
         
         # Test generation
         print("\n=== Testing Generation ===")

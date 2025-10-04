@@ -9,6 +9,7 @@ import asyncio
 from typing import Dict, Any, Optional, List
 from .purdue_api import PurdueGenAI
 from .local import OllamaClient, OllamaConfig
+from config import get_rag_config
 
 # Load environment variables from .env file
 def load_env_file():
@@ -34,9 +35,10 @@ class AIGateway:
         
         Args:
             config: Dictionary with provider configurations
-                   If None, will try to load from environment variables
+                   If None, will try to load from environment variables and config.py
         """
         self.providers = {}
+        self.rag_config = get_rag_config()
         self._setup_providers(config or {})
     
     def _setup_providers(self, config: Dict[str, Any]):
@@ -52,12 +54,12 @@ class AIGateway:
         if "ollama" in config:
             ollama_config = OllamaConfig(
                 base_url=config["ollama"].get("base_url", "http://localhost:11434"),
-                default_model=config["ollama"].get("default_model", "llama3.2:1b")
+                default_model=config["ollama"].get("default_model", self.rag_config.model_name)
             )
             self.providers["ollama"] = OllamaClient(ollama_config)
-        elif os.getenv('USE_OLLAMA', 'false').lower() == 'true':
+        elif self.rag_config.use_ollama or os.getenv('USE_OLLAMA', 'false').lower() == 'true':
             ollama_config = OllamaConfig(
-                default_model=os.getenv('MODEL_NAME', 'llama3.2:1b')
+                default_model=self.rag_config.model_name
             )
             self.providers["ollama"] = OllamaClient(ollama_config)
     
@@ -73,9 +75,13 @@ class AIGateway:
         Returns:
             str: AI response
         """
-        # Auto-select provider
+        # Auto-select provider based on config
         if provider is None:
-            if "ollama" in self.providers:
+            if self.rag_config.use_ollama and "ollama" in self.providers:
+                provider = "ollama"
+            elif not self.rag_config.use_ollama and "purdue" in self.providers:
+                provider = "purdue"
+            elif "ollama" in self.providers:
                 provider = "ollama"
             elif "purdue" in self.providers:
                 provider = "purdue"
@@ -92,7 +98,8 @@ class AIGateway:
         if provider == "ollama":
             return self._chat_ollama(provider_client, message, model)
         else:
-            model = model or "llama3.1:latest"
+            # Use config model for Purdue API if no model specified
+            model = model or self.rag_config.model_name
             return provider_client.chat(message, model)
     
     def _chat_ollama(self, client: OllamaClient, message: str, model: Optional[str] = None) -> str:

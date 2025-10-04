@@ -6,7 +6,7 @@ Handles file processing and indexing for RAG system
 import os
 import glob
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 from .rag_setup import BasicRAG
 
 
@@ -23,7 +23,7 @@ class DocumentIngester:
         self.rag = rag_system
         self.supported_extensions = ['.txt', '.md']
     
-    def ingest_file(self, file_path: str) -> Dict[str, Any]:
+    def ingest_file(self, file_path: Union[str, Path]) -> Dict[str, Any]:
         """
         Ingest a single file
         
@@ -65,7 +65,7 @@ class DocumentIngester:
         except Exception as e:
             return {"error": f"Failed to process {file_path}: {str(e)}"}
     
-    def ingest_folder(self, folder_path: str) -> Dict[str, Any]:
+    def ingest_folder(self, folder_path: Union[str, Path]) -> Dict[str, Any]:
         """
         Ingest all supported files in a folder
         
@@ -165,7 +165,7 @@ class DocumentIngester:
         
         return chunks
     
-    def get_supported_files(self, folder_path: str) -> List[str]:
+    def get_supported_files(self, folder_path: Union[str, Path]) -> List[str]:
         """
         Get list of supported files in a folder
         

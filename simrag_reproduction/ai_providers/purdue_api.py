@@ -40,24 +40,28 @@ class PurdueGenAI(BaseLLMClient):
             raise ValueError("API key is required. Provide it directly or set PURDUE_API_KEY environment variable.")
         self.base_url = "https://genai.rcac.purdue.edu/api/chat/completions"
     
-    def chat(self, message: Any, model: str = "llama3.1:latest", **kwargs) -> str:
+    def chat(self, messages: Any, model: Optional[str] = None, **kwargs) -> str:
         """
         Send a message and get a response
         
         Args:
-            message: Your message (str) or messages list
+            messages: Your message (str) or messages list
             model: Model to use (default: llama3.1:latest)
             
         Returns:
             str: AI response
         """
+        # Use default model if none specified
+        if model is None:
+            model = "llama3.1:latest"
+            
         # Handle both string and message list formats
-        if isinstance(message, list):
-            messages = message
-        elif isinstance(message, str):
-            messages = [{"role": "user", "content": message}]
+        if isinstance(messages, list):
+            messages = messages
+        elif isinstance(messages, str):
+            messages = [{"role": "user", "content": messages}]
         else:
-            messages = [{"role": "user", "content": str(message)}]
+            messages = [{"role": "user", "content": str(messages)}]
         
         try:
             headers = {

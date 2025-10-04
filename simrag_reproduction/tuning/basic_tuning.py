@@ -14,26 +14,35 @@ from transformers import (
 from datasets import Dataset
 from typing import List, Dict, Any, Optional
 import os
+import time
+from .model_registry import ModelRegistry, ModelVersion, get_model_registry
 
 
 class BasicTuner:
     """Basic model fine-tuning system"""
     
-    def __init__(self, model_name: str = "qwen3:1.7b", device: str = "auto"):
+    def __init__(self, model_name: str = "qwen3:1.7b", device: str = "auto", config=None):
         """
         Initialize the tuner
         
         Args:
             model_name: Hugging Face model name
             device: Device to use ("auto", "cuda", "cpu")
+            config: TuningConfig instance for versioning
         """
         self.model_name = model_name
         self.device = self._get_device(device)
+        self.config = config
         
         # Initialize tokenizer and model
         self.tokenizer = None
         self.model = None
         self.trainer = None
+        
+        # Model registry for versioning
+        self.registry = None
+        if self.config:
+            self.registry = get_model_registry(self.config)
         
         print(f"Initializing tuner with model: {model_name}")
         print(f"Device: {self.device}")
@@ -53,18 +62,18 @@ class BasicTuner:
         """Load the tokenizer and model"""
         print("Loading tokenizer...")
         
-        # For Ollama models, we need to use a different approach
-        if "qwen" in self.model_name.lower():
-            # Use a base model for tokenizer (Qwen models)
-            if "1.7b" in self.model_name:
-                base_model = "Qwen/Qwen2.5-1.5B"  # Use closest available HF model
-            elif "8b" in self.model_name:
-                base_model = "Qwen/Qwen2.5-7B"  # Use 7B as closest available to 8B
-            else:
-                base_model = "Qwen/Qwen2.5-1.5B"  # Default fallback
-            self.tokenizer = AutoTokenizer.from_pretrained(base_model)
+        # Map Ollama model names to Hugging Face equivalents
+        if "llama3.2:1b" in self.model_name.lower():
+            base_model = "meta-llama/Llama-3.2-1B"
+        elif "qwen3:1.7b" in self.model_name.lower():
+            base_model = "Qwen/Qwen2.5-1.5B"
+        elif "qwen3:8b" in self.model_name.lower():
+            base_model = "Qwen/Qwen2.5-7B"
         else:
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            # Try to use the model name directly (for other HF models)
+            base_model = self.model_name
+        
+        self.tokenizer = AutoTokenizer.from_pretrained(base_model)
         
         # Add padding token if it doesn't exist
         if self.tokenizer.pad_token is None:
@@ -72,25 +81,12 @@ class BasicTuner:
         
         print("Loading model...")
         
-        # For Ollama models, we'll use a base model for fine-tuning
-        if "qwen" in self.model_name.lower():
-            if "1.7b" in self.model_name:
-                base_model = "Qwen/Qwen2.5-1.5B"  # Use closest available HF model
-            elif "8b" in self.model_name:
-                base_model = "Qwen/Qwen2.5-7B"  # Use 7B as closest available to 8B
-            else:
-                base_model = "Qwen/Qwen2.5-1.5B"  # Default fallback
-            self.model = AutoModelForCausalLM.from_pretrained(
-                base_model,
-                torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
-                device_map=self.device if self.device == "cuda" else None
-            )
-        else:
-            self.model = AutoModelForCausalLM.from_pretrained(
-                self.model_name,
-                torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
-                device_map=self.device if self.device == "cuda" else None
-            )
+        # Use the same base model mapping for consistency
+        self.model = AutoModelForCausalLM.from_pretrained(
+            base_model,
+            torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
+            device_map=self.device if self.device == "cuda" else None
+        )
         
         # Move to device if not using device_map
         if self.device != "cuda":
@@ -180,24 +176,84 @@ class BasicTuner:
         
         print("Trainer setup complete")
     
-    def train(self):
-        """Start training"""
+    def train(self, notes: Optional[str] = None):
+        """Start training with version tracking"""
         if not self.trainer:
             raise ValueError("Trainer not setup. Call setup_trainer() first.")
         
         print("Starting training...")
+        start_time = time.time()
+        
+        # Train the model
         self.trainer.train()
-        print("Training completed!")
+        
+        training_time = time.time() - start_time
+        print(f"Training completed in {training_time:.1f} seconds!")
+        
+        # Register the model version if registry is available
+        if self.registry and self.config:
+            # Get training metrics
+            final_loss = None
+            if hasattr(self.trainer.state, 'log_history') and self.trainer.state.log_history:
+                final_loss = self.trainer.state.log_history[-1].get('train_loss')
+            
+            # Get model size
+            model_size_mb = None
+            if self.model:
+                total_params = sum(p.numel() for p in self.model.parameters())
+                model_size_mb = total_params * 4 / (1024 * 1024)  # Assuming float32
+            
+            # Create new version
+            new_version = self.registry.create_new_version(
+                model_name=self.model_name,
+                base_model=self.model_name,  # For now, same as model_name
+                training_epochs=self.config.optimized_num_epochs,
+                batch_size=self.config.optimized_batch_size,
+                learning_rate=self.config.learning_rate,
+                device=self.device,
+                notes=notes
+            )
+            
+            # Update with training results
+            new_version.training_time_seconds = training_time
+            new_version.final_loss = final_loss
+            new_version.model_size_mb = model_size_mb
+            
+            # Register the version
+            self.registry.register_version(new_version)
+            
+            return new_version
+        
+        return None
     
-    def save_model(self, output_dir: str = "./tuned_model"):
-        """Save the fine-tuned model"""
+    def save_model(self, output_dir: Optional[str] = None):
+        """Save the fine-tuned model with versioning"""
         if not self.trainer:
             raise ValueError("No trainer available. Train a model first.")
         
+        # Use config output directory if available, otherwise use provided or default
+        if output_dir is None:
+            if self.config:
+                output_dir = self.config.output_dir
+            else:
+                output_dir = "./tuned_model"
+        
+        # Create directory if it doesn't exist
+        os.makedirs(output_dir, exist_ok=True)
+        
         print(f"Saving model to {output_dir}...")
-        self.trainer.save_model()
+        self.trainer.save_model(output_dir)
         self.tokenizer.save_pretrained(output_dir)
         print("Model saved successfully!")
+        
+        # Save model info if registry is available
+        if self.registry:
+            model_info = self.get_model_info()
+            info_path = os.path.join(output_dir, "model_info.json")
+            with open(info_path, 'w') as f:
+                import json
+                json.dump(model_info, f, indent=2)
+            print(f"Model info saved to {info_path}")
     
     def generate_text(self, prompt: str, max_length: int = 100, temperature: float = 0.7) -> str:
         """

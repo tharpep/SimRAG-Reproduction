@@ -56,7 +56,12 @@ class TestAIGateway:
         """Test chat with automatic provider selection"""
         config = {"purdue": {"api_key": "test-key"}}
         
-        with patch('ai_providers.gateway.PurdueGenAI') as mock_purdue:
+        with patch('ai_providers.gateway.PurdueGenAI') as mock_purdue, \
+             patch('ai_providers.gateway.get_rag_config') as mock_config:
+            # Mock config to prefer Purdue over Ollama
+            mock_config.return_value.use_ollama = False
+            mock_config.return_value.model_name = "llama3.1:latest"
+            
             mock_client = MagicMock()
             mock_client.chat.return_value = "Test response"
             mock_purdue.return_value = mock_client
@@ -84,10 +89,17 @@ class TestAIGateway:
     
     def test_chat_no_providers_available(self):
         """Test chat when no providers are available"""
-        gateway = AIGateway({})
-        
-        with pytest.raises(Exception, match="No providers available"):
-            gateway.chat("Hello")
+        with patch('ai_providers.gateway.get_rag_config') as mock_config, \
+             patch('ai_providers.gateway.OllamaClient') as mock_ollama:
+            # Mock config to prefer Ollama but no Ollama available
+            mock_config.return_value.use_ollama = False  # Don't use Ollama
+            mock_config.return_value.model_name = "llama3.2:1b"
+            
+            # Don't create any providers
+            gateway = AIGateway({})
+            
+            with pytest.raises(Exception, match="No providers available"):
+                gateway.chat("Hello")
     
     def test_chat_invalid_provider(self):
         """Test chat with invalid provider"""

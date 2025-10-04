@@ -1,0 +1,2 @@
+# This file ensures the tuning directory is tracked by git
+# The actual log files will be created when demos are run
