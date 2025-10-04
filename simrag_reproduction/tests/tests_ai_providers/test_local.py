@@ -16,7 +16,7 @@ class TestOllamaConfig:
         config = OllamaConfig()
         assert config.base_url == "http://localhost:11434"
         assert config.default_model == "llama3.2:1b"
-        assert config.chat_timeout == 15.0
+        assert config.chat_timeout == 60.0
         assert config.embeddings_timeout == 30.0
         assert config.connection_timeout == 5.0
     

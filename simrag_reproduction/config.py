@@ -20,6 +20,7 @@ class RAGConfig:
     # Vector store settings
     use_persistent: bool = True  # True for persistent storage, False for in-memory only
     collection_name: str = "simrag_docs"  # Name for Qdrant collection
+    clear_on_ingest: bool = True  # Clear collection before ingesting new documents
     
     # Retrieval settings
     top_k: int = 5  # Number of documents to retrieve (1-20 recommended)

@@ -97,7 +97,7 @@ class BasicRAG:
         retrieved_docs = self.search(question, limit=context_limit)
         
         if not retrieved_docs:
-            return "No relevant documents found."
+            return "No relevant documents found.", [], []
         
         # Build RAG context from retrieved documents
         rag_context = "\n\n".join([doc for doc, _ in retrieved_docs])
@@ -112,7 +112,12 @@ Answer:"""
         
         # Generate answer
         answer = self.gateway.chat(prompt)
-        return answer
+        
+        # Return answer along with context details for logging
+        context_docs = [doc for doc, _ in retrieved_docs]
+        context_scores = [score for _, score in retrieved_docs]
+        
+        return answer, context_docs, context_scores
     
     def get_stats(self):
         """Get collection statistics"""
@@ -125,7 +130,30 @@ Answer:"""
                 "distance": "cosine",
                 "model_info": self.retriever.get_model_info()
             })
+        else:
+            # If there's an error, still provide basic info
+            stats.update({
+                "collection_name": self.collection_name,
+                "document_count": 0,
+                "vector_size": self.retriever.get_embedding_dimension(),
+                "distance": "cosine",
+                "model_info": self.retriever.get_model_info()
+            })
         return stats
+    
+    def clear_collection(self):
+        """Clear all documents from the collection"""
+        try:
+            embedding_dim = self.retriever.get_embedding_dimension()
+            
+            # Clean up old collections first
+            self.vector_store.cleanup_old_collections([self.collection_name])
+            
+            # Clear the main collection
+            self.vector_store.clear_collection(self.collection_name, embedding_dim)
+            return {"success": True, "message": f"Cleared collection {self.collection_name}"}
+        except Exception as e:
+            return {"error": f"Failed to clear collection: {str(e)}"}
 
 
 def main():

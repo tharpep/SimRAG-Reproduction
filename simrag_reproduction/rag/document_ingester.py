@@ -100,7 +100,8 @@ class DocumentIngester:
                     results["processed"] += 1
                     results["files"].append({
                         "file": result["file"],
-                        "chunks": result["chunks"]
+                        "chunks": result["chunks"],
+                        "indexed": result["indexed"]
                     })
                 else:
                     results["failed"] += 1

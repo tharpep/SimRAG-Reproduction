@@ -151,3 +151,55 @@ class VectorStore:
         except Exception as e:
             print(f"Error listing collections: {e}")
             return []
+    
+    def clear_collection(self, collection_name: str, embedding_dim: int = 384) -> bool:
+        """
+        Clear all points from a collection by recreating it
+        
+        Args:
+            collection_name: Name of the collection to clear
+            embedding_dim: Dimension of vectors (default: 384 for all-MiniLM-L6-v2)
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Delete the entire collection
+            try:
+                self.client.delete_collection(collection_name)
+            except:
+                pass  # Collection might not exist
+            
+            # Recreate the collection immediately
+            self.client.create_collection(
+                collection_name=collection_name,
+                vectors_config=VectorParams(
+                    size=embedding_dim, 
+                    distance=Distance.COSINE
+                ),
+            )
+            return True
+        except Exception as e:
+            print(f"Error clearing collection {collection_name}: {e}")
+            return False
+    
+    def cleanup_old_collections(self, keep_collections: list = None):
+        """
+        Clean up old/unused collections
+        
+        Args:
+            keep_collections: List of collection names to keep (default: ['simrag_docs'])
+        """
+        if keep_collections is None:
+            keep_collections = ['simrag_docs']
+        
+        try:
+            all_collections = self.list_collections()
+            for collection_name in all_collections:
+                if collection_name not in keep_collections:
+                    try:
+                        self.client.delete_collection(collection_name)
+                    except Exception as e:
+                        print(f"Could not delete collection {collection_name}: {e}")
+        except Exception as e:
+            print(f"Error during cleanup: {e}")

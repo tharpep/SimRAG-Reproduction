@@ -117,12 +117,13 @@ def log_rag_result(
     response_time: float,
     model_name: str,
     provider: str,
-    context_length: int = 0,
+    context_docs: list = None,
+    context_scores: list = None,
     retrieval_time: float = 0.0,
     generation_time: float = 0.0
 ) -> None:
     """
-    Log RAG demo results in a structured format
+    Log RAG demo results with retrieved context
     
     Args:
         question: The question asked
@@ -130,14 +131,31 @@ def log_rag_result(
         response_time: Total response time in seconds
         model_name: Model used for generation
         provider: Provider used (ollama, purdue, etc.)
-        context_length: Length of retrieved context
+        context_docs: List of retrieved document texts
+        context_scores: List of relevance scores for retrieved documents
         retrieval_time: Time spent on retrieval
         generation_time: Time spent on generation
     """
     rag_logger = get_rag_logger()
     
-    # Simple log format
-    rag_logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | {model_name} | {response_time:.2f}s | Q: {question[:50]}... | A: {answer[:100]}...")
+    # Simple log format with wrapped answers
+    import textwrap
+    wrapped_answer = textwrap.fill(answer, width=80, initial_indent="    ", subsequent_indent="    ")
+    rag_logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | {model_name} | {response_time:.2f}s | Q: {question[:100]}...")
+    rag_logger.info(f"A: {wrapped_answer}")
+    
+    # Log retrieved context details (show what was found, not full content)
+    if context_docs and context_scores:
+        rag_logger.info(f"CONTEXT: Retrieved {len(context_docs)} documents")
+        for i, (doc, score) in enumerate(zip(context_docs, context_scores)):
+            # Show first 100 chars to see what type of content was retrieved
+            doc_preview = doc[:100] + "..." if len(doc) > 100 else doc
+            rag_logger.info(f"  Doc {i+1} (score: {score:.3f}): {doc_preview}")
+    elif context_docs:
+        rag_logger.info(f"CONTEXT: Retrieved {len(context_docs)} documents (no scores)")
+        for i, doc in enumerate(context_docs):
+            doc_preview = doc[:100] + "..." if len(doc) > 100 else doc
+            rag_logger.info(f"  Doc {i+1}: {doc_preview}")
 
 
 def log_tuning_result(

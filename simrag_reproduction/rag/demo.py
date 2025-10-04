@@ -31,6 +31,15 @@ def run_rag_demo(mode="automated"):
         documents_folder = Path(__file__).parent.parent / "data" / "documents"
         
         if documents_folder.exists():
+            # Check if we should clear the collection first
+            if config.clear_on_ingest:
+                print("🧹 Clearing existing documents...")
+                clear_result = rag.clear_collection()
+                if clear_result.get("success"):
+                    print(f"✅ {clear_result['message']}")
+                else:
+                    print(f"⚠️  Warning: {clear_result.get('error', 'Failed to clear collection')}")
+            
             ingester = DocumentIngester(rag)
             result = ingester.ingest_folder(str(documents_folder))
             
@@ -73,8 +82,17 @@ def run_rag_demo(mode="automated"):
                     print("RAG: Thinking...")
                     try:
                         start_time = time.time()
-                        answer = rag.query(question)
+                        result = rag.query(question)
                         response_time = time.time() - start_time
+                        
+                        # Handle new return format (answer, context_docs, context_scores)
+                        if isinstance(result, tuple):
+                            answer, context_docs, context_scores = result
+                        else:
+                            # Fallback for old format
+                            answer = result
+                            context_docs = []
+                            context_scores = []
                         
                         print(f"RAG: {answer}")
                         
@@ -85,7 +103,8 @@ def run_rag_demo(mode="automated"):
                             response_time=response_time,
                             model_name=config.model_name,
                             provider="Ollama" if config.use_ollama else "Purdue API",
-                            context_length=len(answer)
+                            context_docs=context_docs,
+                            context_scores=context_scores
                         )
                         
                     except Exception as e:
@@ -107,8 +126,17 @@ def run_rag_demo(mode="automated"):
                 print(f"\nQ: {query}")
                 try:
                     start_time = time.time()
-                    answer = rag.query(query)
+                    result = rag.query(query)
                     response_time = time.time() - start_time
+                    
+                    # Handle new return format (answer, context_docs, context_scores)
+                    if isinstance(result, tuple):
+                        answer, context_docs, context_scores = result
+                    else:
+                        # Fallback for old format
+                        answer = result
+                        context_docs = []
+                        context_scores = []
                     
                     print(f"A: {answer[:200]}...")  # Truncate long answers
                     
@@ -119,7 +147,8 @@ def run_rag_demo(mode="automated"):
                         response_time=response_time,
                         model_name=config.model_name,
                         provider="Ollama" if config.use_ollama else "Purdue API",
-                        context_length=len(answer)  # Simplified context length
+                        context_docs=context_docs,
+                        context_scores=context_scores
                     )
                     
                 except Exception as e:
