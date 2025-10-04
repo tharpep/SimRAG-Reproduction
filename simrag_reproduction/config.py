@@ -1,221 +1,130 @@
 """
-Configuration Management
-Handles settings for RAG system testing and operation
+Simple Configuration Management
+Basic settings for RAG system testing and operation
 """
 
 import os
 from dataclasses import dataclass
-from typing import Optional
-
-
-@dataclass
-class TuningConfig:
-    """Configuration for model fine-tuning"""
-    
-    # Model settings
-    model_name: str = "qwen3:1.7b"  # Default to smaller model
-    device: str = "auto"
-    max_length: int = 512
-    
-    # Training settings
-    num_epochs: int = 3
-    batch_size: int = 4
-    learning_rate: float = 5e-5
-    warmup_steps: int = 100
-    
-    # Output settings
-    output_dir: str = "./tuned_models/qwen_1.7b"
-    save_steps: int = 500
-    logging_steps: int = 10
-    
-    # Generation settings
-    max_generation_length: int = 100
-    temperature: float = 0.7
-    
-    # Data settings
-    train_split: float = 0.8
-    validation_split: float = 0.2
-    
-    @classmethod
-    def for_qwen_1_7b(cls) -> 'TuningConfig':
-        """Configuration for Qwen 1.7B model (laptop-friendly)"""
-        return cls(
-            model_name="qwen3:1.7b",
-            batch_size=8,
-            learning_rate=1e-4,
-            num_epochs=5,
-            output_dir="./tuned_models/qwen_1.7b",
-            max_length=512
-        )
-    
-    @classmethod
-    def for_qwen_8b(cls) -> 'TuningConfig':
-        """Configuration for Qwen 8B model (PC with more VRAM)"""
-        return cls(
-            model_name="qwen3:8b",
-            batch_size=2,  # Smaller batch for 8B model
-            learning_rate=5e-5,
-            num_epochs=3,
-            output_dir="./tuned_models/qwen_8b",
-            max_length=512
-        )
-    
-    @classmethod
-    def for_quick_test(cls) -> 'TuningConfig':
-        """Configuration for quick testing with 1.7B model"""
-        return cls(
-            model_name="qwen3:1.7b",
-            batch_size=4,
-            learning_rate=5e-5,
-            num_epochs=1,
-            warmup_steps=10,
-            save_steps=100,
-            logging_steps=5,
-            output_dir="./tuned_models/quick_test"
-        )
-    
-    def print_config(self):
-        """Print current configuration"""
-        print("=== Tuning Configuration ===")
-        print(f"Model: {self.model_name}")
-        print(f"Device: {self.device}")
-        print(f"Epochs: {self.num_epochs}")
-        print(f"Batch Size: {self.batch_size}")
-        print(f"Learning Rate: {self.learning_rate}")
-        print(f"Max Length: {self.max_length}")
-        print(f"Output Dir: {self.output_dir}")
-        print("=" * 30)
-    
-    def create_output_dirs(self):
-        """Create output directories if they don't exist"""
-        import os
-        os.makedirs(self.output_dir, exist_ok=True)
-        os.makedirs(f"{self.output_dir}/logs", exist_ok=True)
 
 
 @dataclass
 class RAGConfig:
-    """Configuration for RAG system"""
+    """Simple configuration for RAG system"""
+    
+    # Hardware settings
+    use_laptop: bool = True  # True for laptop (llama3.2:1b), False for PC (qwen3:8b)
     
     # AI Provider settings
-    use_ollama: bool = True
-    use_purdue: bool = False
-    model_name: str = "qwen3:1.7b"
-    purdue_api_key: Optional[str] = None
+    use_ollama: bool = True  # True for Ollama (local), False for Purdue API
     
-    # Storage settings
-    use_persistent: bool = False
-    collection_name: str = "documents"
+    # Vector store settings
+    use_persistent: bool = True  # True for persistent storage, False for in-memory only
+    collection_name: str = "simrag_docs"  # Name for Qdrant collection
     
-    # RAG settings
-    context_limit: int = 3
-    chunk_size: int = 1000
-    chunk_overlap: int = 100
+    # Retrieval settings
+    top_k: int = 5  # Number of documents to retrieve (1-20 recommended)
+    similarity_threshold: float = 0.7  # Minimum similarity score (0.0-1.0)
     
-    # Demo settings
-    demo_documents: bool = True
-    interactive_mode: bool = False
+    # Generation settings
+    max_tokens: int = 200  # Maximum tokens in response (50-500 recommended)
+    temperature: float = 0.7  # Creativity level (0.0-1.0, lower = more focused)
     
-    @classmethod
-    def from_env(cls) -> 'RAGConfig':
-        """Load configuration from environment variables"""
-        return cls(
-            use_ollama=os.getenv('USE_OLLAMA', 'true').lower() == 'true',
-            use_purdue=bool(os.getenv('PURDUE_API_KEY')),
-            model_name=os.getenv('MODEL_NAME', 'qwen3:1.7b'),
-            purdue_api_key=os.getenv('PURDUE_API_KEY'),
-            use_persistent=os.getenv('USE_PERSISTENT', 'false').lower() == 'true',
-            collection_name=os.getenv('COLLECTION_NAME', 'documents'),
-            context_limit=int(os.getenv('CONTEXT_LIMIT', '3')),
-            chunk_size=int(os.getenv('CHUNK_SIZE', '1000')),
-            chunk_overlap=int(os.getenv('CHUNK_OVERLAP', '100')),
-            demo_documents=os.getenv('DEMO_DOCUMENTS', 'true').lower() == 'true',
-            interactive_mode=os.getenv('INTERACTIVE_MODE', 'false').lower() == 'true'
-        )
-    
-    def to_env_dict(self) -> dict:
-        """Convert config to environment variable dictionary"""
-        return {
-            'USE_OLLAMA': str(self.use_ollama).lower(),
-            'USE_PURDUE': str(self.use_purdue).lower(),
-            'MODEL_NAME': self.model_name,
-            'PURDUE_API_KEY': self.purdue_api_key or '',
-            'USE_PERSISTENT': str(self.use_persistent).lower(),
-            'COLLECTION_NAME': self.collection_name,
-            'CONTEXT_LIMIT': str(self.context_limit),
-            'CHUNK_SIZE': str(self.chunk_size),
-            'CHUNK_OVERLAP': str(self.chunk_overlap),
-            'DEMO_DOCUMENTS': str(self.demo_documents).lower(),
-            'INTERACTIVE_MODE': str(self.interactive_mode).lower()
-        }
-    
-    def print_config(self):
-        """Print current configuration"""
-        print("=== RAG Configuration ===")
-        print(f"AI Provider: {'Ollama' if self.use_ollama else 'Purdue'}")
-        if self.use_ollama:
-            print(f"  Model: {self.model_name}")
-        if self.use_purdue:
-            print(f"  API Key: {'Set' if self.purdue_api_key else 'Not set'}")
-        print(f"Storage: {'Persistent' if self.use_persistent else 'In-memory'}")
-        print(f"Collection: {self.collection_name}")
-        print(f"Context Limit: {self.context_limit}")
-        print(f"Chunk Size: {self.chunk_size}")
-        print(f"Demo Documents: {self.demo_documents}")
-        print(f"Interactive Mode: {self.interactive_mode}")
-        print("=" * 25)
+    @property
+    def model_name(self) -> str:
+        """Get model name based on hardware configuration"""
+        return "llama3.2:1b" if self.use_laptop else "qwen3:8b"
 
 
-# Default configurations for common use cases
-DEFAULT_CONFIGS = {
-    "laptop": RAGConfig(
-        use_ollama=True,
-        use_purdue=False,
-        use_persistent=False,
-        model_name="qwen3:1.7b",
-        demo_documents=True
-    ),
-    "pc": RAGConfig(
-        use_ollama=True,
-        use_purdue=False,
-        use_persistent=True,
-        model_name="qwen3:8b",
-        demo_documents=True
-    ),
-    "local": RAGConfig(
-        use_ollama=True,
-        use_purdue=False,
-        use_persistent=False,
-        demo_documents=True
-    ),
-    "persistent": RAGConfig(
-        use_ollama=True,
-        use_purdue=False,
-        use_persistent=True,
-        demo_documents=True
-    ),
-    "purdue": RAGConfig(
-        use_ollama=False,
-        use_purdue=True,
-        use_persistent=False,
-        demo_documents=True
-    ),
-    "production": RAGConfig(
-        use_ollama=True,
-        use_purdue=False,
-        use_persistent=True,
-        demo_documents=False,
-        context_limit=5
-    )
-}
+@dataclass
+class TuningConfig:
+    """Simple configuration for model fine-tuning"""
+    
+    # Hardware settings
+    use_laptop: bool = True  # True for laptop (llama3.2:1b), False for PC (qwen3:8b)
+    
+    # Model settings
+    device: str = "auto"  # Options: "auto", "cpu", "cuda", "mps" (for Apple Silicon)
+    max_length: int = 512  # Maximum sequence length (256-1024 recommended)
+    
+    # Training settings
+    num_epochs: int = 3  # Number of training epochs (1-10 recommended)
+    batch_size: int = 4  # Batch size (1-16, adjust based on GPU memory)
+    learning_rate: float = 5e-5  # Learning rate (1e-5 to 1e-3 recommended)
+    
+    @property
+    def model_name(self) -> str:
+        """Get model name based on hardware configuration"""
+        return "llama3.2:1b" if self.use_laptop else "qwen3:8b"
+    
+    @property
+    def output_dir(self) -> str:
+        """Get output directory based on hardware configuration"""
+        model_suffix = "1b" if self.use_laptop else "8b"
+        return f"./tuned_models/llama_{model_suffix}"
 
-# Tuning configurations
-TUNING_CONFIGS = {
-    "qwen_1.7b": TuningConfig.for_qwen_1_7b(),
-    "qwen_8b": TuningConfig.for_qwen_8b(),
-    "quick": TuningConfig.for_quick_test(),
-    "default": TuningConfig(),
-    # Aliases for easy switching
-    "laptop": TuningConfig.for_qwen_1_7b(),
-    "pc": TuningConfig.for_qwen_8b()
-}
+
+# Default configurations
+DEFAULT_RAG_CONFIG = RAGConfig()
+DEFAULT_TUNING_CONFIG = TuningConfig()
+
+
+def get_rag_config() -> RAGConfig:
+    """Get RAG configuration with environment variable overrides
+    
+    Environment variables that can be set:
+        - USE_LAPTOP: "true" or "false" (laptop=llama3.2:1b, PC=qwen3:8b)
+    - USE_OLLAMA: "true" or "false" (use Ollama vs Purdue API)
+    - USE_PERSISTENT: "true" or "false" (persistent vs in-memory storage)
+    - COLLECTION_NAME: name for Qdrant collection
+    """
+    config = RAGConfig()
+    
+    # Override with environment variables if set
+    use_laptop_env = os.getenv("USE_LAPTOP")
+    if use_laptop_env:
+        config.use_laptop = use_laptop_env.lower() == "true"
+    
+    use_ollama_env = os.getenv("USE_OLLAMA")
+    if use_ollama_env:
+        config.use_ollama = use_ollama_env.lower() == "true"
+    
+    use_persistent_env = os.getenv("USE_PERSISTENT")
+    if use_persistent_env:
+        config.use_persistent = use_persistent_env.lower() == "true"
+    
+    collection_name_env = os.getenv("COLLECTION_NAME")
+    if collection_name_env:
+        config.collection_name = collection_name_env
+    
+    return config
+
+
+def get_tuning_config() -> TuningConfig:
+    """Get tuning configuration with environment variable overrides
+    
+    Environment variables that can be set:
+        - USE_LAPTOP: "true" or "false" (laptop=llama3.2:1b, PC=qwen3:8b)
+    - TUNING_BATCH_SIZE: batch size as integer (1-16)
+    - TUNING_EPOCHS: number of epochs as integer (1-10)
+    - TUNING_DEVICE: device like "auto", "cpu", "cuda", "mps"
+    """
+    config = TuningConfig()
+    
+    # Override with environment variables if set
+    use_laptop_env = os.getenv("USE_LAPTOP")
+    if use_laptop_env:
+        config.use_laptop = use_laptop_env.lower() == "true"
+    
+    tuning_batch_size_env = os.getenv("TUNING_BATCH_SIZE")
+    if tuning_batch_size_env:
+        config.batch_size = int(tuning_batch_size_env)
+    
+    tuning_epochs_env = os.getenv("TUNING_EPOCHS")
+    if tuning_epochs_env:
+        config.num_epochs = int(tuning_epochs_env)
+    
+    tuning_device_env = os.getenv("TUNING_DEVICE")
+    if tuning_device_env:
+        config.device = tuning_device_env
+    
+    return config

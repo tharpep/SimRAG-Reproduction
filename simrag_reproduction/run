@@ -28,169 +28,330 @@ def check_venv():
     return True
 
 
-def run_setup():
-    """Run setup (create venv and install dependencies)"""
-    print("Setting up environment...")
+def check_venv_health():
+    """Check the health of the virtual environment"""
+    if not check_venv():
+        return False
     
-    # Create virtual environment
-    if not Path("venv").exists():
+    python_cmd = get_python_cmd()
+    
+    # Check if Python executable exists and works
+    try:
+        result = subprocess.run([python_cmd, "--version"], 
+                              capture_output=True, text=True, check=True)
+        print(f"✅ Python version: {result.stdout.strip()}")
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        print("❌ Python executable not found or not working")
+        return False
+    
+    # Check if pip is working
+    try:
+        result = subprocess.run([python_cmd, "-m", "pip", "--version"], 
+                              capture_output=True, text=True, check=True)
+        print(f"✅ Pip version: {result.stdout.strip()}")
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        print("❌ Pip not working")
+        return False
+    
+    # Check if key packages are installed
+    key_packages = [
+        ("torch", "torch"),
+        ("transformers", "transformers"), 
+        ("sentence-transformers", "sentence_transformers"),
+        ("qdrant-client", "qdrant_client")
+    ]
+    missing_packages = []
+    
+    for package_name, import_name in key_packages:
+        try:
+            result = subprocess.run([python_cmd, "-c", f"import {import_name}"], 
+                                  capture_output=True, text=True, check=True)
+            print(f"✅ {package_name} is installed")
+        except subprocess.CalledProcessError:
+            print(f"❌ {package_name} is missing")
+            missing_packages.append(package_name)
+    
+    if missing_packages:
+        print(f"\n⚠️  Missing packages: {', '.join(missing_packages)}")
+        return False
+    
+    print("✅ Virtual environment is healthy!")
+    return True
+
+
+
+
+def run_setup():
+    """Setup virtual environment and install dependencies (with health check)"""
+    print("=== Environment Setup ===")
+    
+    # Check if venv already exists
+    venv_exists = Path("venv").exists()
+    
+    if venv_exists:
+        print("Virtual environment already exists.")
+        
+        # Check if it's healthy
+        print("Checking virtual environment health...")
+        is_healthy = check_venv_health()
+        
+        if is_healthy:
+            print("✅ Virtual environment is healthy and ready to use!")
+            return 0
+        else:
+            print("⚠️  Virtual environment exists but has issues.")
+            print("Reinstalling dependencies to fix...")
+    else:
         print("Creating virtual environment...")
         result = subprocess.run([sys.executable, "-m", "venv", "venv"], check=True)
         if result.returncode != 0:
-            print("Failed to create virtual environment")
+            print("❌ Failed to create virtual environment")
             return 1
-        print("Virtual environment created")
-    else:
-        print("Virtual environment already exists")
+        print("✅ Virtual environment created")
     
-    # Install dependencies
+    # Install/upgrade dependencies
     python_cmd = get_python_cmd()
     print("Installing dependencies...")
+    
+    # Upgrade pip first
     result = subprocess.run([python_cmd, "-m", "pip", "install", "--upgrade", "pip"], check=True)
     if result.returncode != 0:
-        print("Failed to upgrade pip")
+        print("❌ Failed to upgrade pip")
         return 1
     
+    # Install dependencies
     result = subprocess.run([python_cmd, "-m", "pip", "install", "-r", "requirements.txt"], check=True)
     if result.returncode != 0:
-        print("Failed to install dependencies")
+        print("❌ Failed to install dependencies")
         return 1
     
-    print("Dependencies installed")
-    print("Setup completed!")
-    return 0
+    print("✅ Dependencies installed successfully")
+    
+    # Final health check
+    print("Performing final health check...")
+    if check_venv_health():
+        print("🎉 Setup completed successfully! Virtual environment is ready.")
+        return 0
+    else:
+        print("⚠️  Setup completed but virtual environment may have issues.")
+        print("You can run 'python run setup' again to retry.")
+        return 1
 
 
 def run_tests():
-    """Run all tests"""
+    """Run tests with interactive selection"""
     if not check_venv():
         return 1
     
     python_cmd = get_python_cmd()
-    print("Running tests...")
     
+    # Check if user wants to run all tests
+    if len(sys.argv) > 2 and sys.argv[2].lower() == "all":
+        print("Running all tests...")
+        try:
+            result = subprocess.run([python_cmd, "-m", "pytest", "tests/"], check=True)
+            print("All tests passed!")
+            return 0
+        except subprocess.CalledProcessError as e:
+            print(f"Tests failed with exit code {e.returncode}")
+            return e.returncode
+    
+    # Auto-detect test folders
+    tests_dir = Path("tests")
+    if not tests_dir.exists():
+        print("No tests directory found!")
+        return 1
+    
+    # Find all test folders
+    test_folders = []
+    for item in tests_dir.iterdir():
+        if item.is_dir() and (item.name.startswith("test_") or item.name.startswith("tests_")):
+            test_folders.append(item.name)
+    
+    if not test_folders:
+        print("No test folders found in tests/ directory!")
+        return 1
+    
+    # Interactive test selection
+    print("=== Test Selection ===")
+    print("")
+    
+    # Display test options
+    print("Available test folders:")
+    for i, folder_name in enumerate(test_folders, 1):
+        print(f"  {i}. {folder_name}")
+    print("  0. Exit")
+    print("")
+    
+    # Get user selection
     try:
-        result = subprocess.run([python_cmd, "-m", "pytest", "tests/", "-v"], check=True)
-        print("All tests passed!")
-        return 0
+        choice = input("Enter test number (0-{}): ".format(len(test_folders))).strip()
+        
+        if choice == "0":
+            print("Exiting...")
+            return 0
+        
+        choice_num = int(choice)
+        if 1 <= choice_num <= len(test_folders):
+            selected_folder = test_folders[choice_num - 1]
+            print(f"\nRunning: {selected_folder}")
+            print("=" * 50)
+            
+            # Run pytest on the selected folder with verbose output
+            result = subprocess.run([python_cmd, "-m", "pytest", f"tests/{selected_folder}/", "-v", "-s"], check=True)
+            
+            print(f"\n✅ {selected_folder} completed successfully!")
+            return 0
+        else:
+            print(f"Invalid choice: {choice_num}")
+            return 1
+            
+    except ValueError:
+        print("Invalid input. Please enter a number.")
+        return 1
+    except KeyboardInterrupt:
+        print("\nOperation cancelled.")
+        return 1
     except subprocess.CalledProcessError as e:
-        print(f"Tests failed with exit code {e.returncode}")
+        print(f"\n❌ Test failed with exit code {e.returncode}")
         return e.returncode
 
 
 def run_demo():
-    """Run RAG demo with current config"""
+    """Run demos with two-step selection"""
     if not check_venv():
         return 1
     
     python_cmd = get_python_cmd()
-    print("Running RAG demo...")
+    
+    # Step 1: Choose demo type
+    print("=== Demo Selection ===")
+    print("")
+    print("Available demos:")
+    print("  1. RAG Demo")
+    print("  2. Tuning Demo")
+    print("  0. Exit")
+    print("")
     
     try:
-        result = subprocess.run([python_cmd, "-m", "rag.demo"], check=True)
-        return 0
-    except subprocess.CalledProcessError as e:
-        print(f"Demo failed with exit code {e.returncode}")
-        return e.returncode
-
-
-def run_interactive():
-    """Run interactive RAG mode"""
-    if not check_venv():
-        return 1
-    
-    python_cmd = get_python_cmd()
-    print("Starting interactive RAG mode...")
-    
-    try:
-        # Set interactive mode environment variable
-        env = os.environ.copy()
-        env['INTERACTIVE_MODE'] = 'true'
+        choice1 = input("Enter demo number (0-2): ").strip()
         
-        result = subprocess.run([python_cmd, "-m", "rag.demo"], env=env, check=True)
-        return 0
-    except subprocess.CalledProcessError as e:
-        print(f"Interactive mode failed with exit code {e.returncode}")
-        return e.returncode
-
-
-def run_config_demo():
-    """Run demo with specific config"""
-    if not check_venv():
-        return 1
-    
-    if len(sys.argv) < 3:
-        print("Available configs:")
-        try:
-            from config import DEFAULT_CONFIGS
-            for name, config in DEFAULT_CONFIGS.items():
-                print(f"  {name}: {config}")
-        except ImportError:
-            print("  Error: Could not import config module")
-        return 1
-    
-    config_name = sys.argv[2].lower()
-    python_cmd = get_python_cmd()
-    
-    print(f"Running demo with '{config_name}' config...")
-    
-    try:
-        # Set config environment variables
-        env = os.environ.copy()
-        try:
-            from config import DEFAULT_CONFIGS
-            if config_name in DEFAULT_CONFIGS:
-                config_vars = DEFAULT_CONFIGS[config_name].to_env_dict()
-                env.update(config_vars)
-        except ImportError:
-            print("Error: Could not import config module")
+        if choice1 == "0":
+            print("Exiting...")
+            return 0
+        
+        choice1_num = int(choice1)
+        
+        if choice1_num == 1:  # RAG Demo
+            # Step 2: Choose RAG mode
+            print("\n=== RAG Demo Mode ===")
+            print("  1. Automated (predefined queries)")
+            print("  2. Interactive (you type questions)")
+            print("  0. Back")
+            print("")
+            
+            choice2 = input("Enter mode number (0-2): ").strip()
+            
+            if choice2 == "0":
+                return run_demo()  # Go back to step 1
+            
+            choice2_num = int(choice2)
+            if choice2_num == 1:  # Automated
+                print(f"\nRunning: RAG Demo (Automated)")
+                print("=" * 50)
+                result = subprocess.run([python_cmd, "-c", "from rag.demo import run_rag_demo; run_rag_demo('automated')"], check=True)
+            elif choice2_num == 2:  # Interactive
+                print(f"\nRunning: RAG Demo (Interactive)")
+                print("=" * 50)
+                result = subprocess.run([python_cmd, "-c", "from rag.demo import run_rag_demo; run_rag_demo('interactive')"], check=True)
+            else:
+                print("Invalid choice")
+                return 1
+                
+        elif choice1_num == 2:  # Tuning Demo
+            # Step 2: Choose tuning mode
+            print("\n=== Tuning Demo Mode ===")
+            print("  1. Quick Demo")
+            print("  2. Full Demo")
+            print("  0. Back")
+            print("")
+            
+            choice2 = input("Enter mode number (0-2): ").strip()
+            
+            if choice2 == "0":
+                return run_demo()  # Go back to step 1
+            
+            choice2_num = int(choice2)
+            if choice2_num == 1:  # Quick Demo
+                print(f"\nRunning: Tuning Demo (Quick)")
+                print("=" * 50)
+                result = subprocess.run([python_cmd, "-c", "from tuning.demo import run_tuning_demo; run_tuning_demo('quick')"], check=True)
+            elif choice2_num == 2:  # Full Demo
+                print(f"\nRunning: Tuning Demo (Full)")
+                print("=" * 50)
+                result = subprocess.run([python_cmd, "-c", "from tuning.demo import run_tuning_demo; run_tuning_demo('full')"], check=True)
+            else:
+                print("Invalid choice")
+                return 1
+        else:
+            print("Invalid choice")
             return 1
         
-        result = subprocess.run([python_cmd, "-m", "rag.demo"], env=env, check=True)
+        print(f"\n✅ Demo completed successfully!")
         return 0
+        
+    except ValueError:
+        print("Invalid input. Please enter a number.")
+        return 1
+    except KeyboardInterrupt:
+        print("\nOperation cancelled.")
+        return 1
     except subprocess.CalledProcessError as e:
-        print(f"Config demo failed with exit code {e.returncode}")
+        print(f"\n❌ Demo failed with exit code {e.returncode}")
         return e.returncode
 
 
-def run_tuning_demo():
-    """Run tuning demo with specific config"""
+def run_config():
+    """Show current configuration settings"""
     if not check_venv():
         return 1
     
-    if len(sys.argv) < 3:
-        print("Available tuning configs:")
-        try:
-            from config import TUNING_CONFIGS
-            for name, config in TUNING_CONFIGS.items():
-                print(f"  {name}: {config.model_name}")
-        except ImportError:
-            print("  Error: Could not import config module")
-        return 1
-    
-    config_name = sys.argv[2].lower()
-    python_cmd = get_python_cmd()
-    
-    print(f"Running tuning demo with '{config_name}' config...")
+    print("=== Current Configuration ===")
+    print("")
     
     try:
-        result = subprocess.run([
-            python_cmd, "-c", 
-            f"""
-from config import TUNING_CONFIGS
-from tuning.demo import TuningDemo
-
-config = TUNING_CONFIGS['{config_name}']
-config.print_config()
-
-demo = TuningDemo(config)
-demo.run_quick_demo()
-"""
-        ], check=True)
-        return 0
-    except subprocess.CalledProcessError as e:
-        print(f"Tuning demo failed with exit code {e.returncode}")
-        return e.returncode
+        from config import get_rag_config, get_tuning_config
+        
+        rag_config = get_rag_config()
+        tuning_config = get_tuning_config()
+        
+        print("Hardware Configuration:")
+        print(f"  Platform: {'Laptop' if rag_config.use_laptop else 'PC'}")
+        print(f"  Model: {rag_config.model_name}")
+        print("")
+        
+        print("RAG Configuration:")
+        print(f"  AI Provider: {'Ollama' if rag_config.use_ollama else 'Purdue API'}")
+        print(f"  Storage: {'Persistent' if rag_config.use_persistent else 'In-memory'}")
+        print(f"  Collection: {rag_config.collection_name}")
+        print(f"  Top-K: {rag_config.top_k}")
+        print("")
+        
+        print("Tuning Configuration:")
+        print(f"  Model: {tuning_config.model_name}")
+        print(f"  Batch Size: {tuning_config.batch_size}")
+        print(f"  Epochs: {tuning_config.num_epochs}")
+        print(f"  Output Dir: {tuning_config.output_dir}")
+        print("")
+        
+        print("Note: You can override these settings by editing config.py")
+        print("or setting environment variables (USE_LAPTOP, USE_OLLAMA, etc.)")
+        
+    except ImportError as e:
+        print(f"Error: Could not import config module: {e}")
+        return 1
+    
+    return 0
 
 
 def main():
@@ -201,12 +362,16 @@ def main():
         print("Usage: python run <command>")
         print("")
         print("Commands:")
-        print("  setup  - Create venv and install dependencies")
-        print("  test   - Run all tests")
-        print("  demo   - Run RAG demo with current config")
-        print("  interactive - Run interactive RAG mode")
-        print("  config <name> - Run demo with specific config")
+        print("  setup  - Setup virtual environment and install dependencies")
+        print("  test   - Interactive test selection menu")
+        print("  test all - Run all tests")
+        print("  demo   - Two-step demo selection (RAG/Tuning + mode)")
+        print("  config - Show current configuration settings")
         print("  help   - Show this help message")
+        print("")
+        print("Virtual Environment:")
+        print("  To activate: venv\\Scripts\\activate (Windows) or source venv/bin/activate (Unix)")
+        print("  To deactivate: deactivate")
         return 0
     
     command = sys.argv[1].lower()
@@ -217,37 +382,35 @@ def main():
         return run_tests()
     elif command == "demo":
         return run_demo()
-    elif command == "interactive":
-        return run_interactive()
     elif command == "config":
-        return run_config_demo()
-    elif command == "tuning":
-        return run_tuning_demo()
+        return run_config()
     elif command == "help":
         print(" SimRAG CLI")
         print("=" * 20)
         print("Usage: python run <command>")
         print("")
         print("Commands:")
-        print("  setup  - Create venv and install dependencies")
-        print("  test   - Run all tests")
-        print("  demo   - Run RAG demo with current config")
-        print("  interactive - Run interactive RAG mode")
-        print("  config <name> - Run demo with specific config")
+        print("  setup  - Setup virtual environment and install dependencies")
+        print("  test   - Interactive test selection menu")
+        print("  test all - Run all tests")
+        print("  demo   - Two-step demo selection (RAG/Tuning + mode)")
+        print("  config - Show current configuration settings")
         print("  help   - Show this help message")
         print("")
-        print("Available configs:")
-        try:
-            from config import DEFAULT_CONFIGS
-            for name in DEFAULT_CONFIGS.keys():
-                print(f"  {name}")
-        except ImportError:
-            print("  Error: Could not import config module")
+        print("Virtual Environment:")
+        print("  To activate: venv\\Scripts\\activate (Windows) or source venv/bin/activate (Unix)")
+        print("  To deactivate: deactivate")
+        print("")
+        print("Examples:")
+        print("  python run setup     # First time setup")
+        print("  python run test      # Choose which tests to run")
+        print("  python run demo      # Choose demo type and mode")
+        print("  python run config    # View current settings")
         return 0
     else:
         print(f"Unknown command: '{command}'")
         print("")
-        print("Available commands: setup, test, demo, interactive, config, help")
+        print("Available commands: setup, test, demo, config, help")
         print("Use 'python run help' for more information")
         return 1
 

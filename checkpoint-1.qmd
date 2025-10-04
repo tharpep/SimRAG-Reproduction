@@ -1,0 +1,145 @@
+---
+title: "Checkpoint 1 – Preliminary Code & Results"
+format: revealjs
+---
+
+## 1) Problem Statement & Goal {.smaller}
+
+**Problem:** AI assistants struggle with domain-specific knowledge from specialized sources like company documents or class notes, performing well on general web data but failing on targeted corpora.
+
+**Goal:** Reproduce SimRAG's self-improving RAG approach on constrained hardware (single RTX 3080) to demonstrate democratization of domain-specific RAG research for students and small labs.
+
+**Hypothesis:** SimRAG's two-stage approach (retrieval-oriented fine-tuning + domain-adaptive fine-tuning with synthetic QA generation) can achieve measurable improvements over vanilla RAG even with hardware constraints.
+
+---
+
+## 2) Methodology Overview {.smaller}
+
+**Technical Approach:** Implement SimRAG's self-training methodology with:
+- **Stage I:** Fine-tune LLM on instruction-following, QA, and search data
+- **Stage II:** Generate synthetic domain QA pairs from unlabeled corpora, then fine-tune on these examples
+- **Baseline:** Vanilla RAG with dense retriever + 7-8B LLM
+- **Target:** 5k-20k document corpus with +2-3% Recall@k or EM/F1 gains
+
+**Implementation Strategy:** Modular RAG system with separate tuning pipeline, using QLoRA for efficient fine-tuning on single GPU.
+
+---
+
+## 3) Code Snippet 1: RAG System Orchestration {.smaller}
+
+```python
+class BasicRAG:
+    def __init__(self, collection_name="documents", use_persistent=False):
+        self.collection_name = collection_name
+        self.gateway = AIGateway()
+        self.vector_store = VectorStore(use_persistent=use_persistent)
+        self.retriever = DocumentRetriever()
+        self._setup_collection()
+    
+    def query(self, question, context_limit=3):
+        retrieved_docs = self.search(question, limit=context_limit)
+        if not retrieved_docs:
+            return "No relevant documents found."
+        
+        context = "\n\n".join([doc for doc, score in retrieved_docs])
+        prompt = f"""Context:
+{context}
+
+Question: {question}
+
+Answer:"""
+        
+        answer = self.gateway.chat(prompt)
+        return answer
+```
+
+---
+
+## 4) Explanation of Snippet 1 {.smaller}
+
+**Function:** Core RAG orchestration that coordinates vector storage, retrieval, and generation components.
+
+**Key Components:**
+- `AIGateway`: Abstracts different AI providers (Ollama, Purdue API)
+- `VectorStore`: Manages Qdrant vector database operations
+- `DocumentRetriever`: Handles embedding generation with sentence transformers
+
+**Importance:** This is the foundation for SimRAG implementation - the vanilla RAG baseline that will be enhanced with self-training. The modular design allows easy integration of fine-tuned models in Stage II.
+
+---
+
+## 5) Code Snippet 2: Basic Model Tuning Framework {.smaller}
+
+```python
+class BasicTuner:
+    def __init__(self, model_name: str = "qwen3:1.7b", device: str = "auto"):
+        self.model_name = model_name
+        self.device = self._get_device(device)
+        self.tokenizer = None
+        self.model = None
+        self.trainer = None
+    
+    def setup_trainer(self, train_dataset, output_dir="./tuned_model",
+                     num_epochs=3, batch_size=4, learning_rate=5e-5):
+        training_args = TrainingArguments(
+            output_dir=output_dir,
+            num_train_epochs=num_epochs,
+            per_device_train_batch_size=batch_size,
+            learning_rate=learning_rate,
+            logging_steps=10,
+            save_steps=500
+        )
+        
+        self.trainer = Trainer(
+            model=self.model,
+            args=training_args,
+            train_dataset=train_dataset,
+            data_collator=DataCollatorForLanguageModeling(tokenizer=self.tokenizer)
+        )
+```
+
+---
+
+## 6) Explanation of Snippet 2 {.smaller}
+
+**Function:** Fine-tuning framework for implementing SimRAG's Stage I and Stage II training phases.
+
+**Key Features:**
+- Auto device detection (CUDA/MPS/CPU) for hardware flexibility
+- Configurable training parameters optimized for single GPU constraints
+- Support for Qwen models (1.7B/8B) matching SimRAG paper's approach
+
+**Importance:** This enables the core SimRAG methodology - fine-tuning the LLM on retrieval-oriented tasks (Stage I) and synthetic QA pairs (Stage II). The framework supports the self-improvement loop central to SimRAG's approach.
+
+---
+
+## 7) Preliminary Result: System Architecture Validation {.smaller}
+
+**Current Status:** ✅ **Working RAG Pipeline**
+
+- **Vector Store:** Qdrant integration functional (in-memory and persistent modes)
+- **Embeddings:** Sentence transformers (all-MiniLM-L6-v2) generating 384-dim vectors
+- **AI Gateway:** Multi-provider support (Ollama, Purdue API) operational
+- **Document Processing:** Text chunking and ingestion pipeline complete
+
+**Demo Results:**
+- Successfully indexed 8 demo documents
+- Query processing: "What is machine learning?" → Retrieved relevant context + generated answer
+- System stats: Collection created, points indexed, search functional
+
+**Baseline Established:** Vanilla RAG system ready for SimRAG enhancement.
+
+---
+
+## 8) Result Analysis & Next Steps {.smaller}
+
+**Analysis:** The RAG foundation is solid and ready for SimRAG implementation. The modular architecture supports the two-stage approach described in the paper.
+
+**Immediate Next Steps for Checkpoint 1:**
+1. **Complete Stage I Implementation:** Fine-tune on instruction-following + QA data
+2. **Implement Synthetic QA Generation:** Prompt LLM to generate domain questions from unlabeled corpus
+3. **Stage II Fine-tuning:** Train on synthetic QA pairs with filtering strategy
+4. **Baseline Evaluation:** Measure vanilla RAG performance on domain corpus
+5. **SimRAG Evaluation:** Compare improved performance against baseline
+
+**Timeline:** 2-3 weeks to complete full SimRAG pipeline and generate comparative results.

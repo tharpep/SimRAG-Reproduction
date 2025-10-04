@@ -52,12 +52,12 @@ class AIGateway:
         if "ollama" in config:
             ollama_config = OllamaConfig(
                 base_url=config["ollama"].get("base_url", "http://localhost:11434"),
-                default_model=config["ollama"].get("default_model", "qwen3:1.7b")
+                default_model=config["ollama"].get("default_model", "llama3.2:1b")
             )
             self.providers["ollama"] = OllamaClient(ollama_config)
         elif os.getenv('USE_OLLAMA', 'false').lower() == 'true':
             ollama_config = OllamaConfig(
-                default_model=os.getenv('MODEL_NAME', 'qwen3:1.7b')
+                default_model=os.getenv('MODEL_NAME', 'llama3.2:1b')
             )
             self.providers["ollama"] = OllamaClient(ollama_config)
     
@@ -96,20 +96,9 @@ class AIGateway:
             return provider_client.chat(message, model)
     
     def _chat_ollama(self, client: OllamaClient, message: str, model: Optional[str] = None) -> str:
-        """Helper to handle async Ollama calls"""
-        async def _async_chat():
-            async with client:
-                messages = [{"role": "user", "content": message}]
-                response = await client.chat(messages, model=model)
-                return response.get("message", {}).get("content", "")
-        
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        
-        return loop.run_until_complete(_async_chat())
+        """Helper to handle Ollama calls"""
+        # Now that OllamaClient.chat() is synchronous, we can call it directly
+        return client.chat(message, model=model)
     
     def get_available_providers(self) -> List[str]:
         """Get list of available providers"""

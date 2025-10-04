@@ -1,5 +1,10 @@
 .env
 
+# Virtual environment
+venv/
+env/
+.venv/
+
 # Model files and caches
 *.bin
 *.safetensors
@@ -18,3 +23,6 @@ wandb/
 *.jsonl
 *.csv
 data/
+
+# Qdrant database
+data/qdrant_db/

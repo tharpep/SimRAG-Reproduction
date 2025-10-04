@@ -3,7 +3,7 @@ RAG System Orchestrator
 Coordinates vector storage, retrieval, and generation components
 """
 
-from ai_providers import AIGateway
+from ai_providers.gateway import AIGateway
 from .vector_store import VectorStore
 from .retriever import DocumentRetriever
 
@@ -109,6 +109,8 @@ Answer:"""
         stats = self.vector_store.get_collection_stats(self.collection_name)
         if "error" not in stats:
             stats.update({
+                "collection_name": stats.get("name", self.collection_name),
+                "document_count": stats.get("points_count", 0),
                 "vector_size": self.retriever.get_embedding_dimension(),
                 "distance": "cosine",
                 "model_info": self.retriever.get_model_info()

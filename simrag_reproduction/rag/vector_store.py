@@ -89,11 +89,11 @@ class VectorStore:
             List of (text, score) tuples
         """
         try:
-            search_results = self.client.search(
+            search_results = self.client.query_points(
                 collection_name=collection_name,
-                query_vector=query_vector,
+                query=query_vector,
                 limit=limit
-            )
+            ).points
             
             return [(hit.payload["text"], hit.score) for hit in search_results]
         except Exception as e:
@@ -113,6 +113,7 @@ class VectorStore:
         try:
             collection_info = self.client.get_collection(collection_name)
             return {
+                "name": collection_name,
                 "points_count": collection_info.points_count,
                 "status": collection_info.status,
                 "optimizer_status": collection_info.optimizer_status

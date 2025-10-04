@@ -15,7 +15,7 @@ class TestOllamaConfig:
         """Test default configuration"""
         config = OllamaConfig()
         assert config.base_url == "http://localhost:11434"
-        assert config.default_model == "qwen3:1.7b"
+        assert config.default_model == "llama3.2:1b"
         assert config.chat_timeout == 15.0
         assert config.embeddings_timeout == 30.0
         assert config.connection_timeout == 5.0
@@ -30,6 +30,19 @@ class TestOllamaConfig:
         assert config.base_url == "http://custom:8080"
         assert config.default_model == "custom-model"
         assert config.chat_timeout == 30.0
+    
+    def test_environment_variable_config(self):
+        """Test configuration from environment variables"""
+        import os
+        with patch.dict(os.environ, {
+            'OLLAMA_BASE_URL': 'http://env-test:9999',
+            'MODEL_NAME': 'env-model:test',
+            'OLLAMA_CHAT_TIMEOUT': '45.0'
+        }):
+            config = OllamaConfig()
+            assert config.base_url == "http://env-test:9999"
+            assert config.default_model == "env-model:test"
+            assert config.chat_timeout == 45.0
 
 
 class TestOllamaClient:
@@ -39,7 +52,7 @@ class TestOllamaClient:
         """Test initialization with default config"""
         client = OllamaClient()
         assert client.config.base_url == "http://localhost:11434"
-        assert client.config.default_model == "qwen3:1.7b"
+        assert client.config.default_model == "llama3.2:1b"
         assert client._client is None
     
     def test_init_custom_config(self):
@@ -160,6 +173,7 @@ class TestOllamaClient:
             
             assert result is False
     
+    
     @pytest.mark.asyncio
     async def test_list_models(self):
         """Test listing models"""
@@ -183,16 +197,31 @@ class TestOllamaClient:
     
     def test_get_available_models_sync(self):
         """Test synchronous wrapper for get_available_models"""
+        import asyncio
+        from unittest.mock import patch, AsyncMock
+        
+        # Create a real event loop for testing
+        loop = asyncio.new_event_loop()
+        
         with patch('asyncio.get_event_loop') as mock_get_loop, \
-             patch('asyncio.new_event_loop') as mock_new_loop:
+             patch('asyncio.new_event_loop') as mock_new_loop, \
+             patch('asyncio.set_event_loop') as mock_set_loop:
             
-            mock_loop = MagicMock()
-            mock_loop.run_until_complete.return_value = ["qwen3:1.7b"]
             mock_get_loop.side_effect = RuntimeError("No event loop")
-            mock_new_loop.return_value = mock_loop
+            mock_new_loop.return_value = loop
             
-            client = OllamaClient()
-            models = client.get_available_models()
-            
-            assert models == ["qwen3:1.7b"]
-            mock_loop.run_until_complete.assert_called_once()
+            # Mock the async context manager and list_models method
+            with patch.object(OllamaClient, '__aenter__', new_callable=AsyncMock) as mock_enter, \
+                 patch.object(OllamaClient, '__aexit__', new_callable=AsyncMock) as mock_exit, \
+                 patch.object(OllamaClient, 'list_models', new_callable=AsyncMock) as mock_list:
+                
+                mock_list.return_value = ["qwen3:1.7b"]
+                mock_enter.return_value = OllamaClient()
+                
+                client = OllamaClient()
+                models = client.get_available_models()
+                
+                assert models == ["qwen3:1.7b"]
+                mock_list.assert_called_once()
+        
+        loop.close()
