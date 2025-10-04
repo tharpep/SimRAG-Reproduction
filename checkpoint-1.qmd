@@ -29,28 +29,24 @@ format: revealjs
 
 ```python
 class BasicRAG:
-    def __init__(self, collection_name="documents", use_persistent=False):
-        self.collection_name = collection_name
+    def __init__(self, collection_name=None, use_persistent=None):
+        self.config = get_rag_config()
+        self.collection_name = collection_name or self.config.collection_name
         self.gateway = AIGateway()
         self.vector_store = VectorStore(use_persistent=use_persistent)
         self.retriever = DocumentRetriever()
         self._setup_collection()
     
-    def query(self, question, context_limit=3):
+    def query(self, question, context_limit=None):
+        context_limit = context_limit or self.config.top_k
         retrieved_docs = self.search(question, limit=context_limit)
         if not retrieved_docs:
-            return "No relevant documents found."
-        
-        context = "\n\n".join([doc for doc, score in retrieved_docs])
-        prompt = f"""Context:
-{context}
-
-Question: {question}
-
-Answer:"""
+            return "No relevant documents found.", [], []
+        rag_context = "\n\n".join([doc for doc, _ in retrieved_docs])
+        prompt = f"Context:\n{rag_context}\n\nQuestion: {question}\n\nAnswer:"
         
         answer = self.gateway.chat(prompt)
-        return answer
+        return answer, context_docs, context_scores
 ```
 
 ---
@@ -68,78 +64,83 @@ Answer:"""
 
 ---
 
-## 5) Code Snippet 2: Basic Model Tuning Framework {.smaller}
+## 5) Code Snippet 2: Model Tuning with Versioning {.smaller}
 
 ```python
 class BasicTuner:
-    def __init__(self, model_name: str = "qwen3:1.7b", device: str = "auto"):
+    def __init__(self, model_name: str = "qwen3:1.7b", device: str = "auto", config=None):
         self.model_name = model_name
         self.device = self._get_device(device)
-        self.tokenizer = None
-        self.model = None
-        self.trainer = None
+        self.config = config
+        self.tokenizer = self.model = self.trainer = None
+        self.registry = get_model_registry(self.config) if self.config else None
     
-    def setup_trainer(self, train_dataset, output_dir="./tuned_model",
-                     num_epochs=3, batch_size=4, learning_rate=5e-5):
-        training_args = TrainingArguments(
-            output_dir=output_dir,
-            num_train_epochs=num_epochs,
-            per_device_train_batch_size=batch_size,
-            learning_rate=learning_rate,
-            logging_steps=10,
-            save_steps=500
-        )
-        
-        self.trainer = Trainer(
-            model=self.model,
-            args=training_args,
-            train_dataset=train_dataset,
-            data_collator=DataCollatorForLanguageModeling(tokenizer=self.tokenizer)
-        )
+    def train(self, notes: Optional[str] = None):
+        if not self.trainer:
+            raise ValueError("Trainer not setup. Call setup_trainer() first.")
+        self.trainer.train()
+        if self.registry and self.config:
+            new_version = self.registry.create_new_version(
+                model_name=self.model_name,
+                training_epochs=self.config.optimized_num_epochs,
+                batch_size=self.config.optimized_batch_size,
+                notes=notes
+            )
+            self.registry.register_version(new_version)
 ```
 
 ---
 
 ## 6) Explanation of Snippet 2 {.smaller}
 
-**Function:** Fine-tuning framework for implementing SimRAG's Stage I and Stage II training phases.
+**Function:** Model tuning framework with versioning and registry management for tracking SimRAG training phases.
 
 **Key Features:**
-- Auto device detection (CUDA/MPS/CPU) for hardware flexibility
-- Configurable training parameters optimized for single GPU constraints
-- Support for Qwen models (1.7B/8B) matching SimRAG paper's approach
+- Model registry for version tracking and metadata management
+- Hardware-optimized training parameters (laptop vs PC configurations)
+- Support for Llama3.2-1B and Qwen2.5 models with automatic device detection
+- Training time and loss tracking for performance analysis
 
-**Importance:** This enables the core SimRAG methodology - fine-tuning the LLM on retrieval-oriented tasks (Stage I) and synthetic QA pairs (Stage II). The framework supports the self-improvement loop central to SimRAG's approach.
+**Importance:** This provides the infrastructure for SimRAG's two-stage approach. The versioning system will track Stage I (retrieval-oriented fine-tuning) and Stage II (domain-adaptive fine-tuning) models separately, enabling comparison and rollback capabilities.
 
 ---
 
-## 7) Preliminary Result: System Architecture Validation {.smaller}
+## 7) Preliminary Result: RAG System Performance {.smaller}
 
-**Current Status:** ✅ **Working RAG Pipeline**
+**Status:** ✅ **Functional RAG Pipeline**
 
-- **Vector Store:** Qdrant integration functional (in-memory and persistent modes)
-- **Embeddings:** Sentence transformers (all-MiniLM-L6-v2) generating 384-dim vectors
-- **AI Gateway:** Multi-provider support (Ollama, Purdue API) operational
-- **Document Processing:** Text chunking and ingestion pipeline complete
+- **Vector Store:** Qdrant persistent storage with 8 document collections
+- **Embeddings:** Sentence transformers (all-MiniLM-L6-v2) 384-dim vectors
+- **AI Gateway:** Multi-provider support (Ollama llama3.2:1b, Purdue API)
+- **Document Processing:** Docker, DevOps, Python, and algorithm docs
 
-**Demo Results:**
-- Successfully indexed 8 demo documents
-- Query processing: "What is machine learning?" → Retrieved relevant context + generated answer
-- System stats: Collection created, points indexed, search functional
+**Performance Metrics:**
+- **Response Time:** 8.16s - 27.14s per query (llama3.2:1b model)
+- **Document Retrieval:** 5 relevant documents per query
+- **Similarity Scores:** 0.750-0.759 cosine similarity
+- **Query Sessions:** 20+ successful sessions across 4 domains
 
-**Baseline Established:** Vanilla RAG system ready for SimRAG enhancement.
+**Example Q&A:**
+- **Query:** "How does binary search work?" (11.58s)
+- **Answer:** "Binary search works by repeatedly dividing the search interval in half and checking if the target value is less than or greater than the middle element. 1. Compare the target value with the middle element of the array. 2. If the target value matches the middle element, return the index where it was found. 3. Otherwise, eliminate half of the current interval based on whether the target value is less than or greater than the middle element. This process continues until the target value is found in the array or the interval is empty."
+- **Context:** 5 documents with 0.750 similarity scores from binary search documentation
+
+**Baseline:** Vanilla RAG system with measurable performance metrics.
 
 ---
 
 ## 8) Result Analysis & Next Steps {.smaller}
 
-**Analysis:** The RAG foundation is solid and ready for SimRAG implementation. The modular architecture supports the two-stage approach described in the paper.
+**Analysis:** The RAG foundation is solid with working document processing and query answering. The tuning framework is implemented but needs SimRAG-specific enhancements. Current response times (8.16-27.14s) and similarity scores (0.750-0.759) provide a baseline for measuring SimRAG improvements.
 
-**Immediate Next Steps for Checkpoint 1:**
-1. **Complete Stage I Implementation:** Fine-tune on instruction-following + QA data
-2. **Implement Synthetic QA Generation:** Prompt LLM to generate domain questions from unlabeled corpus
-3. **Stage II Fine-tuning:** Train on synthetic QA pairs with filtering strategy
-4. **Baseline Evaluation:** Measure vanilla RAG performance on domain corpus
-5. **SimRAG Evaluation:** Compare improved performance against baseline
+**Immediate Next Steps for SimRAG Integration:**
 
-**Timeline:** 2-3 weeks to complete full SimRAG pipeline and generate comparative results.
+1. **Stage I Implementation:** Fine-tune on instruction-following + QA datasets
+
+2. **Synthetic QA Generation:** Implement domain-specific question generation from document corpus
+
+3. **Stage II Fine-tuning:** Train on synthetic QA pairs with quality filtering
+
+4. **Performance Evaluation:** Measure Recall@k, EM/F1 improvements over baseline
+
+5. **Hardware Optimization:** Implement QLoRA for efficient single-GPU training
