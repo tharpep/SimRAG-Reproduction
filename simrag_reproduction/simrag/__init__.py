@@ -7,14 +7,14 @@ __version__ = "1.0.0"
 __author__ = "ECE 570 Student"
 
 # Import main SimRAG components
-from .stage1.instruction_tuner import SimRAGStageI
-from .stage2.synthetic_qa_generator import SyntheticQAGenerator
-from .stage2.domain_tuner import SimRAGStageII
-from .evaluation.performance_comparison import PerformanceComparator
+from .base import SimRAGBase
+from .instruction_following import InstructionFollowing
+from .synthetic_qa_generation import SyntheticQAGeneration
+from .domain_adaptation import DomainAdaptation
 
 __all__ = [
-    "SimRAGStageI",
-    "SyntheticQAGenerator", 
-    "SimRAGStageII",
-    "PerformanceComparator"
+    "SimRAGBase",
+    "InstructionFollowing", 
+    "SyntheticQAGeneration",
+    "DomainAdaptation"
 ]
