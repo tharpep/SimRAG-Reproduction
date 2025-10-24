@@ -12,7 +12,7 @@ from pathlib import Path
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from .base import SimRAGBase
-# from datasets import load_dataset  # Will be imported when needed
+# Note: Real dataset loading can be implemented later when needed
 
 
 class InstructionFollowing(SimRAGBase):
@@ -31,51 +31,19 @@ class InstructionFollowing(SimRAGBase):
     
     def load_instruction_datasets(self, dataset_names: Optional[List[str]] = None) -> List[str]:
         """
-        Load real instruction-following datasets from Hugging Face
+        Load instruction-following datasets
         
         Args:
-            dataset_names: List of dataset names to load
+            dataset_names: List of dataset names to load (currently unused)
             
         Returns:
             List of instruction-following examples
         """
-        if dataset_names is None:
-            dataset_names = ["alpaca"]
-        
-        print(f"Loading instruction datasets: {dataset_names}")
+        print("Loading instruction datasets...")
         
         # For now, return test data to avoid dependency issues
         # TODO: Implement real dataset loading when needed
         return self._generate_test_instruction_data()
-    
-    def _process_alpaca_dataset(self, dataset) -> List[str]:
-        """Process Alpaca dataset into instruction format"""
-        examples = []
-        
-        for item in dataset:
-            if item.get("instruction") and item.get("output"):
-                example = f"Question: {item['instruction']}\nAnswer: {item['output']}"
-                examples.append(example)
-        
-        return examples
-    
-    def _process_sharegpt_dataset(self, dataset) -> List[str]:
-        """Process ShareGPT dataset into instruction format"""
-        examples = []
-        
-        for item in dataset:
-            if item.get("conversations"):
-                # Extract Q&A pairs from conversations
-                conversations = item["conversations"]
-                for i in range(0, len(conversations) - 1, 2):
-                    if (conversations[i].get("from") == "human" and 
-                        conversations[i + 1].get("from") == "gpt"):
-                        question = conversations[i]["value"]
-                        answer = conversations[i + 1]["value"]
-                        example = f"Question: {question}\nAnswer: {answer}"
-                        examples.append(example)
-        
-        return examples
     
     def _generate_test_instruction_data(self) -> List[str]:
         """Generate test instruction data for testing purposes"""
@@ -134,6 +102,7 @@ class InstructionFollowing(SimRAGBase):
         self.setup_trainer(
             train_dataset=train_dataset,
             output_dir=output_dir,
+            num_epochs=self.config.simrag_stage_1_epochs,
             notes=notes
         )
         
@@ -165,37 +134,3 @@ class InstructionFollowing(SimRAGBase):
         return self.test_performance(rag_system, test_questions)
 
 
-def main():
-    """Demo of instruction following training"""
-    print("=== SimRAG Stage 1: Instruction Following Demo ===\n")
-    
-    # Initialize instruction following trainer
-    trainer = InstructionFollowing()
-    
-    # Train Stage 1 (using test data for demo)
-    print("1. Training Stage 1 (using test data)...")
-    version = trainer.train_stage_1(use_real_datasets=False, notes="Demo Stage 1 training")
-    
-    if version:
-        print(f"✅ Stage 1 training completed!")
-        print(f"Model version: {version.version}")
-        
-        # Test performance
-        print("\n2. Testing Stage 1 performance...")
-        from rag.rag_setup import BasicRAG
-        
-        rag = BasicRAG()
-        test_questions = [
-            "What is Docker and how does it work?",
-            "Explain binary search algorithm",
-            "What are the benefits of DevOps practices?"
-        ]
-        
-        results = trainer.test_stage_1_performance(rag, test_questions)
-        print(f"Tested {len(results['questions'])} questions")
-    else:
-        print("❌ Stage 1 training failed")
-
-
-if __name__ == "__main__":
-    main()

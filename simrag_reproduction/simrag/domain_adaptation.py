@@ -76,6 +76,7 @@ class DomainAdaptation(SimRAGBase):
         self.setup_trainer(
             train_dataset=train_dataset,
             output_dir=output_dir,
+            num_epochs=self.config.simrag_stage_2_epochs,
             notes=notes
         )
         
@@ -93,22 +94,27 @@ class DomainAdaptation(SimRAGBase):
         return version
     
     def run_self_improvement_loop(self, documents: List[str], 
-                                improvement_rounds: int = 2,
-                                questions_per_doc: int = 2,
-                                min_context_score: float = 0.7) -> List[Dict[str, Any]]:
+                                improvement_rounds: Optional[int] = None,
+                                questions_per_doc: Optional[int] = None,
+                                min_context_score: Optional[float] = None) -> List[Dict[str, Any]]:
         """
         Run self-improvement loop for Stage 3
         
         Args:
             documents: List of domain documents
-            improvement_rounds: Number of improvement rounds
-            questions_per_doc: Questions to generate per document
-            min_context_score: Minimum context similarity threshold
+            improvement_rounds: Number of improvement rounds (uses config default if None)
+            questions_per_doc: Questions to generate per document (uses config default if None)
+            min_context_score: Minimum context similarity threshold (uses config default if None)
             
         Returns:
             List of improvement results for each round
         """
         print("=== SimRAG Stage 3: Self-Improvement Loop ===")
+        
+        # Use config defaults if not provided
+        improvement_rounds = improvement_rounds or self.config.simrag_improvement_rounds
+        questions_per_doc = questions_per_doc or self.config.simrag_questions_per_doc
+        min_context_score = min_context_score or self.config.simrag_min_context_score
         
         improvement_results = []
         current_model_path = self.stage_1_model_path
@@ -240,50 +246,3 @@ class DomainAdaptation(SimRAGBase):
         return comparison
 
 
-def main():
-    """Demo of domain adaptation with self-improvement"""
-    print("=== SimRAG Stage 2: Domain Adaptation Demo ===\n")
-    
-    # Initialize domain adaptation trainer
-    trainer = DomainAdaptation()
-    
-    # Sample domain documents
-    sample_documents = [
-        "Docker is a containerization platform that allows developers to package applications and their dependencies into lightweight, portable containers. Containers provide consistent environments across development, testing, and production.",
-        
-        "Binary search is an efficient algorithm for finding elements in sorted arrays. It works by repeatedly dividing the search interval in half, comparing the target value with the middle element, and eliminating half of the remaining elements each time.",
-        
-        "DevOps is a set of practices that combines software development and IT operations. It aims to shorten the systems development life cycle and provide continuous delivery with high software quality through automation, collaboration, and shared responsibility."
-    ]
-    
-    # Train Stage 2
-    print("1. Training Stage 2...")
-    version = trainer.train_stage_2(
-        documents=sample_documents,
-        questions_per_doc=2,
-        min_context_score=0.6,
-        notes="Demo Stage 2 training"
-    )
-    
-    if version:
-        print(f"✅ Stage 2 training completed!")
-        print(f"Model version: {version.version}")
-        
-        # Run self-improvement loop
-        print("\n2. Running self-improvement loop...")
-        improvement_results = trainer.run_self_improvement_loop(
-            documents=sample_documents,
-            improvement_rounds=2,
-            questions_per_doc=1,  # Reduced for demo
-            min_context_score=0.6
-        )
-        
-        print(f"\nSelf-improvement results:")
-        for result in improvement_results:
-            print(f"  Round {result['round']}: {result['training_examples']} examples, {result['quality_retention']:.1f}% quality")
-    else:
-        print("❌ Stage 2 training failed")
-
-
-if __name__ == "__main__":
-    main()

@@ -182,7 +182,7 @@ Questions:"""
         
         return filtered_pairs
     
-    def prepare_training_data(self, qa_pairs: List[Dict[str, Any]]) -> List[str]:
+    def prepare_qa_training_data(self, qa_pairs: List[Dict[str, Any]]) -> List[str]:
         """
         Prepare QA pairs for training in instruction format
         
@@ -203,20 +203,24 @@ Questions:"""
         return training_examples
     
     def generate_synthetic_dataset(self, documents: List[str], 
-                                 questions_per_doc: int = 2,
-                                 min_context_score: float = 0.7) -> Dict[str, Any]:
+                                 questions_per_doc: Optional[int] = None,
+                                 min_context_score: Optional[float] = None) -> Dict[str, Any]:
         """
         Generate complete synthetic dataset for Stage 2 training
         
         Args:
             documents: List of domain documents
-            questions_per_doc: Questions to generate per document
-            min_context_score: Minimum context similarity threshold
+            questions_per_doc: Questions to generate per document (uses config default if None)
+            min_context_score: Minimum context similarity threshold (uses config default if None)
             
         Returns:
             Complete synthetic dataset with metadata
         """
         print("=== SimRAG Stage 2: Synthetic Dataset Generation ===")
+        
+        # Use config defaults if not provided
+        questions_per_doc = questions_per_doc or self.config.simrag_questions_per_doc
+        min_context_score = min_context_score or self.config.simrag_min_context_score
         
         # Generate QA pairs
         qa_pairs = self.create_qa_pairs_from_documents(documents, questions_per_doc)
@@ -225,7 +229,7 @@ Questions:"""
         high_quality_pairs = self.filter_high_quality_qa_pairs(qa_pairs, min_context_score)
         
         # Prepare training data
-        training_data = self.prepare_training_data(high_quality_pairs)
+        training_data = self.prepare_qa_training_data(high_quality_pairs)
         
         # Create dataset summary
         dataset_info = {
@@ -251,41 +255,3 @@ Questions:"""
         }
 
 
-def main():
-    """Demo of synthetic QA generation"""
-    print("=== SimRAG Stage 2: Synthetic QA Generation Demo ===\n")
-    
-    # Initialize synthetic QA generator
-    qa_generator = SyntheticQAGeneration()
-    
-    # Sample domain documents
-    sample_documents = [
-        "Docker is a containerization platform that allows developers to package applications and their dependencies into lightweight, portable containers. Containers provide consistent environments across development, testing, and production.",
-        
-        "Binary search is an efficient algorithm for finding elements in sorted arrays. It works by repeatedly dividing the search interval in half, comparing the target value with the middle element, and eliminating half of the remaining elements each time.",
-        
-        "DevOps is a set of practices that combines software development and IT operations. It aims to shorten the systems development life cycle and provide continuous delivery with high software quality through automation, collaboration, and shared responsibility."
-    ]
-    
-    # Generate synthetic dataset
-    print("Generating synthetic dataset...")
-    dataset = qa_generator.generate_synthetic_dataset(
-        documents=sample_documents,
-        questions_per_doc=2,
-        min_context_score=0.6
-    )
-    
-    # Show sample results
-    print("\nSample generated QA pairs:")
-    for i, qa_pair in enumerate(dataset["qa_pairs"][:3], 1):
-        print(f"\nPair {i}:")
-        print(f"  Q: {qa_pair['question']}")
-        print(f"  A: {qa_pair['answer'][:100]}...")
-        print(f"  Context scores: {qa_pair['context_scores']}")
-    
-    print(f"\n✅ Demo completed!")
-    print(f"Generated {dataset['dataset_info']['training_examples']} training examples")
-
-
-if __name__ == "__main__":
-    main()

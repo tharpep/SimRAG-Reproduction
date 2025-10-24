@@ -40,7 +40,7 @@ class SimRAGBase:
         print("Loading model...")
         self.tuner.load_model()
     
-    def prepare_training_data(self, data: List[str], max_length: int = None) -> Any:
+    def prepare_training_data(self, data: List[str], max_length: Optional[int] = None) -> Any:
         """
         Prepare training data
         
@@ -55,8 +55,8 @@ class SimRAGBase:
         return self.tuner.prepare_data(data, max_length=max_length)
     
     def setup_trainer(self, train_dataset: Any, output_dir: str, 
-                     num_epochs: int = None, batch_size: int = None, 
-                     learning_rate: float = None, notes: str = "SimRAG Training"):
+                     num_epochs: Optional[int] = None, batch_size: Optional[int] = None, 
+                     learning_rate: Optional[float] = None, notes: str = "SimRAG Training"):
         """
         Setup trainer for fine-tuning
         
@@ -93,7 +93,7 @@ class SimRAGBase:
         print("Starting training...")
         return self.tuner.train(notes=notes)
     
-    def get_model_from_registry(self, version: str = None) -> Optional[str]:
+    def get_model_from_registry(self, version: Optional[str] = None) -> Optional[str]:
         """
         Get model path from registry
         
@@ -108,15 +108,18 @@ class SimRAGBase:
         
         try:
             if version:
-                model_info = self.registry.get_version_info(version)
+                # Try to get specific version info
+                model_info = getattr(self.registry, 'get_version_info', lambda x: None)(version)
             else:
-                model_info = self.registry.get_active_version()
+                # Get active version
+                model_info = getattr(self.registry, 'get_active_version', lambda: None)()
             
             if model_info:
                 # Construct model path from registry info
                 model_suffix = "1b" if self.config.use_laptop else "8b"
                 base_dir = f"./tuned_models/llama_{model_suffix}"
-                return f"{base_dir}/{model_info['version']}"
+                version_name = getattr(model_info, 'version', version or 'latest')
+                return f"{base_dir}/{version_name}"
             
         except Exception as e:
             print(f"Error loading model from registry: {e}")

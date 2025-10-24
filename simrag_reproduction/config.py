@@ -56,6 +56,13 @@ class TuningConfig:
     version: str = "v1.0"  # Model version (e.g., v1.0, v1.1, v2.0)
     create_version_dir: bool = True  # Whether to create versioned subdirectories
     
+    # SimRAG specific settings
+    simrag_stage_1_epochs: int = 1  # Epochs for Stage 1 (instruction following)
+    simrag_stage_2_epochs: int = 1  # Epochs for Stage 2 (domain adaptation)
+    simrag_improvement_rounds: int = 2  # Number of self-improvement rounds
+    simrag_questions_per_doc: int = 2  # Questions to generate per document
+    simrag_min_context_score: float = 0.7  # Minimum context similarity threshold
+    
     @property
     def optimized_batch_size(self) -> int:
         """Get batch size optimized for hardware"""
