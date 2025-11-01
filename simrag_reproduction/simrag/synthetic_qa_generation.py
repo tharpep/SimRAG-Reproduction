@@ -178,7 +178,10 @@ Questions:"""
             filtered_pairs.append(qa_pair)
         
         print(f"Filtered pairs: {len(filtered_pairs)}")
-        print(f"Quality retention: {len(filtered_pairs)/len(qa_pairs)*100:.1f}%")
+        if len(qa_pairs) > 0:
+            print(f"Quality retention: {len(filtered_pairs)/len(qa_pairs)*100:.1f}%")
+        else:
+            print("Quality retention: 0.0% (no pairs to filter)")
         
         return filtered_pairs
     

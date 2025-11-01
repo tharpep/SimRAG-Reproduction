@@ -165,8 +165,19 @@ class SimRAGBase:
                                     improved_results: Dict[str, Any]) -> Dict[str, Any]:
         """Calculate improvement metrics between baseline and improved results"""
         # Calculate average context scores
-        baseline_avg = sum(sum(scores) for scores in baseline_results["context_scores"]) / len(baseline_results["context_scores"])
-        improved_avg = sum(sum(scores) for scores in improved_results["context_scores"]) / len(improved_results["context_scores"])
+        baseline_scores = baseline_results.get("context_scores", [])
+        improved_scores = improved_results.get("context_scores", [])
+        
+        if not baseline_scores or not improved_scores:
+            return {
+                "baseline_context_score": 0,
+                "improved_context_score": 0,
+                "context_improvement_percent": 0,
+                "questions_tested": len(baseline_results.get("questions", []))
+            }
+        
+        baseline_avg = sum(sum(scores) for scores in baseline_scores) / len(baseline_scores)
+        improved_avg = sum(sum(scores) for scores in improved_scores) / len(improved_scores)
         
         # Calculate improvement percentage
         context_improvement = ((improved_avg - baseline_avg) / baseline_avg) * 100 if baseline_avg > 0 else 0
