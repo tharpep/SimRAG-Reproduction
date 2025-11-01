@@ -222,7 +222,7 @@ class TestTuningIntegration:
             
             assert tuner.trainer is not None
         
-        print(f"✅ Tuning workflow setup successful!")
+        print(f"[OK] Tuning workflow setup successful!")
         print(f"   Model: {config.model_name}")
         print(f"   Batch size: {config.optimized_batch_size}")
         print(f"   Epochs: {config.optimized_num_epochs}")

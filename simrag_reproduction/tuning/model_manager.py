@@ -23,9 +23,9 @@ def set_active_version(version: str):
     registry = get_model_registry(config)
     
     if registry.set_active_version(version):
-        print(f"✅ Version {version} is now active")
+        print(f"Version {version} is now active")
     else:
-        print(f"❌ Failed to set version {version} as active")
+        print(f"Failed to set version {version} as active")
         sys.exit(1)
 
 
@@ -68,7 +68,7 @@ def show_version_info(version: str):
     
     version_obj = registry.get_version(version)
     if not version_obj:
-        print(f"❌ Version {version} not found")
+        print(f"Version {version} not found")
         sys.exit(1)
     
     print(f"\n=== Version {version_obj.version} ===")
@@ -136,7 +136,7 @@ def main():
         elif args.command == 'info':
             show_version_info(args.version)
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"Error: {e}")
         sys.exit(1)
 
 

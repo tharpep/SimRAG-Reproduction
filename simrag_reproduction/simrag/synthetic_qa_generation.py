@@ -138,7 +138,7 @@ Questions:"""
                     print(f"  Error processing question: {e}")
                     continue
         
-        print(f"✅ Generated {len(qa_pairs)} synthetic QA pairs")
+        print(f"Generated {len(qa_pairs)} synthetic QA pairs")
         return qa_pairs
     
     def filter_high_quality_qa_pairs(self, qa_pairs: List[Dict[str, Any]], 
@@ -244,7 +244,7 @@ Questions:"""
             "avg_context_score": sum(sum(pair.get("context_scores", [0])) for pair in high_quality_pairs) / len(high_quality_pairs) if high_quality_pairs else 0
         }
         
-        print(f"✅ Synthetic dataset generated!")
+        print(f"Synthetic dataset generated!")
         print(f"   Documents: {dataset_info['total_documents']}")
         print(f"   QA pairs: {dataset_info['total_qa_pairs']}")
         print(f"   High quality: {dataset_info['high_quality_pairs']}")

@@ -110,13 +110,3 @@ class AIGateway:
     def get_available_providers(self) -> List[str]:
         """Get list of available providers"""
         return list(self.providers.keys())
-
-
-if __name__ == "__main__":
-    try:
-        gateway = AIGateway()
-        response = gateway.chat("Hello! What is your name?")
-        print(f"AI Response: {response}")
-        print(f"Available providers: {gateway.get_available_providers()}")
-    except Exception as e:
-        print(f"Error: {e}")

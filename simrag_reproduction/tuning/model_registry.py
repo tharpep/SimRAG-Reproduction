@@ -61,7 +61,7 @@ class ModelRegistry:
         """Register a new model version"""
         self._versions[model_version.version] = model_version
         self._save_registry()
-        print(f"✅ Registered model version {model_version.version}")
+        print(f"Registered model version {model_version.version}")
     
     def get_version(self, version: str) -> Optional[ModelVersion]:
         """Get a specific model version"""
@@ -94,7 +94,7 @@ class ModelRegistry:
     def set_active_version(self, version: str) -> bool:
         """Set a version as active (deactivates others)"""
         if version not in self._versions:
-            print(f"❌ Version {version} not found")
+            print(f"Version {version} not found")
             return False
         
         # Deactivate all versions
@@ -104,7 +104,7 @@ class ModelRegistry:
         # Activate the specified version
         self._versions[version].is_active = True
         self._save_registry()
-        print(f"✅ Set version {version} as active")
+        print(f"Set version {version} as active")
         return True
     
     def list_versions(self) -> None:

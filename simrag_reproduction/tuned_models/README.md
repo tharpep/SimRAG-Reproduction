@@ -2,6 +2,8 @@
 
 This directory contains all tuned model versions organized by model type and version.
 
+> **Note for Checkpoint 2**: The model registry entries (v1.0, v1.1) are placeholder data for demonstration purposes. No actual models have been trained yet. The SimRAG pipeline is implemented and ready, but training has not been executed.
+
 ## Directory Structure
 
 ```

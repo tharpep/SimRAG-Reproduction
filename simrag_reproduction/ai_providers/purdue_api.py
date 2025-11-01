@@ -101,22 +101,3 @@ class PurdueGenAI(BaseLLMClient):
             "mistral:latest",
             "mixtral:latest"
         ]
-
-
-# Example usage
-if __name__ == "__main__":
-    # Debug: Check if environment variable is loaded
-    api_key = os.getenv('PURDUE_API_KEY')
-    if api_key:
-        print(f" Found API key")
-    else:
-        print(" No API key found in environment variables")
-        print("Make sure your .env file contains: PURDUE_API_KEY=your-key-here")
-        exit(1)
-    
-    try:
-        client = PurdueGenAI()  # Uses PURDUE_API_KEY from environment
-        response = client.chat("Hello! What is your name?")
-        print(f"AI Response: {response}")
-    except Exception as e:
-        print(f"Error: {e}")

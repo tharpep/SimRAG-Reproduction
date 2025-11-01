@@ -42,7 +42,7 @@ class TestRAGSystem:
         
         assert rag is not None
         assert rag.collection_name == "test_docs"
-        print("✅ RAG system initialized successfully")
+        print("[OK] RAG system initialized successfully")
     
     def test_document_ingestion(self):
         """Test document ingestion process"""
@@ -57,15 +57,15 @@ class TestRAGSystem:
         supported_files = ingester.get_supported_files(self.documents_folder)
         
         assert len(supported_files) > 0, "No markdown files found in documents folder"
-        print(f"✅ Found {len(supported_files)} markdown files")
+        print(f"[OK] Found {len(supported_files)} markdown files")
         
         # Ingest documents
         result = ingester.ingest_folder(self.documents_folder)
         
         assert result["success"], f"Document ingestion failed: {result.get('error', 'Unknown error')}"
         assert result["processed"] > 0, "No files were processed"
-        print(f"✅ Processed {result['processed']} files, {result['failed']} failed")
-        print(f"✅ Total chunks indexed: {sum(f['chunks'] for f in result['files'])}")
+        print(f"[OK] Processed {result['processed']} files, {result['failed']} failed")
+        print(f"[OK] Total chunks indexed: {sum(f['chunks'] for f in result['files'])}")
     
     def test_vector_search(self):
         """Test vector search functionality"""
@@ -86,7 +86,7 @@ class TestRAGSystem:
         assert len(results) > 0, "No search results returned"
         assert all(isinstance(result, tuple) and len(result) == 2 for result in results), "Invalid result format"
         
-        print(f"✅ Search returned {len(results)} results")
+        print(f"[OK] Search returned {len(results)} results")
         for i, (doc, score) in enumerate(results, 1):
             print(f"  [{i}] (score: {score:.3f}) {doc[:100]}...")
     
@@ -112,8 +112,8 @@ class TestRAGSystem:
         context = "\n\n".join([doc for doc, score in retrieved_docs])
         assert len(context) > 0, "No context built from retrieved documents"
         
-        print(f"✅ Retrieved {len(retrieved_docs)} relevant documents")
-        print(f"✅ Built context of {len(context)} characters")
+        print(f"[OK] Retrieved {len(retrieved_docs)} relevant documents")
+        print(f"[OK] Built context of {len(context)} characters")
         print(f"Context preview: {context[:200]}...")
     
     def test_collection_stats(self):
@@ -134,7 +134,7 @@ class TestRAGSystem:
         assert stats["points_count"] > 0, "No points in collection"
         assert "vector_size" in stats, "Missing vector_size in stats"
         
-        print(f"✅ Collection stats: {stats}")
+        print(f"[OK] Collection stats: {stats}")
 
 
 def test_quick_demo():
@@ -160,7 +160,7 @@ def test_quick_demo():
     
     assert len(results) > 0, "No search results in demo"
     
-    print(f"✅ Demo: Added {count} documents, retrieved {len(results)} results")
+    print(f"[OK] Demo: Added {count} documents, retrieved {len(results)} results")
     for i, (doc, score) in enumerate(results, 1):
         print(f"  [{i}] (score: {score:.3f}) {doc[:100]}...")
 

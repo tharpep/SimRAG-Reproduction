@@ -63,7 +63,7 @@ class DomainAdaptation(SimRAGBase):
         )
         
         if not dataset["training_data"]:
-            print("❌ No training data generated")
+            print("No training data generated")
             return None
         
         # Load model and prepare training data
@@ -85,7 +85,7 @@ class DomainAdaptation(SimRAGBase):
         version = self.train_model(notes)
         
         if version:
-            print(f"✅ Stage 2 training completed!")
+            print(f"Stage 2 training completed!")
             print(f"Version: {version.version}")
             print(f"Training time: {version.training_time_seconds:.1f}s")
             if version.final_loss:
@@ -178,7 +178,7 @@ class DomainAdaptation(SimRAGBase):
                 print(f"Round {round_num + 1}: Training failed, stopping improvement")
                 break
         
-        print(f"\n✅ Self-improvement completed: {len(improvement_results)} rounds")
+        print(f"\nSelf-improvement completed: {len(improvement_results)} rounds")
         return improvement_results
     
     def test_stage_2_performance(self, rag_system: BasicRAG, test_questions: List[str]) -> Dict[str, Any]:

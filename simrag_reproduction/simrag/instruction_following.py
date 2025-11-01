@@ -111,7 +111,7 @@ class InstructionFollowing(SimRAGBase):
         version = self.train_model(notes)
         
         if version:
-            print(f"✅ Stage 1 training completed!")
+            print(f"Stage 1 training completed!")
             print(f"Version: {version.version}")
             print(f"Training time: {version.training_time_seconds:.1f}s")
             if version.final_loss:

@@ -182,7 +182,7 @@ class TestTuningDemo:
             assert config.optimized_batch_size == 8
             assert config.optimized_num_epochs == 3
         
-        print(f"✅ Demo configuration integration successful!")
+        print(f"[OK] Demo configuration integration successful!")
         print(f"   Hardware: {'Laptop' if config.use_laptop else 'PC'}")
         print(f"   Model: {config.model_name}")
         print(f"   Optimized batch size: {config.optimized_batch_size}")
