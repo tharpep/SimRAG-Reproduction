@@ -27,88 +27,75 @@ format: revealjs
 - **Target:** 5k-20k document corpus with +2-3% Recall@k or EM/F1 gains
 
 **Progress Since CP1:**
-- ✅ **Model Tuning Infrastructure:** Implemented versioned fine-tuning with hardware optimization
-- ✅ **Training Framework:** Added QLoRA support for efficient single-GPU training
-- ✅ **Version Management:** Created model registry system for tracking training phases
-- 🔄 **In Progress:** Stage I implementation with instruction-following datasets
-- 📋 **Next:** Synthetic QA generation and Stage II fine-tuning
+- **Model Tuning Infrastructure:** Implemented versioned fine-tuning with hardware optimization
+- **Training Framework:** Added QLoRA support for efficient single-GPU training
+- **Version Management:** Created model registry system for tracking training phases
+- **In Progress:** Stage I implementation with instruction-following datasets
+- **Next:** Synthetic QA generation and Stage II fine-tuning
 
 ---
 
 ## 3) Code Snippet 1: SimRAG Stage I Implementation {.smaller}
 
 ```python
-class SimRAGStageI:
-    def __init__(self, model_name: str, config: TuningConfig):
-        self.model_name = model_name
-        self.config = config
-        self.tuner = BasicTuner(model_name, config=config)
-        self.registry = get_model_registry(config)
+class InstructionFollowing(SimRAGBase):
+    """SimRAG Stage 1: Instruction-following fine-tuning"""
     
-    def prepare_instruction_data(self):
-        """Prepare instruction-following and QA datasets"""
-        instruction_data = [
-            "Question: What is Docker?\nAnswer: Docker is a platform...",
-            "Question: How does binary search work?\nAnswer: Binary search...",
-            "Question: What is DevOps?\nAnswer: DevOps is a set of practices..."
-        ]
-        return self.tuner.prepare_data(instruction_data)
+    def prepare_instruction_data(self, use_real_datasets: bool = True):
+        """Prepare instruction-following data for Stage 1"""
+        if use_real_datasets:
+            return self.load_instruction_datasets(["alpaca"])
+        else:
+            return self._generate_test_instruction_data()
     
-    def train_stage_i(self, notes: str = "SimRAG Stage I"):
-        """Train model on instruction-following data"""
-        train_data = self.prepare_instruction_data()
-        self.tuner.setup_trainer(train_data, num_epochs=3)
-        return self.tuner.train(notes=notes)
+    def train_stage_1(self, notes: str = "SimRAG Stage 1"):
+        """Train Stage 1: Instruction-following fine-tuning"""
+        instruction_data = self.prepare_instruction_data()
+        self.load_model()
+        train_dataset = self.prepare_training_data(instruction_data)
+        output_dir = f"./tuned_models/llama_1b/stage_1"
+        self.setup_trainer(train_dataset, output_dir, 
+                          num_epochs=self.config.simrag_stage_1_epochs)
+        return self.train_model(notes=notes)
 ```
 
 ---
 
 ## 4) Explanation of Snippet 1 {.smaller}
 
-**Function:** Implements SimRAG Stage I - retrieval-oriented fine-tuning on instruction-following and QA datasets.
+**Function:** Implements SimRAG Stage I - instruction-following fine-tuning using the `InstructionFollowing` class that extends `SimRAGBase`.
 
 **Key Components:**
-- `prepare_instruction_data()`: Creates training data from domain-specific Q&A pairs
-- `train_stage_i()`: Orchestrates the fine-tuning process with versioning
-- Integration with existing `BasicTuner` and model registry system
+- `prepare_instruction_data()`: Loads instruction-following datasets (with fallback to test data)
+- `train_stage_1()`: Orchestrates the complete Stage I training pipeline with versioning
+- Integration with `BasicTuner` for actual fine-tuning and model registry for version tracking
 
-**Importance:** This is the foundation of SimRAG's self-improvement loop. Stage I teaches the model to better follow instructions and answer questions, preparing it for Stage II's domain-specific adaptation. The versioning system tracks this as a distinct training phase.
+**Importance:** This is the foundation of SimRAG's self-improvement loop. Stage I teaches the model to better follow instructions and answer questions, preparing it for Stage II's domain-specific adaptation. The versioning system tracks this as a distinct training phase, and the infrastructure is ready for execution.
 
 ---
 
 ## 5) Code Snippet 2: Synthetic QA Generation {.smaller}
 
 ```python
-class SyntheticQAGenerator:
-    def __init__(self, rag_system: BasicRAG, model_name: str):
-        self.rag = rag_system
-        self.model_name = model_name
-        self.gateway = AIGateway()
-    
-    def generate_questions(self, document: str) -> List[str]:
-        """Generate questions from a document"""
-        prompt = f"""Given this document, generate 3 questions:
-        
-Document: {document}
-
-Generate diverse questions that test understanding of:
-1. Key concepts and definitions
-2. Process explanations
-3. Practical applications
-
+class SyntheticQAGeneration(SimRAGBase):
+    """SimRAG Stage 2: Synthetic QA generation from domain documents"""
+    def generate_questions_from_document(self, document: str, num_questions: int = 3):
+        """Generate questions from a single document using LLM"""
+        prompt = f"""Given this document, generate {num_questions} diverse questions:
+Document: {document[:500]}...
+Generate questions that cover key concepts, processes, and applications.
 Questions:"""
-        
         response = self.gateway.chat(prompt)
         return self._parse_questions(response)
     
-    def create_qa_pairs(self, documents: List[str]) -> List[Dict]:
-        """Create synthetic QA pairs from documents"""
+    def create_qa_pairs_from_documents(self, documents, questions_per_doc: int = 2):
+        """Create synthetic QA pairs from a list of documents"""
         qa_pairs = []
         for doc in documents:
-            questions = self.generate_questions(doc)
+            questions = self.generate_questions_from_document(doc, questions_per_doc)
             for q in questions:
-                answer, _, _ = self.rag.query(q)
-                qa_pairs.append({"question": q, "answer": answer, "context": doc})
+                answer, context_docs, context_scores = self.rag_system.query(q)
+                qa_pairs.append({"question": q, "answer": answer, "context": doc[:200], "context_scores": context_scores})
         return qa_pairs
 ```
 
@@ -116,52 +103,53 @@ Questions:"""
 
 ## 6) Explanation of Snippet 2 {.smaller}
 
-**Function:** Generates synthetic question-answer pairs from domain documents for SimRAG Stage II training.
+**Function:** Generates synthetic question-answer pairs from domain documents for SimRAG Stage II training using the `SyntheticQAGeneration` class.
 
 **Key Features:**
-- `generate_questions()`: Uses LLM to create diverse questions from documents
-- `create_qa_pairs()`: Combines generated questions with RAG-generated answers
-- Integration with existing RAG system for answer generation
+- `generate_questions_from_document()`: Uses LLM gateway to create diverse questions from documents
+- `create_qa_pairs_from_documents()`: Processes multiple documents and combines generated questions with RAG-generated answers
+- Quality tracking via context scores for filtering high-quality pairs
+- Integration with existing RAG system (`BasicRAG`) for answer generation
 
-**Importance:** This enables SimRAG's self-improvement by creating domain-specific training data without manual labeling. The synthetic QA pairs will be used in Stage II to fine-tune the model on domain-specific knowledge, completing the self-training loop.
+**Importance:** This enables SimRAG's self-improvement by creating domain-specific training data without manual labeling. The synthetic QA pairs will be used in Stage II to fine-tune the model on domain-specific knowledge, completing the self-training loop. The infrastructure is implemented and ready for execution.
 
 ---
 
-## 7) New Preliminary Result: Model Tuning Performance {.smaller}
+## 7) New Preliminary Result: Complete SimRAG Infrastructure {.smaller}
 
-**Status:** ✅ **Functional Model Tuning Pipeline**
+**Status:** **Fully Implemented SimRAG Pipeline Ready for Training**
 
-**Training Results:**
-- **Model Versions:** v1.0 (baseline) and v1.1 (improved) successfully trained
-- **Training Time:** 42.8-45.2 seconds per epoch (CPU-optimized)
-- **Loss Reduction:** v1.1 achieved 2.1234 vs v1.0's 2.3456 (9.5% improvement)
-- **Model Size:** 1.2MB (efficient QLoRA quantization)
-- **Hardware:** CPU-optimized training for laptop constraints
+**Infrastructure Achievements:**
+- **Complete Stage I Implementation:** `InstructionFollowing` class with dataset loading and training pipeline
+- **Complete Stage II Implementation:** `SyntheticQAGeneration` class with QA pair generation and quality filtering
+- **Model Versioning System:** Automated registry (`ModelRegistry`) tracking training metadata, versions, and model paths
+- **Hardware-Optimized Tuning:** `BasicTuner` with CPU/GPU auto-detection, QLoRA-ready architecture
+- **Integration:** Full RAG system (`BasicRAG`) integrated with SimRAG stages
 
-**Performance Metrics:**
-- **Training Efficiency:** 1 epoch in ~45 seconds
-- **Memory Usage:** <2GB RAM during training
-- **Model Registry:** Automated versioning and metadata tracking
-- **Reproducibility:** Consistent results across multiple training runs
+**Code Metrics:**
+- **SimRAG Module:** 4 core classes (Base, InstructionFollowing, SyntheticQAGeneration, DomainAdaptation)
+- **Tuning Infrastructure:** 3 modules (BasicTuner, ModelRegistry, ModelManager CLI)
+- **Test Coverage:** Comprehensive test suite across all components
+- **Architecture:** Clean separation of concerns, extensible design
 
-**Baseline Comparison:** Ready to compare tuned models against vanilla RAG performance.
+**Ready State:** All SimRAG components implemented and tested. Infrastructure ready to execute training runs.
 
 ---
 
 ## 8) Result Analysis & Next Steps {.smaller}
 
-**Analysis:** The tuning infrastructure is working with measurable improvements (9.5% loss reduction). The versioning system enables tracking of SimRAG's two-stage approach. However, we need to complete the full SimRAG pipeline to demonstrate end-to-end improvements.
+**Analysis:** The complete SimRAG infrastructure is implemented and ready for execution. All core components (Stage I, Stage II, versioning, tuning) are in place. The next step is to run actual training experiments to validate the methodology and measure improvements.
 
-**Immediate Next Steps for Full SimRAG Implementation:**
+**Immediate Next Steps:**
 
-1. **Complete Stage I:** Train on instruction-following datasets (Alpaca, ShareGPT)
+1. **Execute Stage I Training:** Run `InstructionFollowing.train_stage_1()` on instruction-following datasets to create baseline tuned model
 
-2. **Implement Synthetic QA Generation:** Generate domain-specific Q&A pairs from document corpus
+2. **Generate Synthetic Dataset:** Use `SyntheticQAGeneration.generate_synthetic_dataset()` on document corpus to create Stage II training data
 
-3. **Execute Stage II:** Fine-tune on synthetic QA pairs with quality filtering
+3. **Execute Stage II Training:** Fine-tune Stage I model on synthetic QA pairs using quality-filtered examples
 
-4. **Performance Evaluation:** Compare tuned vs baseline RAG on domain-specific queries
+4. **Performance Comparison:** Evaluate tuned vs baseline RAG on domain-specific queries (Recall@k, EM/F1)
 
-5. **Metrics Collection:** Measure Recall@k, EM/F1 improvements over vanilla RAG
+5. **Results Analysis:** Measure and report improvements, validate SimRAG's self-improvement claims
 
-**Expected Timeline:** 2-3 weeks to complete full SimRAG implementation and evaluation.
+**Decision Point:** Infrastructure complete. Ready to execute training runs to obtain empirical results comparing tuned vs baseline RAG performance.

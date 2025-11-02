@@ -147,14 +147,58 @@ def run_tests():
     
     # Check if user wants to run all tests
     if len(sys.argv) > 2 and sys.argv[2].lower() == "all":
-        print("Running all tests...")
-        try:
-            result = subprocess.run([python_cmd, "-m", "pytest", "tests/"], check=True)
+        print("=== Running All Tests ===")
+        print("")
+        
+        # Auto-detect test folders
+        tests_dir = Path("tests")
+        if not tests_dir.exists():
+            print("No tests directory found!")
+            return 1
+        
+        # Find all test folders
+        test_folders = []
+        for item in tests_dir.iterdir():
+            if item.is_dir() and (item.name.startswith("test_") or item.name.startswith("tests_")):
+                test_folders.append(item.name)
+        
+        if not test_folders:
+            print("No test folders found in tests/ directory!")
+            return 1
+        
+        print(f"Found {len(test_folders)} test folder(s):")
+        for folder in test_folders:
+            print(f"  - {folder}")
+        print("")
+        
+        # Run tests in each folder individually to ensure all are discovered
+        all_passed = True
+        failed_folders = []
+        
+        for folder in test_folders:
+            print(f"Running tests in: {folder}")
+            print("-" * 50)
+            try:
+                result = subprocess.run(
+                    [python_cmd, "-m", "pytest", f"tests/{folder}/", "-v"],
+                    check=True,
+                    cwd=Path.cwd()
+                )
+                print(f"[PASS] {folder} passed")
+                print("")
+            except subprocess.CalledProcessError as e:
+                print(f"[FAIL] {folder} failed with exit code {e.returncode}")
+                print("")
+                all_passed = False
+                failed_folders.append(folder)
+        
+        print("=" * 50)
+        if all_passed:
             print("All tests passed!")
             return 0
-        except subprocess.CalledProcessError as e:
-            print(f"Tests failed with exit code {e.returncode}")
-            return e.returncode
+        else:
+            print(f"Tests failed in {len(failed_folders)} folder(s): {', '.join(failed_folders)}")
+            return 1
     
     # Auto-detect test folders
     tests_dir = Path("tests")
