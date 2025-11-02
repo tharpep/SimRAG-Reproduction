@@ -49,9 +49,9 @@ class TestSimRAG:
         """Test InstructionFollowing class initialization"""
         print("\n=== Testing Instruction Following Initialization ===")
         
-        with patch('simrag.instruction_following.get_tuning_config', return_value=mock_config), \
-             patch('simrag.instruction_following.BasicTuner'), \
-             patch('simrag.instruction_following.get_model_registry', return_value=MagicMock()):
+        with patch('config.get_tuning_config', return_value=mock_config), \
+             patch('tuning.basic_tuning.BasicTuner'), \
+             patch('tuning.model_registry.get_model_registry', return_value=MagicMock()):
             
             from simrag.instruction_following import InstructionFollowing
             
@@ -64,9 +64,9 @@ class TestSimRAG:
         """Test instruction following data preparation"""
         print("\n=== Testing Instruction Following Data Preparation ===")
         
-        with patch('simrag.instruction_following.get_tuning_config', return_value=mock_config), \
-             patch('simrag.instruction_following.BasicTuner'), \
-             patch('simrag.instruction_following.get_model_registry', return_value=MagicMock()):
+        with patch('config.get_tuning_config', return_value=mock_config), \
+             patch('tuning.basic_tuning.BasicTuner'), \
+             patch('tuning.model_registry.get_model_registry', return_value=MagicMock()):
             
             from simrag.instruction_following import InstructionFollowing
             
@@ -81,11 +81,11 @@ class TestSimRAG:
         """Test SyntheticQAGeneration class initialization"""
         print("\n=== Testing Synthetic QA Generation Initialization ===")
         
-        with patch('simrag.synthetic_qa_generation.get_tuning_config', return_value=mock_config), \
-             patch('simrag.synthetic_qa_generation.BasicTuner'), \
-             patch('simrag.synthetic_qa_generation.get_model_registry', return_value=MagicMock()), \
-             patch('simrag.synthetic_qa_generation.BasicRAG'), \
-             patch('simrag.synthetic_qa_generation.AIGateway'):
+        with patch('config.get_tuning_config', return_value=mock_config), \
+             patch('tuning.basic_tuning.BasicTuner'), \
+             patch('tuning.model_registry.get_model_registry', return_value=MagicMock()), \
+             patch('rag.rag_setup.BasicRAG'), \
+             patch('ai_providers.gateway.AIGateway'):
             
             from simrag.synthetic_qa_generation import SyntheticQAGeneration
             
@@ -98,11 +98,11 @@ class TestSimRAG:
         """Test question parsing from LLM response"""
         print("\n=== Testing Question Parsing ===")
         
-        with patch('simrag.synthetic_qa_generation.get_tuning_config', return_value=mock_config), \
-             patch('simrag.synthetic_qa_generation.BasicTuner'), \
-             patch('simrag.synthetic_qa_generation.get_model_registry', return_value=MagicMock()), \
-             patch('simrag.synthetic_qa_generation.BasicRAG'), \
-             patch('simrag.synthetic_qa_generation.AIGateway'):
+        with patch('config.get_tuning_config', return_value=mock_config), \
+             patch('tuning.basic_tuning.BasicTuner'), \
+             patch('tuning.model_registry.get_model_registry', return_value=MagicMock()), \
+             patch('rag.rag_setup.BasicRAG'), \
+             patch('ai_providers.gateway.AIGateway'):
             
             from simrag.synthetic_qa_generation import SyntheticQAGeneration
             
@@ -123,11 +123,11 @@ class TestSimRAG:
         """Test QA pair quality filtering"""
         print("\n=== Testing QA Pair Filtering ===")
         
-        with patch('simrag.synthetic_qa_generation.get_tuning_config', return_value=mock_config), \
-             patch('simrag.synthetic_qa_generation.BasicTuner'), \
-             patch('simrag.synthetic_qa_generation.get_model_registry', return_value=MagicMock()), \
-             patch('simrag.synthetic_qa_generation.BasicRAG'), \
-             patch('simrag.synthetic_qa_generation.AIGateway'):
+        with patch('config.get_tuning_config', return_value=mock_config), \
+             patch('tuning.basic_tuning.BasicTuner'), \
+             patch('tuning.model_registry.get_model_registry', return_value=MagicMock()), \
+             patch('rag.rag_setup.BasicRAG'), \
+             patch('ai_providers.gateway.AIGateway'):
             
             from simrag.synthetic_qa_generation import SyntheticQAGeneration
             
@@ -162,11 +162,11 @@ class TestSimRAG:
         """Test handling of empty input"""
         print("\n=== Testing Empty Input Handling ===")
         
-        with patch('simrag.synthetic_qa_generation.get_tuning_config', return_value=mock_config), \
-             patch('simrag.synthetic_qa_generation.BasicTuner'), \
-             patch('simrag.synthetic_qa_generation.get_model_registry', return_value=MagicMock()), \
-             patch('simrag.synthetic_qa_generation.BasicRAG'), \
-             patch('simrag.synthetic_qa_generation.AIGateway'):
+        with patch('config.get_tuning_config', return_value=mock_config), \
+             patch('tuning.basic_tuning.BasicTuner'), \
+             patch('tuning.model_registry.get_model_registry', return_value=MagicMock()), \
+             patch('rag.rag_setup.BasicRAG'), \
+             patch('ai_providers.gateway.AIGateway'):
             
             from simrag.synthetic_qa_generation import SyntheticQAGeneration
             
@@ -182,10 +182,10 @@ class TestSimRAG:
         """Test DomainAdaptation class initialization"""
         print("\n=== Testing Domain Adaptation Initialization ===")
         
-        with patch('simrag.domain_adaptation.get_tuning_config', return_value=mock_config), \
-             patch('simrag.domain_adaptation.BasicTuner'), \
-             patch('simrag.domain_adaptation.get_model_registry', return_value=MagicMock()), \
-             patch('simrag.domain_adaptation.SyntheticQAGeneration'):
+        with patch('config.get_tuning_config', return_value=mock_config), \
+             patch('tuning.basic_tuning.BasicTuner'), \
+             patch('tuning.model_registry.get_model_registry', return_value=MagicMock()), \
+             patch('simrag.synthetic_qa_generation.SyntheticQAGeneration'):
             
             from simrag.domain_adaptation import DomainAdaptation
             
@@ -198,10 +198,10 @@ class TestSimRAG:
         """Test DomainAdaptation with Stage 1 model path"""
         print("\n=== Testing Domain Adaptation with Stage 1 Model ===")
         
-        with patch('simrag.domain_adaptation.get_tuning_config', return_value=mock_config), \
-             patch('simrag.domain_adaptation.BasicTuner'), \
-             patch('simrag.domain_adaptation.get_model_registry', return_value=MagicMock()), \
-             patch('simrag.domain_adaptation.SyntheticQAGeneration'):
+        with patch('config.get_tuning_config', return_value=mock_config), \
+             patch('tuning.basic_tuning.BasicTuner'), \
+             patch('tuning.model_registry.get_model_registry', return_value=MagicMock()), \
+             patch('simrag.synthetic_qa_generation.SyntheticQAGeneration'):
             
             from simrag.domain_adaptation import DomainAdaptation
             
@@ -213,9 +213,9 @@ class TestSimRAG:
         """Test SimRAGBase common functionality"""
         print("\n=== Testing SimRAG Base Functionality ===")
         
-        with patch('simrag.instruction_following.get_tuning_config', return_value=mock_config), \
-             patch('simrag.instruction_following.BasicTuner'), \
-             patch('simrag.instruction_following.get_model_registry', return_value=MagicMock()):
+        with patch('config.get_tuning_config', return_value=mock_config), \
+             patch('tuning.basic_tuning.BasicTuner'), \
+             patch('tuning.model_registry.get_model_registry', return_value=MagicMock()):
             
             from simrag.instruction_following import InstructionFollowing
             

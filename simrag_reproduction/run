@@ -180,7 +180,7 @@ def run_tests():
             print("-" * 50)
             try:
                 result = subprocess.run(
-                    [python_cmd, "-m", "pytest", f"tests/{folder}/", "-v"],
+                    [python_cmd, "-m", "pytest", f"tests/{folder}/", "-v", "--cache-clear"],
                     check=True,
                     cwd=Path.cwd()
                 )
