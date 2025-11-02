@@ -131,7 +131,7 @@ Questions:"""
 - **Tuning Infrastructure:** 3 modules (BasicTuner, ModelRegistry, ModelManager CLI)
 - **Test Coverage:** 66 tests across 5 test suites (all passing)
   - AI Providers: 37 tests (gateway, Ollama, Purdue API)
-  - RAG System: 6 tests (5 passed, 1 skipped due to missing data)
+  - RAG System: 6 tests (all passed)
   - SimRAG: 9 tests (full Stage I/II coverage)
   - Tuning: 10 tests (full BasicTuner workflow)
   - Integration: 4 tests (skipped until demo modules created)
