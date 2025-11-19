@@ -8,9 +8,9 @@ import sys
 from pathlib import Path
 from typing import Dict, Any, Optional
 
-from simrag.domain_adaptation import DomainAdaptation
-from config import get_tuning_config
-from logging_config import setup_logging, get_logger
+from ...simrag.domain_adaptation import DomainAdaptation
+from ...config import get_tuning_config
+from ...logging_config import setup_logging, get_logger
 
 # Setup logging
 setup_logging()

@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "SimRAG paper reproduction - RAG and fine-tuning implementation"
 authors = ["Your Name <your.email@example.com>"]
 readme = "README.md"
+# Package configuration: simrag_reproduction/ is the package root
+packages = [{include = "simrag_reproduction"}]
 
 [tool.poetry.dependencies]
 python = ">=3.9"
@@ -31,7 +33,7 @@ black = "*"
 mypy = ">=1.0.0"
 
 [tool.poetry.scripts]
-simrag = "cli.main:main"
+simrag = "simrag_reproduction.cli.main:main"
 
 [build-system]
 requires = ["poetry-core"]
@@ -58,4 +60,12 @@ python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+# Test discovery patterns
+testpaths = ["tests"]
+norecursedirs = [".git", "__pycache__", ".pytest_cache", "*.egg", "dist", "build", "src"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
 

@@ -4,8 +4,8 @@ Simple tests for BasicTuner - focus on setup and configuration
 
 import pytest
 from unittest.mock import patch, MagicMock
-from tuning.basic_tuning import BasicTuner
-from config import get_tuning_config
+from simrag_reproduction.tuning.basic_tuning import BasicTuner
+from simrag_reproduction.config import get_tuning_config
 
 
 class TestBasicTuner:

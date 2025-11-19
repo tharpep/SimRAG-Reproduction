@@ -7,9 +7,9 @@ import os
 import pytest
 from pathlib import Path
 
-from rag.rag_setup import BasicRAG
-from rag.document_ingester import DocumentIngester
-from config import RAGConfig
+from simrag_reproduction.rag.rag_setup import BasicRAG
+from simrag_reproduction.rag.document_ingester import DocumentIngester
+from simrag_reproduction.config import RAGConfig
 
 
 class TestRAGSystem:

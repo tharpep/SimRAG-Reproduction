@@ -7,7 +7,7 @@ import argparse
 import sys
 from pathlib import Path
 from .model_registry import ModelRegistry, get_model_registry
-from config import get_tuning_config
+from ..config import get_tuning_config
 
 
 def list_versions():

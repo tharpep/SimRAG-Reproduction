@@ -7,9 +7,9 @@ import json
 from pathlib import Path
 from datetime import datetime
 
-from simrag.instruction_following import InstructionFollowing
-from config import get_tuning_config
-from logging_config import setup_logging, get_logger
+from ...simrag.instruction_following import InstructionFollowing
+from ...config import get_tuning_config
+from ...logging_config import setup_logging, get_logger
 
 # Setup logging
 setup_logging()

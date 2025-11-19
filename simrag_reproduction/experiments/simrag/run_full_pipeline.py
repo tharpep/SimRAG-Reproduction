@@ -7,12 +7,12 @@ import json
 from pathlib import Path
 from datetime import datetime
 
-from simrag.instruction_following import InstructionFollowing
-from simrag.domain_adaptation import DomainAdaptation
-from rag.rag_setup import BasicRAG
-from config import get_tuning_config, get_rag_config
-from experiments.utils import load_documents_from_folder, get_test_questions
-from logging_config import setup_logging, get_logger
+from ...simrag.instruction_following import InstructionFollowing
+from ...simrag.domain_adaptation import DomainAdaptation
+from ...rag.rag_setup import BasicRAG
+from ...config import get_tuning_config, get_rag_config
+from ..utils import load_documents_from_folder, get_test_questions
+from ...logging_config import setup_logging, get_logger
 
 # Setup logging
 setup_logging()

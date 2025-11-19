@@ -42,11 +42,11 @@ def test(
     if not check_venv():
         raise typer.Exit(1)
 
-    # Use Poetry's Python if available, otherwise fallback
-    python_cmd = "python"
+    # Always use Poetry to run tests to ensure correct environment
+    use_poetry = True
     if not is_poetry_environment():
-        from ..utils import get_python_cmd
-        python_cmd = get_python_cmd()
+        # If not in Poetry environment, try to use poetry run
+        use_poetry = True  # Still try poetry run - it will work if poetry is installed
 
     # Find tests directory
     tests_dir = _find_tests_dir()
@@ -88,11 +88,18 @@ def test(
                 test_path = tests_dir / folder
                 # Convert to relative path from project root
                 rel_path = test_path.relative_to(project_root)
-                result = subprocess.run(
-                    [python_cmd, "-m", "pytest", str(rel_path), "-v", "--cache-clear"],
-                    check=True,
-                    cwd=project_root
-                )
+                if use_poetry:
+                    result = subprocess.run(
+                        ["poetry", "run", "pytest", str(rel_path), "-v", "--cache-clear"],
+                        check=True,
+                        cwd=project_root
+                    )
+                else:
+                    result = subprocess.run(
+                        [python_cmd, "-m", "pytest", str(rel_path), "-v", "--cache-clear"],
+                        check=True,
+                        cwd=project_root
+                    )
                 typer.echo(f"[PASS] {folder} passed")
                 typer.echo("")
             except subprocess.CalledProcessError as e:
@@ -128,7 +135,12 @@ def test(
             # Use file path relative to project root
             test_path = tests_dir / category
             rel_path = test_path.relative_to(project_root)
-            result = subprocess.run([python_cmd, "-m", "pytest", str(rel_path), "-v", "-s"], check=True, cwd=project_root)
+            if use_poetry:
+                result = subprocess.run(["poetry", "run", "pytest", str(rel_path), "-v", "-s"], check=True, cwd=project_root)
+            else:
+                from ..utils import get_python_cmd
+                python_cmd = get_python_cmd()
+                result = subprocess.run([python_cmd, "-m", "pytest", str(rel_path), "-v", "-s"], check=True, cwd=project_root)
             typer.echo(f"\n{category} completed successfully!")
             raise typer.Exit(0)
         except subprocess.CalledProcessError as e:
@@ -137,7 +149,7 @@ def test(
             raise typer.Exit(e.returncode)
 
     # No category specified - show interactive selection
-    _run_tests_interactive(python_cmd, tests_dir)
+    _run_tests_interactive(use_poetry, tests_dir)
 
 
 def _list_test_categories() -> None:
@@ -155,7 +167,7 @@ def _list_test_categories() -> None:
         typer.echo(f"  - {folder}", err=True)
 
 
-def _run_tests_interactive(python_cmd: str, tests_dir: Path) -> None:
+def _run_tests_interactive(use_poetry: bool, tests_dir: Path) -> None:
     """Interactive test selection menu"""
     if not tests_dir or not tests_dir.exists():
         typer.echo("No tests directory found!", err=True)
@@ -200,7 +212,12 @@ def _run_tests_interactive(python_cmd: str, tests_dir: Path) -> None:
             project_root = _find_project_root()
             test_path = tests_dir / selected_folder
             rel_path = test_path.relative_to(project_root)
-            result = subprocess.run([python_cmd, "-m", "pytest", str(rel_path), "-v", "-s"], check=True, cwd=project_root)
+            if use_poetry:
+                result = subprocess.run(["poetry", "run", "pytest", str(rel_path), "-v", "-s"], check=True, cwd=project_root)
+            else:
+                from ..utils import get_python_cmd
+                python_cmd = get_python_cmd()
+                result = subprocess.run([python_cmd, "-m", "pytest", str(rel_path), "-v", "-s"], check=True, cwd=project_root)
 
             typer.echo(f"\n{selected_folder} completed successfully!")
             raise typer.Exit(0)

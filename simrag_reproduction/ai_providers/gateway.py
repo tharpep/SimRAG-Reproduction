@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from .purdue_api import PurdueGenAI
 from .local import OllamaClient, OllamaConfig
 from .huggingface_client import HuggingFaceClient
-from config import get_rag_config
+from ..config import get_rag_config
 
 # Load environment variables from .env file
 load_dotenv()

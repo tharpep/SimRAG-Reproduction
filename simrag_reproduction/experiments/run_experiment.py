@@ -7,13 +7,13 @@ import argparse
 import sys
 from pathlib import Path
 
-from logging_config import setup_logging, get_logger
+from ..logging_config import setup_logging, get_logger
 
 # Import experiment modules
-from experiments.baseline.run_baseline import run_baseline_test
-from experiments.simrag.run_stage1 import run_stage1_training
-from experiments.simrag.run_stage2 import run_stage2_training
-from experiments.comparison.compare_results import compare_results
+from .baseline.run_baseline import run_baseline_test
+from .simrag.run_stage1 import run_stage1_training
+from .simrag.run_stage2 import run_stage2_training
+from .comparison.compare_results import compare_results
 
 # Setup logging
 setup_logging()
@@ -65,7 +65,7 @@ def run_complete_experiment(
         logger.info("\n[2/3] Running SimRAG Pipeline...")
         
         # Run full pipeline (Stage 1 -> Stage 2 -> Testing)
-        from experiments.simrag.run_full_pipeline import run_full_pipeline
+        from .simrag.run_full_pipeline import run_full_pipeline
         simrag_results = run_full_pipeline(
             documents_folder=documents_folder,
             use_real_datasets=use_real_datasets,

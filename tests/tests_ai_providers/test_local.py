@@ -5,7 +5,7 @@ Test Ollama local client
 import pytest
 import asyncio
 from unittest.mock import patch, MagicMock, AsyncMock
-from ai_providers.local import OllamaClient, OllamaConfig
+from simrag_reproduction.ai_providers.local import OllamaClient, OllamaConfig
 
 
 class TestOllamaConfig:

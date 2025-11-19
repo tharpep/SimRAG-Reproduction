@@ -7,7 +7,7 @@ import os
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
-from logging_config import get_logger
+from ..logging_config import get_logger
 from .base import SimRAGBase
 from .synthetic_qa_generation import SyntheticQAGeneration
 from rag.rag_setup import BasicRAG

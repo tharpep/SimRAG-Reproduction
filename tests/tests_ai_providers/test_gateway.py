@@ -5,7 +5,7 @@ Test AI Gateway functionality
 import pytest
 import os
 from unittest.mock import patch, MagicMock
-from ai_providers.gateway import AIGateway
+from simrag_reproduction.ai_providers.gateway import AIGateway
 
 
 class TestAIGateway:

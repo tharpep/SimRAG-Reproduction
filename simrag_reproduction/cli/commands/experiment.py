@@ -44,8 +44,8 @@ def _run_full_experiment(
 ) -> None:
     """Run complete experiment pipeline"""
     try:
-        from experiments.run_experiment import run_complete_experiment
-        from logging_config import setup_logging
+        from ...experiments.run_experiment import run_complete_experiment
+        from ...logging_config import setup_logging
 
         setup_logging()
 
@@ -69,8 +69,8 @@ def _run_full_experiment(
 def _run_baseline(documents: Optional[str]) -> None:
     """Run baseline experiment"""
     try:
-        from experiments.baseline.run_baseline import run_baseline_test
-        from logging_config import setup_logging
+        from ...experiments.baseline.run_baseline import run_baseline_test
+        from ...logging_config import setup_logging
 
         setup_logging()
 
@@ -91,8 +91,8 @@ def _run_baseline(documents: Optional[str]) -> None:
 def _run_simrag(documents: Optional[str], test_data: bool) -> None:
     """Run SimRAG pipeline"""
     try:
-        from experiments.simrag.run_full_pipeline import run_full_pipeline
-        from logging_config import setup_logging
+        from ...experiments.simrag.run_full_pipeline import run_full_pipeline
+        from ...logging_config import setup_logging
 
         setup_logging()
 
@@ -114,13 +114,13 @@ def _run_simrag(documents: Optional[str], test_data: bool) -> None:
 def _run_compare(baseline_file: Optional[str], simrag_file: Optional[str]) -> None:
     """Compare experiment results"""
     try:
-        from experiments.comparison.compare_results import compare_results
-        from logging_config import setup_logging
+        from ...experiments.comparison.compare_results import compare_results
+        from ...logging_config import setup_logging
         from pathlib import Path
 
         setup_logging()
 
-        results_dir = Path("experiments")
+        results_dir = Path("simrag_reproduction/experiments")
         if not baseline_file:
             baseline_file = str(results_dir / "baseline" / "results" / "baseline_results.json")
         if not simrag_file:
