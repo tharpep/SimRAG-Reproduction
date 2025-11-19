@@ -139,25 +139,34 @@ class SimRAGBase:
             version: Specific version to load (default: latest)
             
         Returns:
-            Model path if found
+            Model path if found (absolute path)
         """
         if not self.registry:
             return None
         
         try:
             if version:
-                # Try to get specific version info
-                model_info = getattr(self.registry, 'get_version_info', lambda x: None)(version)
+                # Get specific version
+                model_info = self.registry.get_version(version)
             else:
                 # Get active version
-                model_info = getattr(self.registry, 'get_active_version', lambda: None)()
+                model_info = self.registry.get_active_version()
             
             if model_info:
                 # Construct model path from registry info
                 model_suffix = "1b" if self.config.use_laptop else "8b"
                 base_dir = f"./tuned_models/llama_{model_suffix}"
-                version_name = getattr(model_info, 'version', version or 'latest')
-                return f"{base_dir}/{version_name}"
+                version_name = model_info.version
+                model_path = f"{base_dir}/{version_name}"
+                
+                # Convert to absolute path
+                from pathlib import Path
+                abs_path = Path(model_path).resolve()
+                if abs_path.exists():
+                    return str(abs_path)
+                else:
+                    logger.warning(f"Model path does not exist: {abs_path}")
+                    return None
             
         except Exception as e:
             logger.error(f"Error loading model from registry: {e}")

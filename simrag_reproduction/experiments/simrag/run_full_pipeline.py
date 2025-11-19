@@ -116,8 +116,19 @@ def run_full_pipeline(
     logger.info("TESTING: Evaluating SimRAG Performance")
     logger.info("="*60)
     
-    # Initialize RAG with documents - use local model (Ollama) for testing
-    rag = BasicRAG(collection_name="simrag_test", use_persistent=False, force_provider="ollama")
+    # Get the fine-tuned Stage 2 model path
+    stage2_model_path = stage2.get_model_from_registry(version2.version)
+    if not stage2_model_path:
+        raise Exception(f"Could not find Stage 2 model path for version {version2.version}")
+    
+    logger.info(f"Using fine-tuned model: {stage2_model_path}")
+    
+    # Initialize RAG with documents - use fine-tuned model for testing
+    rag = BasicRAG(
+        collection_name="simrag_test", 
+        use_persistent=False, 
+        model_path=stage2_model_path  # Use fine-tuned model
+    )
     rag.add_documents(documents)
     
     # Test performance

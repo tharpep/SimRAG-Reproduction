@@ -13,20 +13,28 @@ from typing import Optional
 class BasicRAG:
     """RAG system that orchestrates vector storage, retrieval, and generation"""
     
-    def __init__(self, collection_name=None, use_persistent=None, force_provider=None):
+    def __init__(self, collection_name=None, use_persistent=None, force_provider=None, model_path=None):
         """
         Initialize RAG system
         
         Args:
             collection_name: Name for Qdrant collection (uses config default if None)
             use_persistent: If True, use persistent Qdrant storage (uses config default if None)
-            force_provider: Force provider to use ("purdue" or "ollama"). If None, uses config default.
+            force_provider: Force provider to use ("purdue", "ollama", or "huggingface"). If None, uses config default.
+            model_path: Path to fine-tuned HuggingFace model (only used if force_provider="huggingface")
         """
         self.config = get_rag_config()
         self.collection_name = collection_name or self.config.collection_name
         
         # Initialize components
-        self.gateway = AIGateway()
+        gateway_config = {}
+        
+        # If model_path is provided, use HuggingFace client
+        if model_path:
+            gateway_config["huggingface"] = {"model_path": model_path}
+            force_provider = "huggingface"
+        
+        self.gateway = AIGateway(gateway_config)
         self.force_provider = force_provider
         
         # Override gateway chat if provider is forced

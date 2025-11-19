@@ -9,6 +9,7 @@ import asyncio
 from typing import Dict, Any, Optional, List
 from .purdue_api import PurdueGenAI
 from .local import OllamaClient, OllamaConfig
+from .huggingface_client import HuggingFaceClient
 from config import get_rag_config
 
 # Load environment variables from .env file
@@ -49,6 +50,12 @@ class AIGateway:
             self.providers["purdue"] = PurdueGenAI(api_key)
         elif os.getenv('PURDUE_API_KEY'):
             self.providers["purdue"] = PurdueGenAI()
+        
+        # Setup HuggingFace provider if model path is provided
+        if "huggingface" in config:
+            model_path = config["huggingface"].get("model_path")
+            if model_path:
+                self.providers["huggingface"] = HuggingFaceClient(model_path)
         
         # Setup Local Ollama provider
         if "ollama" in config:
@@ -109,6 +116,9 @@ class AIGateway:
         # Handle different provider types
         if provider == "ollama":
             return self._chat_ollama(provider_client, message, model)
+        elif provider == "huggingface":
+            # HuggingFace client ignores model parameter (uses loaded model)
+            return provider_client.chat(message)
         else:
             # Use config model for Purdue API if no model specified
             model = model or self.rag_config.model_name
