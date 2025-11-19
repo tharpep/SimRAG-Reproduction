@@ -1,20 +1,21 @@
-\documentclass{article}
+\documentclass[11pt]{article}
 
-% ICLR Paper Style
-\usepackage[preprint]{neurips_2024}
+% Standard packages available in Overleaf
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
 \usepackage{hyperref}
 \usepackage{url}
 \usepackage{booktabs}
 \usepackage{amsfonts}
-\usepackage{nicefrac}
-\usepackage{microtype}
+\usepackage{amsmath}
 \usepackage{graphicx}
 \usepackage{subcaption}
-\usepackage{amsmath}
-\usepackage{algorithm}
-\usepackage{algorithmic}
+\usepackage{microtype}
+
+% Make citations work without .bib file (they'll show as [citation-key])
+% Remove this and uncomment bibliography section below when ready to add references.bib
+\providecommand{\cite}[1]{[#1]}
 
 % Title and Author Information
 \title{SimRAG Reproduction: A Simplified Implementation of\\Retrieval-Augmented Generation with Fine-Tuning}
@@ -36,7 +37,7 @@
 % - Main findings
 % - Contribution/insights
 
-This work presents a simplified reproduction of the SimRAG (Simplified Retrieval-Augmented Generation) framework, focusing on core concepts of RAG systems and model fine-tuning. We implement a minimalist version that distills the essential components: document retrieval using semantic embeddings, vector storage with Qdrant, and fine-tuning language models for domain adaptation. Our implementation verifies the core hypothesis that combining retrieval-augmented generation with targeted fine-tuning improves question-answering performance on domain-specific documents. Through small-scale experiments with local and cloud-based LLMs, we demonstrate the feasibility of the approach and analyze the trade-offs between retrieval quality, model size, and computational resources. Our findings validate the core insights of SimRAG while providing an educational framework for understanding RAG systems.
+We present a simplified reproduction of SimRAG, implementing core RAG components (semantic retrieval, Qdrant vector storage, two-stage fine-tuning) to verify that RAG + fine-tuning improves domain-specific QA performance. Using consumer hardware (RTX 3080/CPU) with smaller models (Llama 3.2 1B, Qwen 2.5 7B), we demonstrate feasibility and validate SimRAG's core insights while providing an accessible framework for understanding RAG systems.
 
 \end{abstract}
 
@@ -51,36 +52,37 @@ This work presents a simplified reproduction of the SimRAG (Simplified Retrieval
 % - Scope: What aspects you're focusing on (simplification)
 
 \subsection{Motivation}
-% TODO: Discuss importance of RAG systems in modern AI
-% - How RAG addresses LLM limitations (hallucination, knowledge cutoff)
-% - Why SimRAG is a good paper to reproduce
-% - Educational value of understanding RAG fundamentals
+
+\textbf{LLM Limitations}: Hallucination and knowledge cutoff limit LLM effectiveness on domain-specific tasks. RAG addresses this by combining retrieval with generation, grounding responses in external knowledge.
+
+\textbf{Domain-Specific Challenge}: Standard RAG struggles with specialized corpora requiring domain adaptation. SimRAG proposes self-improving fine-tuning for RAG tasks.
+
+\textbf{Reproduction Goal}: Verify SimRAG's claim that RAG + fine-tuning improves domain-specific QA. Demonstrate feasibility on constrained hardware (RTX 3080/CPU) for educational accessibility.
 
 \subsection{Paper Selection and Hypothesis}
-% TODO: Explain why SimRAG was chosen
-% - Accessible implementation requirements
-% - Clear, testable claims
-% - Educational value
-% - State the core hypothesis you're testing:
-%   "Combining retrieval-augmented generation with fine-tuning improves 
-%    domain-specific question answering performance"
+
+\textbf{Selection Rationale}: Clear testable hypothesis, accessible implementation (standard RAG components), educational value (self-improvement via synthetic data).
+
+\textbf{Core Hypothesis}: \textit{Two-stage fine-tuning (instruction-following + domain adaptation) improves RAG performance on domain-specific documents vs. vanilla RAG}.
+
+\textbf{Success Criteria}: (1) +2–3\% improvement in average context relevance scores, (2) better answer quality on domain questions, (3) feasible on consumer hardware (RTX 3080/CPU).
 
 \subsection{Scope and Simplifications}
-% TODO: Describe your simplified approach
-% - What components you implemented (basic RAG, fine-tuning)
-% - What you simplified or omitted (complex multi-stage training, etc.)
-% - Hardware constraints (laptop vs PC configurations)
-% - Justification for simplifications
+
+\textbf{Implemented}: (1) RAG system (sentence-transformers + Qdrant), (2) Stage 1 fine-tuning (Alpaca dataset), (3) Stage 2 domain adaptation (synthetic QA), (4) Baseline vanilla RAG.
+
+\textbf{Simplifications}: (1) Smaller models (Llama 3.2 1B/CPU, Qwen 2.5 7B/GPU), (2) Standard fine-tuning (no QLoRA), (3) Smaller corpus (5k–20k chunks), (4) Limited self-improvement rounds. \textbf{Justification}: Verify improvement \textit{trend} rather than match exact numbers; demonstrate hardware accessibility.
 
 \section{Related Work}
 \label{sec:related}
 
-% TODO: Write related work section (0.5 page)
-% Should cover:
-% - RAG systems (original RAG paper, other variants)
-% - Fine-tuning approaches for domain adaptation
-% - SimRAG paper overview
-% - How your work relates to existing literature
+\textbf{RAG Foundations}: Lewis et al.~\cite{lewis2020retrieval} introduced RAG combining parametric (model weights) and non-parametric (retrieved docs) knowledge. Subsequent work improved retrieval~\cite{karpukhin2020dense}, reranking~\cite{wang2022retrieval}, and hybrid approaches~\cite{ram2023retrieval}.
+
+\textbf{Domain Adaptation}: RAFT~\cite{zhang2024raft} adapts models for domain-specific retrievers. Other methods use contrastive learning~\cite{izacard2022atlas} or instruction tuning~\cite{wei2022finetuned}, but require labeled domain data.
+
+\textbf{SimRAG}: Self-improving framework generating synthetic QA pairs from unlabeled documents. Two-stage fine-tuning: (1) general instruction-following, (2) domain adaptation with synthetic QA. Reduces need for labeled data.
+
+\textbf{Our Contribution}: Simplified reproduction verifying SimRAG on constrained hardware (consumer-grade vs. large-scale infrastructure).
 
 \section{Method}
 \label{sec:method}
@@ -89,39 +91,40 @@ This work presents a simplified reproduction of the SimRAG (Simplified Retrieval
 % This is the core of your reproduction study
 
 \subsection{Hypothesis Distillation}
-% TODO: Clearly state the core hypothesis
-% - What claim from SimRAG are you testing?
-% - How did you distill it to a testable form?
-% - What are your success criteria?
+
+\textbf{Original Claim}: Self-improving RAG achieves improvements via iterative fine-tuning on synthetic data.
+
+\textbf{Testable Hypothesis}: \textit{Two-stage fine-tuning (instruction-following + domain adaptation) improves RAG on domain documents vs. vanilla RAG}.
+
+\textbf{Success Criteria}: (1) +2–3\% avg context relevance (cosine similarity), (2) better answer quality (coherence, domain terminology), (3) feasible on RTX 3080/CPU.
+
+\textbf{Focus}: Verify improvement \textit{direction}, not exact numbers (hardware/implementation differ from original).
 
 \subsection{System Architecture}
-% TODO: Describe your implementation architecture
-% - RAG components: vector store, retriever, generator
-% - Fine-tuning pipeline
-% - Model versioning system
-% - Configuration management
+
+\textbf{Three Subsystems}: (1) \textit{RAG}: VectorStore (Qdrant), DocumentRetriever (embeddings), AIGateway (Ollama/Purdue/HuggingFace), orchestrated by BasicRAG. (2) \textit{Fine-tuning}: InstructionFollowing (Stage 1), SyntheticQAGeneration (QA pairs), DomainAdaptation (Stage 2), all inherit SimRAGBase. (3) \textit{Experiment Management}: Model registry (versioning, metadata, experiment run IDs), configuration system (hardware-aware, env var overrides).
 
 \subsubsection{Retrieval-Augmented Generation}
-% TODO: Detail RAG implementation
-% - Document ingestion and chunking strategy
-% - Embedding model (sentence-transformers)
-% - Vector store (Qdrant) setup
-% - Retrieval mechanism (top-k, similarity threshold)
-% - Prompt construction for generation
+
+\textbf{Components}: (1) \textit{Document ingestion}: HTML/Markdown/text → chunks (200–500 tokens), preserves boundaries. (2) \textit{Embeddings}: sentence-transformers → dense vectors → Qdrant (cosine similarity, in-memory/persistent). (3) \textit{Retrieval}: Query embedding → top-$k=5$ search → filter by threshold (0.7) → return docs + scores. (4) \textit{Generation}: Prompt = "Context: [docs]\n\nQuestion: [query]\n\nAnswer:" → LLM (Ollama baseline or HuggingFace fine-tuned).
 
 \subsubsection{Model Fine-Tuning}
-% TODO: Describe fine-tuning approach
-% - Base models used (Llama 3.2 1B, Qwen 2.5)
-% - Training data preparation
-% - Fine-tuning stages (if applicable)
-% - Hardware-aware optimizations
+
+\textbf{Base Models}: Llama 3.2 1B (CPU/laptop), Qwen 2.5 7B (GPU). HuggingFace Transformers, causal LM objective.
+
+\textbf{Stage 1}: Alpaca dataset (52K examples), format "Question: [instruction]\nAnswer: [response]". LR=$5 \times 10^{-5}$, batch=1–8, epochs=1–3.
+
+\textbf{Stage 2}: Continues from Stage 1 model. Synthetic QA from domain docs (Purdue API for questions, RAG for answers). Filter: context score $\geq 0.7$. Same hyperparams, fewer epochs (1–2).
+
+\textbf{Optimizations}: Auto device detection, batch size (1 CPU/8 GPU), epoch reduction (CPU), model versioning.
 
 \subsection{Baseline Implementation}
-% TODO: Describe baseline(s) for comparison
-% - Vanilla RAG (no fine-tuning)
-% - Fine-tuned model without RAG
-% - Original model performance
-% - Justification for baseline selection
+
+\textbf{Vanilla RAG}: Same components as SimRAG (Qdrant, sentence-transformers, top-$k=5$, threshold=0.7) but uses base Ollama model (Llama 3.2 1B) without fine-tuning.
+
+\textbf{Justification}: Isolates fine-tuning effect; identical infrastructure → differences attributed to fine-tuning. Represents standard RAG practice.
+
+\textbf{Scope}: Tests RAG + fine-tuning combination; no separate "fine-tuned without RAG" baseline needed.
 
 \section{Experiments}
 \label{sec:experiments}
@@ -130,25 +133,34 @@ This work presents a simplified reproduction of the SimRAG (Simplified Retrieval
 % This should detail your experimental design
 
 \subsection{Experimental Design}
-% TODO: Describe experimental setup
-% - Dataset: HTML documents from Docker/DevOps tutorials
-% - Test questions: Domain-specific queries
-% - Evaluation metrics: Context relevance scores, answer quality
-% - Hardware configurations: Laptop (CPU) vs PC (GPU)
+
+\textbf{Dataset}: HTML docs (Docker/DevOps/cloud computing), 5k–20k chunks, domain-specific knowledge required.
+
+\textbf{Test Questions}: 10 questions (e.g., "What is Docker?", "How does CI/CD work?"), require retrieval + generation with domain terminology.
+
+\textbf{Metrics}: (1) \textit{Primary}: Avg context relevance (cosine similarity query↔docs). (2) \textit{Secondary}: Response time, answer length, qualitative assessment (relevance, terminology, coherence).
+
+\textbf{Hardware}: (1) Laptop/CPU: Llama 3.2 1B, batch=1, reduced epochs. (2) PC/GPU: Qwen 2.5 7B, RTX 3080, batch=8, full epochs.
 
 \subsection{Implementation Details}
-% TODO: Technical details
-% - Software stack (PyTorch, Transformers, Qdrant, etc.)
-% - Model configurations
-% - Training hyperparameters
-% - Retrieval parameters (top-k, similarity threshold)
+
+\textbf{Software}: Python 3.9+, PyTorch 2.0+, Transformers 4.30+, sentence-transformers 2.2+, Qdrant 1.7+, datasets library. Modular package structure.
+
+\textbf{Models}: CPU: Llama 3.2 1B (float32, batch=1, 1 epoch). GPU: Qwen 2.5 7B (float16, batch=8, 3 epochs). LR=$5 \times 10^{-5}$, max length=512.
+
+\textbf{Hyperparameters}: Stage 1: Alpaca, causal LM loss. Stage 2: Synthetic QA (2 per doc, score≥0.7). Both: AdamW, linear LR decay, gradient accumulation, mixed precision (GPU), checkpointing.
+
+\textbf{Retrieval}: Top-$k=5$, threshold=0.7, sentence-transformers (384-dim), Qdrant (cosine similarity, in-memory/persistent).
 
 \subsection{Evaluation Methodology}
-% TODO: How you measure success
-% - Quantitative metrics: retrieval scores, response times
-% - Qualitative assessment: answer relevance
-% - Comparison methodology: baseline vs improved
-% - Limitations of evaluation approach
+
+\textbf{Quantitative}: Primary = avg context relevance (mean cosine similarity query↔all retrieved docs). Also: response time, answer length, success rate.
+
+\textbf{Comparison}: Baseline vs SimRAG on same questions/corpus. Record: (1) context scores, (2) answers, (3) response time. Improvement = $\frac{\text{SimRAG}_{\text{avg}} - \text{Baseline}_{\text{avg}}}{\text{Baseline}_{\text{avg}}} \times 100\%$.
+
+\textbf{Qualitative}: Manual inspection: relevance, domain terminology, context grounding, coherence.
+
+\textbf{Limitations}: Small corpus (5k–20k), limited test set (10 questions), no human evaluation, hardware constraints. Sufficient for hypothesis verification.
 
 \section{Results and Analysis}
 \label{sec:results}
@@ -199,8 +211,14 @@ This work presents a simplified reproduction of the SimRAG (Simplified Retrieval
 % TODO: Optional acknowledgments
 % Keep anonymous if needed
 
-\bibliography{references}
-\bibliographystyle{plain}
+% Bibliography
+% Citations currently show as [citation-key] using a temporary definition above
+% To add proper bibliography:
+% 1. Create references.bib file in Overleaf
+% 2. Remove the \providecommand{\cite} line near the top
+% 3. Uncomment the lines below:
+% \bibliography{references}
+% \bibliographystyle{plain}
 
 % Appendices (if needed, don't count toward page limit)
 \begin{appendix}
