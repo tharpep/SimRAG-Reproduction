@@ -1,5 +1,6 @@
 """Config command - display current configuration"""
 import typer
+import sys
 
 from ..utils import check_venv
 
@@ -14,7 +15,13 @@ def config() -> None:
 
     try:
         from simrag_reproduction.config import get_rag_config, get_tuning_config
+    except Exception as e:
+        typer.echo(f"Error: Could not import config module: {e}", err=True)
+        import traceback
+        traceback.print_exc()
+        raise typer.Exit(1)
 
+    try:
         rag_config = get_rag_config()
         tuning_config = get_tuning_config()
 
@@ -40,8 +47,10 @@ def config() -> None:
         typer.echo("Note: You can override these settings by editing config.py")
         typer.echo("or setting environment variables (USE_LAPTOP, USE_OLLAMA, etc.)")
 
-    except ImportError as e:
-        typer.echo(f"Error: Could not import config module: {e}", err=True)
+    except Exception as e:
+        typer.echo(f"Error: Could not load configuration: {e}", err=True)
+        import traceback
+        traceback.print_exc()
         raise typer.Exit(1)
 
     raise typer.Exit(0)

@@ -1,11 +1,41 @@
 """Test command - run test suites"""
 import subprocess
+import sys
 from pathlib import Path
 from typing import Optional
 
 import typer
 
 from ..utils import check_venv, is_poetry_environment
+
+
+def _find_project_root() -> Path:
+    """Find the project root directory (where pyproject.toml is)"""
+    current = Path.cwd()
+    while current != current.parent:
+        if (current / "pyproject.toml").exists():
+            return current
+        current = current.parent
+    # Fallback: assume we're in project root
+    return Path.cwd()
+
+
+def _find_tests_dir() -> Path:
+    """Find the tests directory relative to project root"""
+    project_root = _find_project_root()
+    # Try both possible locations
+    tests_dir = project_root / "simrag_reproduction" / "tests"
+    if tests_dir.exists():
+        return tests_dir
+    # Fallback: try tests in current directory
+    tests_dir = project_root / "tests"
+    if tests_dir.exists():
+        return tests_dir
+    # Last resort: try simrag_reproduction/tests from current dir
+    tests_dir = Path("simrag_reproduction/tests")
+    if tests_dir.exists():
+        return tests_dir.resolve()
+    return None
 
 
 def test(
@@ -22,16 +52,17 @@ def test(
         from ..utils import get_python_cmd
         python_cmd = get_python_cmd()
 
+    # Find tests directory
+    tests_dir = _find_tests_dir()
+    if not tests_dir:
+        typer.echo("No tests directory found!", err=True)
+        typer.echo("Expected: simrag_reproduction/tests/ or tests/", err=True)
+        raise typer.Exit(1)
+
     # Check if user wants to run all tests
     if all_tests:
         typer.echo("=== Running All Tests ===")
         typer.echo("")
-        
-        # Auto-detect test folders
-        tests_dir = Path("simrag_reproduction/tests")
-        if not tests_dir.exists():
-            typer.echo("No tests directory found!", err=True)
-            raise typer.Exit(1)
         
         # Find all test folders
         test_folders = []
@@ -51,15 +82,20 @@ def test(
         # Run tests in each folder individually to ensure all are discovered
         all_passed = True
         failed_folders = []
+        project_root = _find_project_root()
         
         for folder in test_folders:
             typer.echo(f"Running tests in: {folder}")
             typer.echo("-" * 50)
             try:
+                # Use file path relative to project root
+                test_path = tests_dir / folder
+                # Convert to relative path from project root
+                rel_path = test_path.relative_to(project_root)
                 result = subprocess.run(
-                    [python_cmd, "-m", "pytest", f"simrag_reproduction/tests/{folder}/", "-v", "--cache-clear"],
+                    [python_cmd, "-m", "pytest", str(rel_path), "-v", "--cache-clear"],
                     check=True,
-                    cwd=Path.cwd()
+                    cwd=project_root
                 )
                 typer.echo(f"[PASS] {folder} passed")
                 typer.echo("")
@@ -79,7 +115,7 @@ def test(
 
     # If category specified, run that directly
     if category:
-        test_path = Path("simrag_reproduction/tests") / category
+        test_path = tests_dir / category
         if not test_path.exists():
             typer.echo(f"Test category '{category}' not found!", err=True)
             typer.echo("Available categories:", err=True)
@@ -88,8 +124,12 @@ def test(
 
         typer.echo(f"Running: {category}")
         typer.echo("=" * 50)
+        project_root = _find_project_root()
         try:
-            result = subprocess.run([python_cmd, "-m", "pytest", str(test_path), "-v", "-s"], check=True)
+            # Use file path relative to project root
+            test_path = tests_dir / category
+            rel_path = test_path.relative_to(project_root)
+            result = subprocess.run([python_cmd, "-m", "pytest", str(rel_path), "-v", "-s"], check=True, cwd=project_root)
             typer.echo(f"\n{category} completed successfully!")
             raise typer.Exit(0)
         except subprocess.CalledProcessError as e:
@@ -97,13 +137,13 @@ def test(
             raise typer.Exit(e.returncode)
 
     # No category specified - show interactive selection
-    _run_tests_interactive(python_cmd)
+    _run_tests_interactive(python_cmd, tests_dir)
 
 
 def _list_test_categories() -> None:
     """List available test categories"""
-    tests_dir = Path("simrag_reproduction/tests")
-    if not tests_dir.exists():
+    tests_dir = _find_tests_dir()
+    if not tests_dir or not tests_dir.exists():
         return
 
     test_folders = []
@@ -115,10 +155,9 @@ def _list_test_categories() -> None:
         typer.echo(f"  - {folder}", err=True)
 
 
-def _run_tests_interactive(python_cmd: str) -> None:
+def _run_tests_interactive(python_cmd: str, tests_dir: Path) -> None:
     """Interactive test selection menu"""
-    tests_dir = Path("simrag_reproduction/tests")
-    if not tests_dir.exists():
+    if not tests_dir or not tests_dir.exists():
         typer.echo("No tests directory found!", err=True)
         raise typer.Exit(1)
 
@@ -157,8 +196,11 @@ def _run_tests_interactive(python_cmd: str) -> None:
             typer.echo(f"\nRunning: {selected_folder}")
             typer.echo("=" * 50)
 
-            # Run pytest on the selected folder with verbose output
-            result = subprocess.run([python_cmd, "-m", "pytest", f"simrag_reproduction/tests/{selected_folder}/", "-v", "-s"], check=True)
+            # Run pytest on the selected folder with verbose output using file path
+            project_root = _find_project_root()
+            test_path = tests_dir / selected_folder
+            rel_path = test_path.relative_to(project_root)
+            result = subprocess.run([python_cmd, "-m", "pytest", str(rel_path), "-v", "-s"], check=True, cwd=project_root)
 
             typer.echo(f"\n{selected_folder} completed successfully!")
             raise typer.Exit(0)
