@@ -3,38 +3,40 @@ SimRAG Domain Adaptation
 Stage 2: Fine-tune on synthetic QA pairs + Self-improvement loop
 """
 
-import sys
 import os
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
-# Add project root to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
+from logging_config import get_logger
 from .base import SimRAGBase
 from .synthetic_qa_generation import SyntheticQAGeneration
 from rag.rag_setup import BasicRAG
+
+logger = get_logger(__name__)
 
 
 class DomainAdaptation(SimRAGBase):
     """SimRAG Stage 2: Domain adaptation with self-improvement loop"""
     
-    def __init__(self, model_name: str = "llama3.2:1b", config=None, stage_1_model_path: Optional[str] = None):
+    def __init__(self, model_name: str = "llama3.2:1b", config: Optional[Any] = None, stage_1_model_path: Optional[str] = None):
         """
         Initialize domain adaptation trainer
         
         Args:
             model_name: Model to fine-tune
-            config: TuningConfig instance
-            stage_1_model_path: Path to Stage 1 model
+            config: TuningConfig instance (optional)
+            stage_1_model_path: Path to Stage 1 model (optional)
         """
         super().__init__(model_name, config)
         self.stage_1_model_path = stage_1_model_path
-        self.qa_generator = SyntheticQAGeneration(model_name, config, stage_1_model_path or None)
-        
-        print(f"Domain Adaptation trainer initialized")
-        if stage_1_model_path:
-            print(f"Using Stage 1 model: {stage_1_model_path}")
+        try:
+            self.qa_generator = SyntheticQAGeneration(model_name, config, stage_1_model_path or None)
+            logger.info("Domain Adaptation trainer initialized")
+            if stage_1_model_path:
+                logger.info(f"Using Stage 1 model: {stage_1_model_path}")
+        except Exception as e:
+            logger.error(f"Failed to initialize Domain Adaptation trainer: {e}")
+            raise
     
     def train_stage_2(self, documents: List[str], 
                      questions_per_doc: int = 2,
@@ -52,18 +54,25 @@ class DomainAdaptation(SimRAGBase):
         Returns:
             Model version object if successful
         """
-        print("=== SimRAG Stage 2: Domain Adaptation Training ===")
+        logger.info("=== SimRAG Stage 2: Domain Adaptation Training ===")
+        
+        if not documents:
+            raise ValueError("Documents list cannot be empty")
         
         # Generate synthetic dataset
-        print("Generating synthetic QA pairs...")
-        dataset = self.qa_generator.generate_synthetic_dataset(
-            documents=documents,
-            questions_per_doc=questions_per_doc,
-            min_context_score=min_context_score
-        )
+        logger.info("Generating synthetic QA pairs...")
+        try:
+            dataset = self.qa_generator.generate_synthetic_dataset(
+                documents=documents,
+                questions_per_doc=questions_per_doc,
+                min_context_score=min_context_score
+            )
+        except Exception as e:
+            logger.error(f"Failed to generate synthetic dataset: {e}")
+            raise
         
-        if not dataset["training_data"]:
-            print("No training data generated")
+        if not dataset.get("training_data"):
+            logger.warning("No training data generated")
             return None
         
         # Load model and prepare training data
@@ -71,27 +80,36 @@ class DomainAdaptation(SimRAGBase):
         train_dataset = self.prepare_training_data(dataset["training_data"])
         
         # Setup trainer for Stage 2
-        print("Setting up trainer for Stage 2...")
-        output_dir = f"./tuned_models/llama_1b/stage_2"
-        self.setup_trainer(
-            train_dataset=train_dataset,
-            output_dir=output_dir,
-            num_epochs=self.config.simrag_stage_2_epochs,
-            notes=notes
-        )
+        logger.info("Setting up trainer for Stage 2...")
+        output_dir = self.config.get_stage_output_dir("stage_2")
+        try:
+            self.setup_trainer(
+                train_dataset=train_dataset,
+                output_dir=output_dir,
+                num_epochs=self.config.simrag_stage_2_epochs,
+                notes=notes
+            )
+        except Exception as e:
+            logger.error(f"Failed to setup trainer for Stage 2: {e}")
+            raise
         
         # Train Stage 2
-        print("Starting Stage 2 training...")
-        version = self.train_model(notes)
-        
-        if version:
-            print(f"Stage 2 training completed!")
-            print(f"Version: {version.version}")
-            print(f"Training time: {version.training_time_seconds:.1f}s")
-            if version.final_loss:
-                print(f"Final loss: {version.final_loss:.4f}")
-        
-        return version
+        logger.info("Starting Stage 2 training...")
+        try:
+            version = self.train_model(notes)
+            
+            if version:
+                logger.info(f"Stage 2 training completed! Version: {version.version}")
+                logger.info(f"Training time: {version.training_time_seconds:.1f}s")
+                if version.final_loss:
+                    logger.info(f"Final loss: {version.final_loss:.4f}")
+            else:
+                logger.warning("Stage 2 training completed but no version returned")
+            
+            return version
+        except Exception as e:
+            logger.error(f"Stage 2 training failed: {e}")
+            raise
     
     def run_self_improvement_loop(self, documents: List[str], 
                                 improvement_rounds: Optional[int] = None,
@@ -109,18 +127,21 @@ class DomainAdaptation(SimRAGBase):
         Returns:
             List of improvement results for each round
         """
-        print("=== SimRAG Stage 3: Self-Improvement Loop ===")
+        logger.info("=== SimRAG Stage 3: Self-Improvement Loop ===")
         
         # Use config defaults if not provided
         improvement_rounds = improvement_rounds or self.config.simrag_improvement_rounds
         questions_per_doc = questions_per_doc or self.config.simrag_questions_per_doc
         min_context_score = min_context_score or self.config.simrag_min_context_score
         
+        if improvement_rounds < 1:
+            raise ValueError("improvement_rounds must be at least 1")
+        
         improvement_results = []
         current_model_path = self.stage_1_model_path
         
         for round_num in range(improvement_rounds):
-            print(f"\n--- Self-Improvement Round {round_num + 1} ---")
+            logger.info(f"\n--- Self-Improvement Round {round_num + 1}/{improvement_rounds} ---")
             
             # Update QA generator to use current model
             if current_model_path:
@@ -131,25 +152,33 @@ class DomainAdaptation(SimRAGBase):
                 )
             
             # Generate new synthetic QA with current model
-            print(f"Generating synthetic QA with current model...")
-            dataset = self.qa_generator.generate_synthetic_dataset(
-                documents=documents,
-                questions_per_doc=questions_per_doc,
-                min_context_score=min_context_score
-            )
+            logger.info(f"Generating synthetic QA with current model...")
+            try:
+                dataset = self.qa_generator.generate_synthetic_dataset(
+                    documents=documents,
+                    questions_per_doc=questions_per_doc,
+                    min_context_score=min_context_score
+                )
+            except Exception as e:
+                logger.error(f"Round {round_num + 1}: Failed to generate synthetic dataset: {e}")
+                break
             
-            if not dataset["training_data"]:
-                print(f"Round {round_num + 1}: No training data generated, stopping")
+            if not dataset.get("training_data"):
+                logger.warning(f"Round {round_num + 1}: No training data generated, stopping")
                 break
             
             # Fine-tune on new synthetic data
-            print(f"Fine-tuning on {len(dataset['training_data'])} examples...")
-            version = self.train_stage_2(
-                documents=documents,
-                questions_per_doc=questions_per_doc,
-                min_context_score=min_context_score,
-                notes=f"SimRAG Self-Improvement Round {round_num + 1}"
-            )
+            logger.info(f"Fine-tuning on {len(dataset['training_data'])} examples...")
+            try:
+                version = self.train_stage_2(
+                    documents=documents,
+                    questions_per_doc=questions_per_doc,
+                    min_context_score=min_context_score,
+                    notes=f"SimRAG Self-Improvement Round {round_num + 1}"
+                )
+            except Exception as e:
+                logger.error(f"Round {round_num + 1}: Training failed: {e}")
+                break
             
             if version:
                 # Update model path for next round
@@ -169,16 +198,16 @@ class DomainAdaptation(SimRAGBase):
                 
                 improvement_results.append(improvement_result)
                 
-                print(f"Round {round_num + 1} completed:")
-                print(f"  Generated: {improvement_result['qa_pairs_generated']} QA pairs")
-                print(f"  High quality: {improvement_result['high_quality_pairs']}")
-                print(f"  Quality retention: {improvement_result['quality_retention']:.1f}%")
-                print(f"  Model version: {improvement_result['model_version']}")
+                logger.info(f"Round {round_num + 1} completed:")
+                logger.info(f"  Generated: {improvement_result['qa_pairs_generated']} QA pairs")
+                logger.info(f"  High quality: {improvement_result['high_quality_pairs']}")
+                logger.info(f"  Quality retention: {improvement_result['quality_retention']:.1f}%")
+                logger.info(f"  Model version: {improvement_result['model_version']}")
             else:
-                print(f"Round {round_num + 1}: Training failed, stopping improvement")
+                logger.warning(f"Round {round_num + 1}: Training failed, stopping improvement")
                 break
         
-        print(f"\nSelf-improvement completed: {len(improvement_results)} rounds")
+        logger.info(f"\nSelf-improvement completed: {len(improvement_results)} rounds")
         return improvement_results
     
     def test_stage_2_performance(self, rag_system: BasicRAG, test_questions: List[str]) -> Dict[str, Any]:
@@ -209,12 +238,16 @@ class DomainAdaptation(SimRAGBase):
         Returns:
             Comprehensive performance comparison
         """
-        print("=== Performance Comparison Across Stages ===")
+        logger.info("=== Performance Comparison Across Stages ===")
         
         # Calculate improvement metrics
-        stage_1_improvement = self.calculate_improvement_metrics(baseline_results, stage_1_results)
-        stage_2_improvement = self.calculate_improvement_metrics(stage_1_results, stage_2_results)
-        overall_improvement = self.calculate_improvement_metrics(baseline_results, stage_2_results)
+        try:
+            stage_1_improvement = self.calculate_improvement_metrics(baseline_results, stage_1_results)
+            stage_2_improvement = self.calculate_improvement_metrics(stage_1_results, stage_2_results)
+            overall_improvement = self.calculate_improvement_metrics(baseline_results, stage_2_results)
+        except Exception as e:
+            logger.error(f"Failed to calculate improvement metrics: {e}")
+            raise
         
         comparison = {
             "baseline": {
@@ -237,11 +270,11 @@ class DomainAdaptation(SimRAGBase):
             }
         }
         
-        print(f"Performance Summary:")
-        print(f"  Baseline context score: {comparison['baseline']['context_score']:.3f}")
-        print(f"  Stage 1 context score: {comparison['stage_1']['context_score']:.3f} (+{comparison['stage_1']['improvement_percent']:.1f}%)")
-        print(f"  Stage 2 context score: {comparison['stage_2']['context_score']:.3f} (+{comparison['stage_2']['improvement_percent']:.1f}%)")
-        print(f"  Overall improvement: +{comparison['overall']['total_improvement_percent']:.1f}%")
+        logger.info(f"Performance Summary:")
+        logger.info(f"  Baseline context score: {comparison['baseline']['context_score']:.3f}")
+        logger.info(f"  Stage 1 context score: {comparison['stage_1']['context_score']:.3f} (+{comparison['stage_1']['improvement_percent']:.1f}%)")
+        logger.info(f"  Stage 2 context score: {comparison['stage_2']['context_score']:.3f} (+{comparison['stage_2']['improvement_percent']:.1f}%)")
+        logger.info(f"  Overall improvement: +{comparison['overall']['total_improvement_percent']:.1f}%")
         
         return comparison
 

@@ -3,43 +3,44 @@ SimRAG Synthetic QA Generation
 Stage 2: Generate synthetic question-answer pairs from domain documents
 """
 
-import sys
 import os
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
-# Add project root to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
+from logging_config import get_logger
 from .base import SimRAGBase
 from rag.rag_setup import BasicRAG
 from ai_providers.gateway import AIGateway
+
+logger = get_logger(__name__)
 
 
 class SyntheticQAGeneration(SimRAGBase):
     """SimRAG Stage 2: Synthetic QA generation from domain documents"""
     
-    def __init__(self, model_name: str = "llama3.2:1b", config=None, stage_1_model_path: Optional[str] = None):
+    def __init__(self, model_name: str = "llama3.2:1b", config: Optional[Any] = None, stage_1_model_path: Optional[str] = None):
         """
         Initialize synthetic QA generator
         
         Args:
             model_name: Model to use for QA generation
-            config: TuningConfig instance
-            stage_1_model_path: Path to Stage 1 model (if available)
+            config: TuningConfig instance (optional)
+            stage_1_model_path: Path to Stage 1 model (optional)
         """
         super().__init__(model_name, config)
         self.stage_1_model_path = stage_1_model_path
-        self.gateway = AIGateway()
-        
-        # Initialize RAG system (will use Stage 1 model if available)
-        self.rag_system = self._initialize_rag_system()
-        
-        print(f"Synthetic QA Generator initialized")
-        if stage_1_model_path:
-            print(f"Using Stage 1 model: {stage_1_model_path}")
-        else:
-            print("Using vanilla RAG system")
+        try:
+            self.gateway = AIGateway()
+            # Initialize RAG system (will use Stage 1 model if available)
+            self.rag_system = self._initialize_rag_system()
+            logger.info("Synthetic QA Generator initialized")
+            if stage_1_model_path:
+                logger.info(f"Using Stage 1 model: {stage_1_model_path}")
+            else:
+                logger.info("Using vanilla RAG system")
+        except Exception as e:
+            logger.error(f"Failed to initialize Synthetic QA Generator: {e}")
+            raise
     
     def _initialize_rag_system(self) -> BasicRAG:
         """Initialize RAG system, using Stage 1 model if available"""
@@ -73,9 +74,11 @@ Questions:"""
         try:
             response = self.gateway.chat(prompt)
             questions = self._parse_questions(response)
-            return questions[:num_questions]  # Limit to requested number
+            result = questions[:num_questions]  # Limit to requested number
+            logger.debug(f"Generated {len(result)} questions from document")
+            return result
         except Exception as e:
-            print(f"Error generating questions: {e}")
+            logger.error(f"Error generating questions: {e}")
             return []
     
     def _parse_questions(self, response: str) -> List[str]:
@@ -105,16 +108,23 @@ Questions:"""
         Returns:
             List of QA pairs with metadata
         """
-        print(f"=== Generating Synthetic QA Pairs ===")
-        print(f"Processing {len(documents)} documents...")
+        logger.info(f"=== Generating Synthetic QA Pairs ===")
+        logger.info(f"Processing {len(documents)} documents...")
+        
+        if not documents:
+            raise ValueError("Documents list cannot be empty")
         
         qa_pairs = []
         
-        for i, doc in enumerate(documents):
-            print(f"Processing document {i+1}/{len(documents)}...")
+        for i, doc in enumerate(documents, 1):
+            logger.info(f"Processing document {i}/{len(documents)}...")
             
             # Generate questions from document
             questions = self.generate_questions_from_document(doc, questions_per_doc)
+            
+            if not questions:
+                logger.warning(f"  No questions generated for document {i}")
+                continue
             
             for question in questions:
                 try:
@@ -128,17 +138,17 @@ Questions:"""
                         "context": doc[:200] + "...",  # Truncate for storage
                         "context_docs": context_docs,
                         "context_scores": context_scores,
-                        "source_doc_index": i
+                        "source_doc_index": i - 1
                     }
                     
                     qa_pairs.append(qa_pair)
-                    print(f"  Generated Q: {question[:50]}...")
+                    logger.debug(f"  Generated Q: {question[:50]}...")
                     
                 except Exception as e:
-                    print(f"  Error processing question: {e}")
+                    logger.error(f"  Error processing question '{question[:50]}...': {e}")
                     continue
         
-        print(f"Generated {len(qa_pairs)} synthetic QA pairs")
+        logger.info(f"Generated {len(qa_pairs)} synthetic QA pairs")
         return qa_pairs
     
     def filter_high_quality_qa_pairs(self, qa_pairs: List[Dict[str, Any]], 
@@ -155,33 +165,43 @@ Questions:"""
         Returns:
             Filtered list of high-quality QA pairs
         """
-        print(f"=== Filtering High-Quality QA Pairs ===")
-        print(f"Original pairs: {len(qa_pairs)}")
+        logger.info(f"=== Filtering High-Quality QA Pairs ===")
+        logger.info(f"Original pairs: {len(qa_pairs)}")
+        
+        if not qa_pairs:
+            logger.warning("No QA pairs to filter")
+            return []
         
         filtered_pairs = []
         
         for qa_pair in qa_pairs:
-            # Check context scores
-            if qa_pair.get("context_scores"):
-                avg_score = sum(qa_pair["context_scores"]) / len(qa_pair["context_scores"])
-                if avg_score < min_context_score:
+            try:
+                # Check context scores
+                if qa_pair.get("context_scores"):
+                    avg_score = sum(qa_pair["context_scores"]) / len(qa_pair["context_scores"])
+                    if avg_score < min_context_score:
+                        continue
+                
+                # Check answer quality
+                if len(qa_pair.get("answer", "")) < min_answer_length:
                     continue
-            
-            # Check answer quality
-            if len(qa_pair["answer"]) < min_answer_length:
+                
+                # Check for meaningful content
+                answer_lower = qa_pair.get("answer", "").lower()
+                if answer_lower in ["no relevant documents found", "i don't know", "cannot answer"]:
+                    continue
+                
+                filtered_pairs.append(qa_pair)
+            except Exception as e:
+                logger.warning(f"Error filtering QA pair: {e}")
                 continue
-            
-            # Check for meaningful content
-            if qa_pair["answer"].lower() in ["no relevant documents found", "i don't know", "cannot answer"]:
-                continue
-            
-            filtered_pairs.append(qa_pair)
         
-        print(f"Filtered pairs: {len(filtered_pairs)}")
+        logger.info(f"Filtered pairs: {len(filtered_pairs)}")
         if len(qa_pairs) > 0:
-            print(f"Quality retention: {len(filtered_pairs)/len(qa_pairs)*100:.1f}%")
+            retention = len(filtered_pairs)/len(qa_pairs)*100
+            logger.info(f"Quality retention: {retention:.1f}%")
         else:
-            print("Quality retention: 0.0% (no pairs to filter)")
+            logger.warning("Quality retention: 0.0% (no pairs to filter)")
         
         return filtered_pairs
     
@@ -202,7 +222,7 @@ Questions:"""
             example = f"Question: {qa_pair['question']}\nAnswer: {qa_pair['answer']}"
             training_examples.append(example)
         
-        print(f"Prepared {len(training_examples)} training examples")
+        logger.info(f"Prepared {len(training_examples)} training examples")
         return training_examples
     
     def generate_synthetic_dataset(self, documents: List[str], 
@@ -219,37 +239,58 @@ Questions:"""
         Returns:
             Complete synthetic dataset with metadata
         """
-        print("=== SimRAG Stage 2: Synthetic Dataset Generation ===")
+        logger.info("=== SimRAG Stage 2: Synthetic Dataset Generation ===")
+        
+        if not documents:
+            raise ValueError("Documents list cannot be empty")
         
         # Use config defaults if not provided
         questions_per_doc = questions_per_doc or self.config.simrag_questions_per_doc
         min_context_score = min_context_score or self.config.simrag_min_context_score
         
         # Generate QA pairs
-        qa_pairs = self.create_qa_pairs_from_documents(documents, questions_per_doc)
+        try:
+            qa_pairs = self.create_qa_pairs_from_documents(documents, questions_per_doc)
+        except Exception as e:
+            logger.error(f"Failed to create QA pairs: {e}")
+            raise
         
         # Filter for quality
-        high_quality_pairs = self.filter_high_quality_qa_pairs(qa_pairs, min_context_score)
+        try:
+            high_quality_pairs = self.filter_high_quality_qa_pairs(qa_pairs, min_context_score)
+        except Exception as e:
+            logger.error(f"Failed to filter QA pairs: {e}")
+            raise
         
         # Prepare training data
         training_data = self.prepare_qa_training_data(high_quality_pairs)
         
         # Create dataset summary
-        dataset_info = {
-            "total_documents": len(documents),
-            "total_qa_pairs": len(qa_pairs),
-            "high_quality_pairs": len(high_quality_pairs),
-            "training_examples": len(training_data),
-            "quality_retention": len(high_quality_pairs) / len(qa_pairs) * 100 if qa_pairs else 0,
-            "avg_context_score": sum(sum(pair.get("context_scores", [0])) for pair in high_quality_pairs) / len(high_quality_pairs) if high_quality_pairs else 0
-        }
+        try:
+            all_scores = []
+            for pair in high_quality_pairs:
+                scores = pair.get("context_scores", [])
+                if scores:
+                    all_scores.extend(scores)
+            
+            dataset_info = {
+                "total_documents": len(documents),
+                "total_qa_pairs": len(qa_pairs),
+                "high_quality_pairs": len(high_quality_pairs),
+                "training_examples": len(training_data),
+                "quality_retention": len(high_quality_pairs) / len(qa_pairs) * 100 if qa_pairs else 0,
+                "avg_context_score": sum(all_scores) / len(all_scores) if all_scores else 0
+            }
+        except Exception as e:
+            logger.error(f"Failed to calculate dataset info: {e}")
+            raise
         
-        print(f"Synthetic dataset generated!")
-        print(f"   Documents: {dataset_info['total_documents']}")
-        print(f"   QA pairs: {dataset_info['total_qa_pairs']}")
-        print(f"   High quality: {dataset_info['high_quality_pairs']}")
-        print(f"   Training examples: {dataset_info['training_examples']}")
-        print(f"   Quality retention: {dataset_info['quality_retention']:.1f}%")
+        logger.info(f"Synthetic dataset generated!")
+        logger.info(f"   Documents: {dataset_info['total_documents']}")
+        logger.info(f"   QA pairs: {dataset_info['total_qa_pairs']}")
+        logger.info(f"   High quality: {dataset_info['high_quality_pairs']}")
+        logger.info(f"   Training examples: {dataset_info['training_examples']}")
+        logger.info(f"   Quality retention: {dataset_info['quality_retention']:.1f}%")
         
         return {
             "qa_pairs": high_quality_pairs,

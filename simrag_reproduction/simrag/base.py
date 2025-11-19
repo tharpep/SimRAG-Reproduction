@@ -3,42 +3,54 @@ SimRAG Base Class
 Common functionality for all SimRAG stages
 """
 
-import sys
 import os
+import time
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
-# Add project root to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
+from logging_config import get_logger
 from tuning.basic_tuning import BasicTuner
 from tuning.model_registry import get_model_registry
 from config import get_tuning_config
 from rag.rag_setup import BasicRAG
 
+logger = get_logger(__name__)
+
 
 class SimRAGBase:
     """Base class for all SimRAG stages with common functionality"""
     
-    def __init__(self, model_name: str = "llama3.2:1b", config=None):
+    def __init__(self, model_name: str = "llama3.2:1b", config: Optional[Any] = None):
         """
         Initialize SimRAG base functionality
         
         Args:
             model_name: Model to fine-tune
-            config: TuningConfig instance
+            config: TuningConfig instance (optional)
         """
         self.model_name = model_name
-        self.config = config or get_tuning_config()
-        self.tuner = BasicTuner(model_name, config=self.config)
-        self.registry = get_model_registry(self.config)
-        
-        print(f"SimRAG base initialized with model: {model_name}")
+        try:
+            self.config = config or get_tuning_config()
+            self.tuner = BasicTuner(model_name, config=self.config)
+            self.registry = get_model_registry(self.config)
+            logger.info(f"SimRAG base initialized with model: {model_name}")
+        except Exception as e:
+            logger.error(f"Failed to initialize SimRAG base: {e}")
+            raise
     
-    def load_model(self):
-        """Load the model for training"""
-        print("Loading model...")
-        self.tuner.load_model()
+    def load_model(self) -> None:
+        """Load the model for training
+        
+        Raises:
+            Exception: If model loading fails
+        """
+        try:
+            logger.info("Loading model...")
+            self.tuner.load_model()
+            logger.info("Model loaded successfully")
+        except Exception as e:
+            logger.error(f"Failed to load model: {e}")
+            raise
     
     def prepare_training_data(self, data: List[str], max_length: Optional[int] = None) -> Any:
         """
@@ -50,9 +62,23 @@ class SimRAGBase:
             
         Returns:
             Prepared training dataset
+            
+        Raises:
+            ValueError: If data is empty or invalid
+            Exception: If data preparation fails
         """
-        max_length = max_length or self.config.max_length
-        return self.tuner.prepare_data(data, max_length=max_length)
+        if not data:
+            raise ValueError("Training data cannot be empty")
+        
+        try:
+            max_length = max_length or self.config.max_length
+            logger.info(f"Preparing {len(data)} training examples with max_length={max_length}")
+            dataset = self.tuner.prepare_data(data, max_length=max_length)
+            logger.info("Training data prepared successfully")
+            return dataset
+        except Exception as e:
+            logger.error(f"Failed to prepare training data: {e}")
+            raise
     
     def setup_trainer(self, train_dataset: Any, output_dir: str, 
                      num_epochs: Optional[int] = None, batch_size: Optional[int] = None, 
@@ -88,10 +114,22 @@ class SimRAGBase:
             notes: Training notes for versioning
             
         Returns:
-            Model version object if successful
+            Model version object if successful, None if training fails
+            
+        Raises:
+            Exception: If training fails critically
         """
-        print("Starting training...")
-        return self.tuner.train(notes=notes)
+        try:
+            logger.info(f"Starting training with notes: {notes}")
+            version = self.tuner.train(notes=notes)
+            if version:
+                logger.info(f"Training completed successfully. Version: {version.version}")
+            else:
+                logger.warning("Training completed but no version object returned")
+            return version
+        except Exception as e:
+            logger.error(f"Training failed: {e}")
+            raise
     
     def get_model_from_registry(self, version: Optional[str] = None) -> Optional[str]:
         """
@@ -122,7 +160,7 @@ class SimRAGBase:
                 return f"{base_dir}/{version_name}"
             
         except Exception as e:
-            print(f"Error loading model from registry: {e}")
+            logger.error(f"Error loading model from registry: {e}")
         
         return None
     
@@ -135,30 +173,56 @@ class SimRAGBase:
             test_questions: List of test questions
             
         Returns:
-            Performance metrics
+            Performance metrics dictionary with questions, answers, response_times, context_scores
+            
+        Raises:
+            ValueError: If test_questions is empty
         """
-        print("=== Testing Performance ===")
+        if not test_questions:
+            raise ValueError("test_questions cannot be empty")
         
-        results = {
+        logger.info(f"=== Testing Performance on {len(test_questions)} questions ===")
+        
+        results: Dict[str, Any] = {
             "questions": test_questions,
             "answers": [],
             "response_times": [],
             "context_scores": []
         }
         
-        for question in test_questions:
-            print(f"Testing: {question}")
-            
-            # Test with RAG system
-            answer, context_docs, context_scores = rag_system.query(question)
-            
-            results["answers"].append(answer)
-            results["context_scores"].append(context_scores)
-            
-            print(f"Answer: {answer[:100]}...")
-            print(f"Context scores: {context_scores}")
-            print()
+        for i, question in enumerate(test_questions, 1):
+            try:
+                logger.info(f"Testing question {i}/{len(test_questions)}: {question[:50]}...")
+                start_time = time.time()
+                
+                # Test with RAG system
+                answer, context_docs, context_scores = rag_system.query(question)
+                elapsed_time = time.time() - start_time
+                
+                results["answers"].append(answer)
+                results["context_scores"].append(context_scores)
+                results["response_times"].append(elapsed_time)
+                
+                avg_score = sum(context_scores) / len(context_scores) if context_scores else 0.0
+                logger.info(f"  Answer length: {len(answer)} chars, Avg context score: {avg_score:.3f}, Time: {elapsed_time:.2f}s")
+                
+            except Exception as e:
+                logger.error(f"Error testing question '{question[:50]}...': {e}")
+                # Continue with other questions
+                results["answers"].append("ERROR")
+                results["context_scores"].append([])
+                results["response_times"].append(0.0)
         
+        # Calculate average metrics
+        if results["context_scores"]:
+            all_scores = [score for scores in results["context_scores"] if scores for score in scores]
+            results["avg_context_score"] = sum(all_scores) / len(all_scores) if all_scores else 0.0
+            results["avg_response_time"] = sum(results["response_times"]) / len(results["response_times"])
+        else:
+            results["avg_context_score"] = 0.0
+            results["avg_response_time"] = 0.0
+        
+        logger.info(f"Performance test completed. Avg context score: {results['avg_context_score']:.3f}")
         return results
     
     def calculate_improvement_metrics(self, baseline_results: Dict[str, Any], 

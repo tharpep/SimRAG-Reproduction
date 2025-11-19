@@ -93,6 +93,20 @@ class TuningConfig:
         """Get path to model registry metadata file"""
         model_suffix = "1b" if self.use_laptop else "8b"
         return f"./tuned_models/llama_{model_suffix}/model_registry.json"
+    
+    def get_stage_output_dir(self, stage: str) -> str:
+        """
+        Get output directory for a specific SimRAG stage
+        
+        Args:
+            stage: Stage name (e.g., "stage_1", "stage_2")
+            
+        Returns:
+            Path to stage-specific output directory
+        """
+        model_suffix = "1b" if self.use_laptop else "8b"
+        base_dir = f"./tuned_models/llama_{model_suffix}"
+        return f"{base_dir}/{stage}"
 
 
 # Default configurations
@@ -149,14 +163,32 @@ def get_tuning_config() -> TuningConfig:
     
     tuning_batch_size_env = os.getenv("TUNING_BATCH_SIZE")
     if tuning_batch_size_env:
-        config.batch_size = int(tuning_batch_size_env)
+        try:
+            batch_size = int(tuning_batch_size_env)
+            if 1 <= batch_size <= 16:
+                config.batch_size = batch_size
+            else:
+                print(f"Warning: TUNING_BATCH_SIZE {batch_size} out of range (1-16), using default")
+        except ValueError:
+            print(f"Warning: Invalid TUNING_BATCH_SIZE '{tuning_batch_size_env}', using default")
     
     tuning_epochs_env = os.getenv("TUNING_EPOCHS")
     if tuning_epochs_env:
-        config.num_epochs = int(tuning_epochs_env)
+        try:
+            epochs = int(tuning_epochs_env)
+            if 1 <= epochs <= 10:
+                config.num_epochs = epochs
+            else:
+                print(f"Warning: TUNING_EPOCHS {epochs} out of range (1-10), using default")
+        except ValueError:
+            print(f"Warning: Invalid TUNING_EPOCHS '{tuning_epochs_env}', using default")
     
     tuning_device_env = os.getenv("TUNING_DEVICE")
     if tuning_device_env:
-        config.device = tuning_device_env
+        valid_devices = ["auto", "cpu", "cuda", "mps"]
+        if tuning_device_env.lower() in valid_devices:
+            config.device = tuning_device_env.lower()
+        else:
+            print(f"Warning: Invalid TUNING_DEVICE '{tuning_device_env}', using default")
     
     return config
