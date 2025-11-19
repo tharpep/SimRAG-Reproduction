@@ -1,6 +1,7 @@
 """Config command - display current configuration"""
 import typer
 import sys
+from pathlib import Path
 
 from ..utils import check_venv
 
@@ -14,14 +15,16 @@ def config() -> None:
     typer.echo("")
 
     try:
-        from simrag_reproduction.config import get_rag_config, get_tuning_config
-    except Exception as e:
-        typer.echo(f"Error: Could not import config module: {e}", err=True)
-        import traceback
-        traceback.print_exc()
-        raise typer.Exit(1)
-
-    try:
+        # Import config directly to avoid triggering __init__.py imports (which import AIGateway -> torch)
+        import importlib.util
+        config_path = Path(__file__).parent.parent.parent / "config.py"
+        spec = importlib.util.spec_from_file_location("config_module", config_path)
+        config_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(config_module)
+        
+        get_rag_config = config_module.get_rag_config
+        get_tuning_config = config_module.get_tuning_config
+        
         rag_config = get_rag_config()
         tuning_config = get_tuning_config()
 

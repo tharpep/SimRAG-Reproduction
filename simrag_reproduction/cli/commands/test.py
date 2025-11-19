@@ -23,16 +23,13 @@ def _find_project_root() -> Path:
 def _find_tests_dir() -> Path:
     """Find the tests directory relative to project root"""
     project_root = _find_project_root()
-    # Try both possible locations
-    tests_dir = project_root / "simrag_reproduction" / "tests"
-    if tests_dir.exists():
-        return tests_dir
-    # Fallback: try tests in current directory
+    # Since pyproject.toml is now in simrag_reproduction/, project_root is simrag_reproduction/
+    # Tests are at simrag_reproduction/tests/
     tests_dir = project_root / "tests"
     if tests_dir.exists():
         return tests_dir
-    # Last resort: try simrag_reproduction/tests from current dir
-    tests_dir = Path("simrag_reproduction/tests")
+    # Fallback: try from current directory if we're already in simrag_reproduction
+    tests_dir = Path("tests")
     if tests_dir.exists():
         return tests_dir.resolve()
     return None
@@ -105,6 +102,9 @@ def test(
                 all_passed = False
                 failed_folders.append(folder)
         
+        if failed_folders:
+            typer.echo("Note: If tests failed due to 'ModuleNotFoundError', run 'poetry install' to install dependencies.", err=True)
+        
         typer.echo("=" * 50)
         if all_passed:
             typer.echo("All tests passed!")
@@ -134,6 +134,7 @@ def test(
             raise typer.Exit(0)
         except subprocess.CalledProcessError as e:
             typer.echo(f"\nTest failed with exit code {e.returncode}", err=True)
+            typer.echo("Note: If tests failed due to 'ModuleNotFoundError', run 'poetry install' to install dependencies.", err=True)
             raise typer.Exit(e.returncode)
 
     # No category specified - show interactive selection

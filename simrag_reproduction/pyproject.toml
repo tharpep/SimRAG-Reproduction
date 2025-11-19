@@ -3,11 +3,10 @@ name = "simrag"
 version = "0.1.0"
 description = "SimRAG paper reproduction - RAG and fine-tuning implementation"
 authors = ["Your Name <your.email@example.com>"]
-readme = "simrag_reproduction/README.md"
-packages = [
-    {include = "simrag_reproduction"},
-    {include = "cli"},
-]
+readme = "README.md"
+# Package is the current directory (simrag_reproduction/)
+# When pyproject.toml is in the package directory, Poetry auto-detects the package
+# The package name will be 'simrag_reproduction' (directory name)
 
 [tool.poetry.dependencies]
 python = ">=3.9"
@@ -35,7 +34,7 @@ black = "*"
 mypy = ">=1.0.0"
 
 [tool.poetry.scripts]
-simrag = "cli.main:main"
+simrag = "simrag_reproduction.cli.main:main"
 
 [build-system]
 requires = ["poetry-core"]
