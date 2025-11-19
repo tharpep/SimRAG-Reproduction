@@ -150,7 +150,8 @@ class ModelRegistry:
                           batch_size: int,
                           learning_rate: float,
                           device: str,
-                          notes: Optional[str] = None) -> ModelVersion:
+                          notes: Optional[str] = None,
+                          experiment_run_id: Optional[str] = None) -> ModelVersion:
         """Create a new version with auto-incremented version number"""
         
         # Find the next version number
@@ -183,7 +184,8 @@ class ModelRegistry:
             batch_size=batch_size,
             learning_rate=learning_rate,
             device=device,
-            notes=notes
+            notes=notes,
+            experiment_run_id=experiment_run_id
         )
         
         return new_version

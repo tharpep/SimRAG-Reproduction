@@ -58,41 +58,65 @@ class BasicTuner:
                 return "cpu"
         return device
     
-    def load_model(self):
-        """Load the tokenizer and model"""
-        print("Loading tokenizer...")
+    def load_model(self, model_path: Optional[str] = None):
+        """
+        Load the tokenizer and model
         
-        # Map Ollama model names to Hugging Face equivalents
-        if "llama3.2:1b" in self.model_name.lower():
-            base_model = "meta-llama/Llama-3.2-1B"
-        elif "qwen3:1.7b" in self.model_name.lower():
-            base_model = "Qwen/Qwen2.5-1.5B"
-        elif "qwen3:8b" in self.model_name.lower():
-            base_model = "Qwen/Qwen2.5-7B"
+        Args:
+            model_path: Optional path to fine-tuned model to load from.
+                       If None, loads from base model (HuggingFace).
+        """
+        if model_path:
+            print(f"Loading fine-tuned model from: {model_path}")
+            # Load from fine-tuned model path
+            self.tokenizer = AutoTokenizer.from_pretrained(model_path)
+            if self.tokenizer.pad_token is None:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
+            
+            self.model = AutoModelForCausalLM.from_pretrained(
+                model_path,
+                torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
+                device_map=self.device if self.device == "cuda" else None
+            )
+            
+            if self.device != "cuda" and self.device != "mps":
+                self.model = self.model.to(self.device)
+            
+            print(f"Fine-tuned model loaded on {self.device}")
         else:
-            # Try to use the model name directly (for other HF models)
-            base_model = self.model_name
-        
-        self.tokenizer = AutoTokenizer.from_pretrained(base_model)
-        
-        # Add padding token if it doesn't exist
-        if self.tokenizer.pad_token is None:
-            self.tokenizer.pad_token = self.tokenizer.eos_token
-        
-        print("Loading model...")
-        
-        # Use the same base model mapping for consistency
-        self.model = AutoModelForCausalLM.from_pretrained(
-            base_model,
-            torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
-            device_map=self.device if self.device == "cuda" else None
-        )
-        
-        # Move to device if not using device_map
-        if self.device != "cuda":
-            self.model = self.model.to(self.device)
-        
-        print(f"Model loaded on {self.device}")
+            print("Loading tokenizer...")
+            
+            # Map Ollama model names to Hugging Face equivalents
+            if "llama3.2:1b" in self.model_name.lower():
+                base_model = "meta-llama/Llama-3.2-1B"
+            elif "qwen3:1.7b" in self.model_name.lower():
+                base_model = "Qwen/Qwen2.5-1.5B"
+            elif "qwen3:8b" in self.model_name.lower():
+                base_model = "Qwen/Qwen2.5-7B"
+            else:
+                # Try to use the model name directly (for other HF models)
+                base_model = self.model_name
+            
+            self.tokenizer = AutoTokenizer.from_pretrained(base_model)
+            
+            # Add padding token if it doesn't exist
+            if self.tokenizer.pad_token is None:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
+            
+            print("Loading model...")
+            
+            # Use the same base model mapping for consistency
+            self.model = AutoModelForCausalLM.from_pretrained(
+                base_model,
+                torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
+                device_map=self.device if self.device == "cuda" else None
+            )
+            
+            # Move to device if not using device_map
+            if self.device != "cuda":
+                self.model = self.model.to(self.device)
+            
+            print(f"Model loaded on {self.device}")
     
     def prepare_data(self, texts: List[str], max_length: int = 512) -> Dataset:
         """
@@ -177,7 +201,7 @@ class BasicTuner:
         
         print("Trainer setup complete")
     
-    def train(self, notes: Optional[str] = None, version_str: Optional[str] = None):
+    def train(self, notes: Optional[str] = None, version_str: Optional[str] = None, experiment_run_id: Optional[str] = None):
         """
         Start training with version tracking
         
@@ -185,6 +209,7 @@ class BasicTuner:
             notes: Training notes for versioning
             version_str: Optional pre-created version string. If provided, uses this version
                         instead of creating a new one. This allows setting output_dir before training.
+            experiment_run_id: Optional experiment run ID to link versions from same experiment
         
         Returns:
             ModelVersion object if successful, None otherwise
@@ -200,8 +225,12 @@ class BasicTuner:
                 new_version = self.registry.get_version(version_str)
                 if not new_version:
                     raise ValueError(f"Version {version_str} not found in registry")
+                # Update experiment_run_id if provided
+                if experiment_run_id and new_version.experiment_run_id != experiment_run_id:
+                    new_version.experiment_run_id = experiment_run_id
+                    self.registry.register_version(new_version)
             else:
-                # Create new version
+                # Create new version with experiment_run_id if provided
                 new_version = self.registry.create_new_version(
                     model_name=self.model_name,
                     base_model=self.model_name,  # For now, same as model_name
@@ -209,7 +238,8 @@ class BasicTuner:
                     batch_size=self.config.optimized_batch_size,
                     learning_rate=self.config.learning_rate,
                     device=self.device,
-                    notes=notes
+                    notes=notes,
+                    experiment_run_id=experiment_run_id
                 )
                 # Register it now so it's available
                 self.registry.register_version(new_version)

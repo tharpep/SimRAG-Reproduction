@@ -52,27 +52,15 @@ class SimRAGBase:
         try:
             if model_path:
                 logger.info(f"Loading fine-tuned model from: {model_path}")
-                # Load from fine-tuned model path
-                from transformers import AutoTokenizer, AutoModelForCausalLM
-                import torch
-                
-                self.tuner.tokenizer = AutoTokenizer.from_pretrained(model_path)
-                if self.tuner.tokenizer.pad_token is None:
-                    self.tuner.tokenizer.pad_token = self.tuner.tokenizer.eos_token
-                
-                self.tuner.model = AutoModelForCausalLM.from_pretrained(
-                    model_path,
-                    torch_dtype=torch.float16 if self.tuner.device == "cuda" else torch.float32,
-                    device_map=self.tuner.device if self.tuner.device == "cuda" else None
-                )
-                
-                if self.tuner.device != "cuda" and self.tuner.device != "mps":
-                    self.tuner.model = self.tuner.model.to(self.tuner.device)
-                
-                logger.info(f"Fine-tuned model loaded successfully from {model_path}")
             else:
                 logger.info("Loading base model...")
-                self.tuner.load_model()
+            
+            # Use BasicTuner's load_model which now supports model_path parameter
+            self.tuner.load_model(model_path=model_path)
+            
+            if model_path:
+                logger.info(f"Fine-tuned model loaded successfully from {model_path}")
+            else:
                 logger.info("Base model loaded successfully")
         except Exception as e:
             logger.error(f"Failed to load model: {e}")
@@ -150,7 +138,8 @@ class SimRAGBase:
             
             # Train the model - tuner.train() now creates version BEFORE training
             # and sets output_dir correctly, so trainer saves directly to version directory
-            version = self.tuner.train(notes=notes)
+            # Pass experiment_run_id so it's set when version is created (not after)
+            version = self.tuner.train(notes=notes, experiment_run_id=self.experiment_run_id)
             
             if version:
                 logger.info(f"Training completed successfully. Version: {version.version}")
@@ -158,11 +147,8 @@ class SimRAGBase:
                 if version.final_loss:
                     logger.info(f"Final loss: {version.final_loss:.4f}")
                 
-                # Set experiment run ID if provided (links Stage 1 and Stage 2 versions)
                 if self.experiment_run_id:
-                    version.experiment_run_id = self.experiment_run_id
-                    self.registry.register_version(version)  # Re-register with updated ID
-                    logger.info(f"Linked version {version.version} to experiment run: {self.experiment_run_id}")
+                    logger.info(f"Version {version.version} linked to experiment run: {self.experiment_run_id}")
                 
                 # Ensure model is saved (trainer already saved during training, but ensure tokenizer is saved)
                 # The trainer already saved to the correct version directory
