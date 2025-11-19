@@ -67,24 +67,7 @@ def run_complete_experiment(
     if not skip_simrag:
         logger.info("\n[2/3] Running SimRAG Pipeline...")
         
-        # Stage 1
-        logger.info("  Stage 1: Instruction Following...")
-        stage1_results = run_stage1_training(
-            use_real_datasets=use_real_datasets,
-            output_file="stage1_results.json"
-        )
-        stage1_model_path = stage1_results["training"]["model_path"]
-        
-        # Stage 2
-        logger.info("  Stage 2: Domain Adaptation...")
-        stage2_results = run_stage2_training(
-            documents_folder=documents_folder,
-            stage_1_model_path=stage1_model_path,
-            output_file="stage2_results.json"
-        )
-        
-        # For comparison, we need full pipeline results
-        # Create a combined SimRAG results file
+        # Run full pipeline (Stage 1 -> Stage 2 -> Testing)
         from experiments.simrag.run_full_pipeline import run_full_pipeline
         simrag_results = run_full_pipeline(
             documents_folder=documents_folder,

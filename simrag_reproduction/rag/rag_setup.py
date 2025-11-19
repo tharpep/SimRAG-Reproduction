@@ -7,24 +7,35 @@ from ai_providers.gateway import AIGateway
 from .vector_store import VectorStore
 from .retriever import DocumentRetriever
 from config import get_rag_config
+from typing import Optional
 
 
 class BasicRAG:
     """RAG system that orchestrates vector storage, retrieval, and generation"""
     
-    def __init__(self, collection_name=None, use_persistent=None):
+    def __init__(self, collection_name=None, use_persistent=None, force_provider=None):
         """
         Initialize RAG system
         
         Args:
             collection_name: Name for Qdrant collection (uses config default if None)
             use_persistent: If True, use persistent Qdrant storage (uses config default if None)
+            force_provider: Force provider to use ("purdue" or "ollama"). If None, uses config default.
         """
         self.config = get_rag_config()
         self.collection_name = collection_name or self.config.collection_name
         
         # Initialize components
         self.gateway = AIGateway()
+        self.force_provider = force_provider
+        
+        # Override gateway chat if provider is forced
+        if force_provider:
+            original_chat = self.gateway.chat
+            def forced_chat(message: str, provider: Optional[str] = None, model: Optional[str] = None, **kwargs):
+                return original_chat(message, provider=force_provider, model=model, force_provider=True)
+            self.gateway.chat = forced_chat
+        
         self.vector_store = VectorStore(use_persistent=use_persistent if use_persistent is not None else self.config.use_persistent)
         self.retriever = DocumentRetriever()
         

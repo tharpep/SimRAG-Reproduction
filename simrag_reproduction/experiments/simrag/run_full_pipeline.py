@@ -116,8 +116,8 @@ def run_full_pipeline(
     logger.info("TESTING: Evaluating SimRAG Performance")
     logger.info("="*60)
     
-    # Initialize RAG with documents
-    rag = BasicRAG(collection_name="simrag_test", use_persistent=False)
+    # Initialize RAG with documents - use local model (Ollama) for testing
+    rag = BasicRAG(collection_name="simrag_test", use_persistent=False, force_provider="ollama")
     rag.add_documents(documents)
     
     # Test performance

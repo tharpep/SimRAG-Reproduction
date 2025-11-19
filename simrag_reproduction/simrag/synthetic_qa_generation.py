@@ -30,23 +30,26 @@ class SyntheticQAGeneration(SimRAGBase):
         super().__init__(model_name, config)
         self.stage_1_model_path = stage_1_model_path
         try:
+            # Use Purdue API for QA generation (not testing the model)
             self.gateway = AIGateway()
-            # Initialize RAG system (will use Stage 1 model if available)
+            # Initialize RAG system with Purdue API for answer generation
             self.rag_system = self._initialize_rag_system()
             logger.info("Synthetic QA Generator initialized")
+            logger.info("Using Purdue API for QA generation (not testing model)")
             if stage_1_model_path:
-                logger.info(f"Using Stage 1 model: {stage_1_model_path}")
-            else:
-                logger.info("Using vanilla RAG system")
+                logger.info(f"Stage 1 model available: {stage_1_model_path} (for future use)")
         except Exception as e:
             logger.error(f"Failed to initialize Synthetic QA Generator: {e}")
             raise
     
     def _initialize_rag_system(self) -> BasicRAG:
-        """Initialize RAG system, using Stage 1 model if available"""
-        # For now, use vanilla RAG
-        # TODO: Integrate Stage 1 model for improved QA generation
-        return BasicRAG()
+        """
+        Initialize RAG system for synthetic QA generation
+        
+        Uses Purdue API for answer generation (not testing the model)
+        """
+        # Create RAG system that forces Purdue API for generation
+        return BasicRAG(force_provider="purdue")
     
     def generate_questions_from_document(self, document: str, num_questions: int = 3) -> List[str]:
         """
@@ -72,7 +75,8 @@ Generate questions that cover:
 Questions:"""
         
         try:
-            response = self.gateway.chat(prompt)
+            # Force Purdue API for question generation (not testing the model)
+            response = self.gateway.chat(prompt, provider="purdue", force_provider=True)
             questions = self._parse_questions(response)
             result = questions[:num_questions]  # Limit to requested number
             logger.debug(f"Generated {len(result)} questions from document")

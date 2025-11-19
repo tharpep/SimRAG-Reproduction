@@ -63,19 +63,21 @@ class AIGateway:
             )
             self.providers["ollama"] = OllamaClient(ollama_config)
     
-    def chat(self, message: str, provider: Optional[str] = None, model: Optional[str] = None) -> str:
+    def chat(self, message: str, provider: Optional[str] = None, model: Optional[str] = None, force_provider: bool = False) -> str:
         """
         Send a chat message to specified AI provider
         
         Args:
             message: Your message to the AI
-            provider: AI provider to use (auto-selects based on availability)
+            provider: AI provider to use ("purdue" or "ollama")
+                     If None, auto-selects based on availability
             model: Model to use (uses provider default if not specified)
+            force_provider: If True, raises error if provider not available (default: False)
             
         Returns:
             str: AI response
         """
-        # Auto-select provider based on config
+        # Auto-select provider based on config if not specified
         if provider is None:
             if self.rag_config.use_ollama and "ollama" in self.providers:
                 provider = "ollama"
@@ -88,9 +90,19 @@ class AIGateway:
             else:
                 raise Exception("No providers available. Set PURDUE_API_KEY or USE_OLLAMA=true")
         
+        # Check if provider is available
         if provider not in self.providers:
             available = ", ".join(self.providers.keys())
-            raise Exception(f"Provider '{provider}' not available. Available: {available}")
+            if force_provider:
+                raise Exception(f"Provider '{provider}' not available. Available: {available}")
+            else:
+                # Fallback to available provider
+                if "purdue" in self.providers:
+                    provider = "purdue"
+                elif "ollama" in self.providers:
+                    provider = "ollama"
+                else:
+                    raise Exception(f"Provider '{provider}' not available. Available: {available}")
         
         provider_client = self.providers[provider]
         

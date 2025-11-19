@@ -45,12 +45,13 @@ def run_baseline_test(
     if test_questions is None:
         test_questions = get_test_questions()
     
-    # Initialize RAG system
+    # Initialize RAG system - use local model (Ollama) for testing
     logger.info("Initializing RAG system...")
     rag_config = get_rag_config()
     rag = BasicRAG(
         collection_name="baseline_experiment",
-        use_persistent=False  # Use in-memory for experiments
+        use_persistent=False,  # Use in-memory for experiments
+        force_provider="ollama"  # Use local model for testing
     )
     
     # Load documents
