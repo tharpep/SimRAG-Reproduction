@@ -80,7 +80,9 @@ class DomainAdaptation(SimRAGBase):
             logger.info(f"Loading Stage 1 model for Stage 2 training: {self.stage_1_model_path}")
             self.load_model(model_path=self.stage_1_model_path)
         else:
-            logger.info("No Stage 1 model provided, loading base model for Stage 2 training")
+            logger.warning("⚠️  No Stage 1 model provided - Stage 2 will train from BASE model instead of Stage 1 model")
+            logger.warning("   This may not follow SimRAG methodology. Stage 2 should continue from Stage 1.")
+            logger.info("Loading base model for Stage 2 training (fallback mode)")
             self.load_model()
         
         train_dataset = self.prepare_training_data(dataset["training_data"])

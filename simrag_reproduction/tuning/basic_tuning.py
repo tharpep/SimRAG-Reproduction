@@ -177,10 +177,50 @@ class BasicTuner:
         
         print("Trainer setup complete")
     
-    def train(self, notes: Optional[str] = None):
-        """Start training with version tracking"""
+    def train(self, notes: Optional[str] = None, version_str: Optional[str] = None):
+        """
+        Start training with version tracking
+        
+        Args:
+            notes: Training notes for versioning
+            version_str: Optional pre-created version string. If provided, uses this version
+                        instead of creating a new one. This allows setting output_dir before training.
+        
+        Returns:
+            ModelVersion object if successful, None otherwise
+        """
         if not self.trainer:
             raise ValueError("Trainer not setup. Call setup_trainer() first.")
+        
+        # Create or get version BEFORE training so we can set output_dir correctly
+        new_version = None
+        if self.registry and self.config:
+            if version_str:
+                # Use provided version (already created)
+                new_version = self.registry.get_version(version_str)
+                if not new_version:
+                    raise ValueError(f"Version {version_str} not found in registry")
+            else:
+                # Create new version
+                new_version = self.registry.create_new_version(
+                    model_name=self.model_name,
+                    base_model=self.model_name,  # For now, same as model_name
+                    training_epochs=self.config.optimized_num_epochs,
+                    batch_size=self.config.optimized_batch_size,
+                    learning_rate=self.config.learning_rate,
+                    device=self.device,
+                    notes=notes
+                )
+                # Register it now so it's available
+                self.registry.register_version(new_version)
+            
+            # Update trainer output_dir to include version BEFORE training
+            # This ensures trainer saves directly to the correct location
+            original_output_dir = self.trainer.args.output_dir
+            version_output_dir = os.path.join(original_output_dir, new_version.version)
+            self.trainer.args.output_dir = version_output_dir
+            os.makedirs(version_output_dir, exist_ok=True)
+            print(f"Training will save to: {version_output_dir}")
         
         print("Starting training...")
         start_time = time.time()
@@ -191,8 +231,8 @@ class BasicTuner:
         training_time = time.time() - start_time
         print(f"Training completed in {training_time:.1f} seconds!")
         
-        # Register the model version if registry is available
-        if self.registry and self.config:
+        # Update version with training results
+        if new_version:
             # Get training metrics
             final_loss = None
             if hasattr(self.trainer.state, 'log_history') and self.trainer.state.log_history:
@@ -204,23 +244,12 @@ class BasicTuner:
                 total_params = sum(p.numel() for p in self.model.parameters())
                 model_size_mb = total_params * 4 / (1024 * 1024)  # Assuming float32
             
-            # Create new version
-            new_version = self.registry.create_new_version(
-                model_name=self.model_name,
-                base_model=self.model_name,  # For now, same as model_name
-                training_epochs=self.config.optimized_num_epochs,
-                batch_size=self.config.optimized_batch_size,
-                learning_rate=self.config.learning_rate,
-                device=self.device,
-                notes=notes
-            )
-            
-            # Update with training results
+            # Update version with training results
             new_version.training_time_seconds = training_time
             new_version.final_loss = final_loss
             new_version.model_size_mb = model_size_mb
             
-            # Register the version
+            # Re-register with updated metrics
             self.registry.register_version(new_version)
             
             return new_version

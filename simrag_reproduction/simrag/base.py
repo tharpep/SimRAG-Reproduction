@@ -148,11 +148,8 @@ class SimRAGBase:
         try:
             logger.info(f"Starting training with notes: {notes}")
             
-            # Store original output directory
-            original_output_dir = self.tuner.trainer.args.output_dir
-            
-            # Train the model (this will create and register the version)
-            # We let tuner.train() create the version to avoid race conditions
+            # Train the model - tuner.train() now creates version BEFORE training
+            # and sets output_dir correctly, so trainer saves directly to version directory
             version = self.tuner.train(notes=notes)
             
             if version:
@@ -167,26 +164,9 @@ class SimRAGBase:
                     self.registry.register_version(version)  # Re-register with updated ID
                     logger.info(f"Linked version {version.version} to experiment run: {self.experiment_run_id}")
                 
-                # Now that we have the actual version, move model to version-specific directory
-                version_output_dir = os.path.join(original_output_dir, version.version)
-                
-                # If trainer saved to a different location, move it
-                if self.tuner.trainer.args.output_dir != version_output_dir:
-                    import shutil
-                    if os.path.exists(self.tuner.trainer.args.output_dir):
-                        os.makedirs(version_output_dir, exist_ok=True)
-                        # Move all files from trainer output to version directory
-                        for item in os.listdir(self.tuner.trainer.args.output_dir):
-                            src = os.path.join(self.tuner.trainer.args.output_dir, item)
-                            dst = os.path.join(version_output_dir, item)
-                            if os.path.isfile(src):
-                                shutil.move(src, dst)
-                            elif os.path.isdir(src) and item != version.version:
-                                shutil.move(src, dst)
-                    # Update trainer args to reflect new location
-                    self.tuner.trainer.args.output_dir = version_output_dir
-                
-                # Ensure model is saved to version-specific directory
+                # Ensure model is saved (trainer already saved during training, but ensure tokenizer is saved)
+                # The trainer already saved to the correct version directory
+                version_output_dir = self.tuner.trainer.args.output_dir
                 self.tuner.save_model(version_output_dir)
                 logger.info(f"Model saved to: {version_output_dir}")
             else:
