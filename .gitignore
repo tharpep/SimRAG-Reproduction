@@ -4,6 +4,11 @@
 venv/
 env/
 .venv/
+ENV/
+env.bak/
+venv.bak/
+# Poetry virtual environment (usually in project root or .venv)
+.python-version
 
 # Model files and caches
 *.bin
@@ -22,7 +27,10 @@ tuned_models/*/v*/training_args.bin
 tuned_models/*/v*/trainer_state.json
 tuned_models/*/v*/rng_state.pth
 .cache/
+# Python cache
 __pycache__/
+*.py[cod]
+*$py.class
 
 # Training outputs
 results/
@@ -47,6 +55,34 @@ data/qdrant_db/
 *.egg-info/
 dist/
 build/
+*.egg-info
+
+# Poetry
+.poetry/
+# Note: poetry.lock should be committed for reproducible builds
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+.hypothesis/
+.tox/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Ruff
+.ruff_cache/
+
+# Type checking
+.pytype/
+typecheck/
+
+# Jupyter Notebook checkpoints (already have .ipynb_checkpoints/)
+# Keeping *.ipynb ignore as is
 
 # IDE and editors
 .vscode/
@@ -54,8 +90,6 @@ build/
 *.swp
 *.swo
 *~
-.DS_Store
-Thumbs.db
 
 # Jupyter Notebooks
 .ipynb_checkpoints/

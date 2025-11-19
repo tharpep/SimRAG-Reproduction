@@ -127,7 +127,7 @@ def compare_results(
     if output_file:
         # Add timestamp if not already present and use_timestamp is True
         if use_timestamp:
-            from experiments.utils import get_timestamped_filename, has_timestamp
+            from ..utils import get_timestamped_filename, has_timestamp
             if not has_timestamp(output_file):
                 base_name = Path(output_file).stem
                 output_file = get_timestamped_filename(base_name, "json")

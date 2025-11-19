@@ -50,12 +50,12 @@ class TestOllamaClient:
     
     def _create_mocked_client(self, health_check_return=True):
         """Helper method to create OllamaClient with mocked health check"""
-        with patch('ai_providers.local.OllamaClient._check_ollama_health', return_value=health_check_return):
+        with patch('simrag_reproduction.ai_providers.local.OllamaClient._check_ollama_health', return_value=health_check_return):
             return OllamaClient()
     
     def test_init_default_config(self):
         """Test initialization with default config"""
-        with patch('ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
+        with patch('simrag_reproduction.ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
             client = OllamaClient()
             assert client.config.base_url == "http://localhost:11434"
             assert client.config.default_model == "llama3.2:1b"
@@ -65,25 +65,25 @@ class TestOllamaClient:
     def test_init_custom_config(self):
         """Test initialization with custom config"""
         config = OllamaConfig(base_url="http://custom:8080")
-        with patch('ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
+        with patch('simrag_reproduction.ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
             client = OllamaClient(config)
             assert client.config.base_url == "http://custom:8080"
     
     def test_init_ollama_not_running(self):
         """Test initialization fails when Ollama is not running"""
-        with patch('ai_providers.local.OllamaClient._check_ollama_health', return_value=False):
+        with patch('simrag_reproduction.ai_providers.local.OllamaClient._check_ollama_health', return_value=False):
             with pytest.raises(ConnectionError, match="Ollama is not running or not accessible"):
                 OllamaClient()
     
     def test_init_ollama_running(self):
         """Test initialization succeeds when Ollama is running"""
-        with patch('ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
+        with patch('simrag_reproduction.ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
             client = OllamaClient()
             assert client.config.base_url == "http://localhost:11434"
     
     def test_check_ollama_health_success(self):
         """Test health check returns True when Ollama is accessible"""
-        with patch('ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
+        with patch('simrag_reproduction.ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
             client = OllamaClient()
             result = client._check_ollama_health()
             assert result is True
@@ -91,7 +91,7 @@ class TestOllamaClient:
     def test_check_ollama_health_failure(self):
         """Test health check returns False when Ollama is not accessible"""
         # First create client with successful health check
-        with patch('ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
+        with patch('simrag_reproduction.ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
             client = OllamaClient()
         
         # Then test the health check method returning False
@@ -103,7 +103,7 @@ class TestOllamaClient:
     async def test_context_manager(self):
         """Test async context manager"""
         with patch('httpx.AsyncClient') as mock_client_class, \
-             patch('ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
+             patch('simrag_reproduction.ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
             mock_client = AsyncMock()
             mock_client_class.return_value = mock_client
             
@@ -118,7 +118,7 @@ class TestOllamaClient:
     async def test_ensure_client(self):
         """Test client creation"""
         with patch('httpx.AsyncClient') as mock_client_class, \
-             patch('ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
+             patch('simrag_reproduction.ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
             mock_client = AsyncMock()
             mock_client_class.return_value = mock_client
             
@@ -132,7 +132,7 @@ class TestOllamaClient:
     def test_chat_sync(self):
         """Test synchronous chat wrapper"""
         with patch('httpx.Client') as mock_client_class, \
-             patch('ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
+             patch('simrag_reproduction.ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
             mock_client = MagicMock()
             mock_response = MagicMock()
             mock_response.json.return_value = {"message": {"content": "Test response"}}
@@ -152,7 +152,7 @@ class TestOllamaClient:
     async def test_chat_success(self):
         """Test successful async chat"""
         with patch('httpx.AsyncClient') as mock_client_class, \
-             patch('ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
+             patch('simrag_reproduction.ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
             mock_client = AsyncMock()
             mock_response = MagicMock()
             mock_response.json.return_value = {"message": {"content": "Test response"}}
@@ -172,7 +172,7 @@ class TestOllamaClient:
     async def test_chat_custom_model(self):
         """Test chat with custom model"""
         with patch('httpx.AsyncClient') as mock_client_class, \
-             patch('ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
+             patch('simrag_reproduction.ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
             mock_client = AsyncMock()
             mock_response = MagicMock()
             mock_response.json.return_value = {"message": {"content": "Test response"}}
@@ -193,7 +193,7 @@ class TestOllamaClient:
     async def test_embeddings(self):
         """Test embeddings generation"""
         with patch('httpx.AsyncClient') as mock_client_class, \
-             patch('ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
+             patch('simrag_reproduction.ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
             mock_client = AsyncMock()
             mock_response = MagicMock()
             mock_response.json.return_value = {"embedding": [0.1, 0.2, 0.3]}
@@ -211,7 +211,7 @@ class TestOllamaClient:
     async def test_health_check_success(self):
         """Test successful health check"""
         with patch('httpx.AsyncClient') as mock_client_class, \
-             patch('ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
+             patch('simrag_reproduction.ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
             mock_client = AsyncMock()
             mock_response = MagicMock()
             mock_response.status_code = 200
@@ -230,7 +230,7 @@ class TestOllamaClient:
     async def test_health_check_failure(self):
         """Test failed health check"""
         with patch('httpx.AsyncClient') as mock_client_class, \
-             patch('ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
+             patch('simrag_reproduction.ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
             mock_client = AsyncMock()
             mock_client.get.side_effect = Exception("Connection failed")
             mock_client_class.return_value = mock_client
@@ -251,7 +251,7 @@ class TestOllamaClient:
     async def test_list_models(self):
         """Test listing models"""
         with patch('httpx.AsyncClient') as mock_client_class, \
-             patch('ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
+             patch('simrag_reproduction.ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
             mock_client = AsyncMock()
             mock_response = MagicMock()
             mock_response.json.return_value = {
@@ -272,7 +272,7 @@ class TestOllamaClient:
     def test_get_available_models_sync(self):
         """Test synchronous get_available_models"""
         with patch('httpx.Client') as mock_client_class, \
-             patch('ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
+             patch('simrag_reproduction.ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
             
             mock_client = MagicMock()
             mock_response = MagicMock()

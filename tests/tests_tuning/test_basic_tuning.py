@@ -29,8 +29,8 @@ class TestBasicTuner:
         assert tuner.config is None
         assert tuner.registry is None
     
-    @patch('tuning.basic_tuning.AutoTokenizer')
-    @patch('tuning.basic_tuning.AutoModelForCausalLM')
+    @patch('simrag_reproduction.tuning.basic_tuning.AutoTokenizer')
+    @patch('simrag_reproduction.tuning.basic_tuning.AutoModelForCausalLM')
     def test_model_name_mapping(self, mock_model, mock_tokenizer):
         """Test that model names map to correct Hugging Face models"""
         # Test llama3.2:1b mapping
@@ -47,7 +47,7 @@ class TestBasicTuner:
         # Check that the model was called with the correct model name (ignore other parameters)
         assert mock_model.from_pretrained.call_args[0][0] == "meta-llama/Llama-3.2-1B"
     
-    @patch('tuning.basic_tuning.Dataset')
+    @patch('simrag_reproduction.tuning.basic_tuning.Dataset')
     def test_prepare_data_structure(self, mock_dataset_class):
         """Test data preparation creates correct structure"""
         tuner = BasicTuner()
@@ -78,9 +78,9 @@ class TestBasicTuner:
         
         mock_dataset = MagicMock()
         
-        with patch('tuning.basic_tuning.TrainingArguments') as mock_args, \
-             patch('tuning.basic_tuning.DataCollatorForLanguageModeling'), \
-             patch('tuning.basic_tuning.Trainer') as mock_trainer:
+        with patch('simrag_reproduction.tuning.basic_tuning.TrainingArguments') as mock_args, \
+             patch('simrag_reproduction.tuning.basic_tuning.DataCollatorForLanguageModeling'), \
+             patch('simrag_reproduction.tuning.basic_tuning.Trainer') as mock_trainer:
             
             tuner.setup_trainer(
                 train_dataset=mock_dataset,
@@ -168,9 +168,9 @@ class TestTuningConfig:
 class TestTuningIntegration:
     """Test tuning workflow integration"""
     
-    @patch('tuning.basic_tuning.Dataset')
-    @patch('tuning.basic_tuning.AutoTokenizer')
-    @patch('tuning.basic_tuning.AutoModelForCausalLM')
+    @patch('simrag_reproduction.tuning.basic_tuning.Dataset')
+    @patch('simrag_reproduction.tuning.basic_tuning.AutoTokenizer')
+    @patch('simrag_reproduction.tuning.basic_tuning.AutoModelForCausalLM')
     def test_full_workflow_setup(self, mock_model, mock_tokenizer, mock_dataset_class):
         """Test that the full workflow can be set up (without actual training)"""
         config = get_tuning_config()
@@ -208,9 +208,9 @@ class TestTuningIntegration:
         # Test that we can set up trainer (without actually training)
         tuner.model = MagicMock()
         
-        with patch('tuning.basic_tuning.TrainingArguments'), \
-             patch('tuning.basic_tuning.DataCollatorForLanguageModeling'), \
-             patch('tuning.basic_tuning.Trainer'):
+        with patch('simrag_reproduction.tuning.basic_tuning.TrainingArguments'), \
+             patch('simrag_reproduction.tuning.basic_tuning.DataCollatorForLanguageModeling'), \
+             patch('simrag_reproduction.tuning.basic_tuning.Trainer'):
             
             tuner.setup_trainer(
                 train_dataset=dataset,

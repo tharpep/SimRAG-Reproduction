@@ -11,6 +11,9 @@ from simrag_reproduction.rag.rag_setup import BasicRAG
 from simrag_reproduction.rag.document_ingester import DocumentIngester
 from simrag_reproduction.config import RAGConfig
 
+# Find project root (two levels up from tests/tests_rag/test_rag.py)
+project_root = Path(__file__).parent.parent.parent
+
 
 class TestRAGSystem:
     """Test class for RAG system functionality"""

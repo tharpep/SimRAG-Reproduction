@@ -18,8 +18,8 @@ class TestAIGateway:
             "ollama": {"base_url": "http://localhost:11434", "default_model": "test-model"}
         }
         
-        with patch('ai_providers.gateway.PurdueGenAI') as mock_purdue, \
-             patch('ai_providers.gateway.OllamaClient') as mock_ollama:
+        with patch('simrag_reproduction.ai_providers.gateway.PurdueGenAI') as mock_purdue, \
+             patch('simrag_reproduction.ai_providers.gateway.OllamaClient') as mock_ollama:
             
             gateway = AIGateway(config)
             
@@ -30,7 +30,7 @@ class TestAIGateway:
     def test_init_from_env_vars(self):
         """Test gateway initialization from environment variables"""
         with patch.dict(os.environ, {'PURDUE_API_KEY': 'test-key'}), \
-             patch('ai_providers.gateway.PurdueGenAI') as mock_purdue:
+             patch('simrag_reproduction.ai_providers.gateway.PurdueGenAI') as mock_purdue:
             
             gateway = AIGateway()
             mock_purdue.assert_called_once()
@@ -38,7 +38,7 @@ class TestAIGateway:
     def test_init_with_ollama_env(self):
         """Test gateway initialization with Ollama environment variable"""
         with patch.dict(os.environ, {'USE_OLLAMA': 'true', 'USE_LAPTOP': 'true'}), \
-             patch('ai_providers.gateway.OllamaClient') as mock_ollama:
+             patch('simrag_reproduction.ai_providers.gateway.OllamaClient') as mock_ollama:
             
             gateway = AIGateway()
             mock_ollama.assert_called_once()
@@ -47,7 +47,7 @@ class TestAIGateway:
         """Test getting available providers"""
         config = {"purdue": {"api_key": "test-key"}}
         
-        with patch('ai_providers.gateway.PurdueGenAI'):
+        with patch('simrag_reproduction.ai_providers.gateway.PurdueGenAI'):
             gateway = AIGateway(config)
             providers = gateway.get_available_providers()
             assert "purdue" in providers
@@ -56,8 +56,8 @@ class TestAIGateway:
         """Test chat with automatic provider selection"""
         config = {"purdue": {"api_key": "test-key"}}
         
-        with patch('ai_providers.gateway.PurdueGenAI') as mock_purdue, \
-             patch('ai_providers.gateway.get_rag_config') as mock_config:
+        with patch('simrag_reproduction.ai_providers.gateway.PurdueGenAI') as mock_purdue, \
+             patch('simrag_reproduction.ai_providers.gateway.get_rag_config') as mock_config:
             # Mock config to prefer Purdue over Ollama
             mock_config.return_value.use_ollama = False
             mock_config.return_value.model_name = "llama3.1:latest"
@@ -76,7 +76,7 @@ class TestAIGateway:
         """Test chat with specific provider"""
         config = {"purdue": {"api_key": "test-key"}}
         
-        with patch('ai_providers.gateway.PurdueGenAI') as mock_purdue:
+        with patch('simrag_reproduction.ai_providers.gateway.PurdueGenAI') as mock_purdue:
             mock_client = MagicMock()
             mock_client.chat.return_value = "Test response"
             mock_purdue.return_value = mock_client
@@ -89,14 +89,18 @@ class TestAIGateway:
     
     def test_chat_no_providers_available(self):
         """Test chat when no providers are available"""
-        with patch('ai_providers.gateway.get_rag_config') as mock_config, \
-             patch('ai_providers.gateway.OllamaClient') as mock_ollama:
-            # Mock config to prefer Ollama but no Ollama available
-            mock_config.return_value.use_ollama = False  # Don't use Ollama
+        with patch('simrag_reproduction.ai_providers.gateway.get_rag_config') as mock_config, \
+             patch('simrag_reproduction.ai_providers.gateway.OllamaClient'), \
+             patch.dict('os.environ', {}, clear=True):  # Clear environment variables
+            # Mock config to not use any providers
+            mock_config.return_value.use_ollama = False
             mock_config.return_value.model_name = "llama3.2:1b"
             
-            # Don't create any providers
+            # Don't create any providers - pass empty config and ensure no env vars
             gateway = AIGateway({})
+            
+            # Ensure no providers were initialized
+            assert len(gateway.providers) == 0, "Expected no providers to be initialized"
             
             with pytest.raises(Exception, match="No providers available"):
                 gateway.chat("Hello")
@@ -105,8 +109,9 @@ class TestAIGateway:
         """Test chat with invalid provider"""
         config = {"purdue": {"api_key": "test-key"}}
         
-        with patch('ai_providers.gateway.PurdueGenAI'):
+        with patch('simrag_reproduction.ai_providers.gateway.PurdueGenAI'):
             gateway = AIGateway(config)
             
+            # Use force_provider=True to ensure exception is raised for invalid provider
             with pytest.raises(Exception, match="Provider 'invalid' not available"):
-                gateway.chat("Hello", provider="invalid")
+                gateway.chat("Hello", provider="invalid", force_provider=True)

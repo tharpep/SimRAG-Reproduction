@@ -9,8 +9,8 @@ from pathlib import Path
 
 from ..logging_config import get_logger
 from .base import SimRAGBase
-from rag.rag_setup import BasicRAG
-from ai_providers.gateway import AIGateway
+from ..rag.rag_setup import BasicRAG
+from ..ai_providers.gateway import AIGateway
 
 logger = get_logger(__name__)
 

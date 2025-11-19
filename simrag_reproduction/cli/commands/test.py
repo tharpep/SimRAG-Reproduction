@@ -90,13 +90,13 @@ def test(
                 rel_path = test_path.relative_to(project_root)
                 if use_poetry:
                     result = subprocess.run(
-                        ["poetry", "run", "pytest", str(rel_path), "-v", "--cache-clear"],
+                        ["poetry", "run", "pytest", str(rel_path), "--cache-clear"],
                         check=True,
                         cwd=project_root
                     )
                 else:
                     result = subprocess.run(
-                        [python_cmd, "-m", "pytest", str(rel_path), "-v", "--cache-clear"],
+                        [python_cmd, "-m", "pytest", str(rel_path), "--cache-clear"],
                         check=True,
                         cwd=project_root
                     )
