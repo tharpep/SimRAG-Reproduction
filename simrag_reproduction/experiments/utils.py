@@ -3,14 +3,10 @@ Utility functions for experiments
 Helper functions for document loading, HTML extraction, etc.
 """
 
-import sys
 from pathlib import Path
 from typing import List
 import re
 from html.parser import HTMLParser
-
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 class HTMLTextExtractor(HTMLParser):

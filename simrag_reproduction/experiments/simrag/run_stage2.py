@@ -3,18 +3,14 @@ Run SimRAG Stage 2 Training
 Fine-tune model on synthetic QA pairs from domain documents
 """
 
-import sys
 import json
 from pathlib import Path
 from datetime import datetime
 
-# Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-from simrag.domain_adaptation import DomainAdaptation
-from config import get_tuning_config
-from experiments.utils import load_documents_from_folder
-from logging_config import setup_logging, get_logger
+from simrag_reproduction.simrag.domain_adaptation import DomainAdaptation
+from simrag_reproduction.config import get_tuning_config
+from simrag_reproduction.experiments.utils import load_documents_from_folder
+from simrag_reproduction.logging_config import setup_logging, get_logger
 
 # Setup logging
 setup_logging()

@@ -12,15 +12,39 @@ This codebase provides a clean, educational implementation focusing on:
 
 ## Quick Start
 
+### Prerequisites
+- Python 3.9+
+- [Poetry](https://python-poetry.org/docs/#installation) (recommended) or pip
+
+### Installation
+
 ```bash
-# Setup environment
-python run setup
+# Install dependencies with Poetry
+poetry install
 
+# Activate Poetry shell (adds 'simrag' command to PATH)
+poetry shell
+
+# Or use Poetry run (without shell)
+poetry run simrag <command>
+```
+
+### Usage
+
+```bash
 # Run tests
-python run test
+simrag test                    # Interactive test selection
+simrag test --all              # Run all tests
+simrag test tests_rag          # Run specific test category
 
-# Try the RAG demo
-python -m rag.basic_rag
+# View configuration
+simrag config
+
+# Run experiments
+simrag experiment run          # Full pipeline: baseline -> simrag -> compare
+simrag experiment baseline     # Run baseline RAG test only
+simrag experiment simrag       # Run SimRAG pipeline only
+simrag experiment compare      # Compare existing results
 ```
 
 ## Architecture
@@ -33,10 +57,18 @@ simrag_reproduction/
 │   ├── purdue_api.py     # Purdue GenAI client
 │   └── base_client.py    # Abstract base class
 ├── rag/                   # RAG implementations
-│   └── basic_rag.py      # Basic RAG with Qdrant
+│   ├── rag_setup.py      # Basic RAG with Qdrant
+│   ├── retriever.py      # Document retrieval
+│   └── vector_store.py   # Qdrant integration
+├── simrag/                # SimRAG pipeline
+│   ├── base.py           # Base functionality
+│   ├── instruction_following.py  # Stage 1
+│   └── domain_adaptation.py       # Stage 2
+├── experiments/          # Experiment orchestration
+├── tuning/                # Model fine-tuning
 ├── tests/                 # Test suite
-├── run                    # CLI tool
-└── requirements.txt       # Dependencies
+├── cli/                   # CLI commands (Poetry + Typer)
+└── pyproject.toml        # Poetry configuration
 ```
 
 ## Configuration

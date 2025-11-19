@@ -6,7 +6,7 @@ Coordinates vector storage, retrieval, and generation components
 from ai_providers.gateway import AIGateway
 from .vector_store import VectorStore
 from .retriever import DocumentRetriever
-from config import get_rag_config
+from simrag_reproduction.config import get_rag_config
 from typing import Optional
 
 

@@ -3,19 +3,15 @@ Run Baseline RAG Experiment
 Tests vanilla RAG system (no fine-tuning) on domain documents
 """
 
-import sys
 import json
 import time
 from pathlib import Path
 from datetime import datetime
 
-# Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-from rag.rag_setup import BasicRAG
-from config import get_rag_config
-from experiments.utils import load_documents_from_folder, get_test_questions
-from logging_config import setup_logging, get_logger
+from simrag_reproduction.rag.rag_setup import BasicRAG
+from simrag_reproduction.config import get_rag_config
+from simrag_reproduction.experiments.utils import load_documents_from_folder, get_test_questions
+from simrag_reproduction.logging_config import setup_logging, get_logger
 
 # Setup logging
 setup_logging()

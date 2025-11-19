@@ -1,0 +1,2 @@
+"""SimRAG CLI package"""
+

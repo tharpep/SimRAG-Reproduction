@@ -27,7 +27,7 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 from .base_client import BaseLLMClient
-from config import get_rag_config
+from simrag_reproduction.config import get_rag_config
 
 
 DEFAULT_MODEL = "llama3.2:1b"

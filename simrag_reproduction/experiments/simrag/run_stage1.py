@@ -3,17 +3,13 @@ Run SimRAG Stage 1 Training
 Fine-tune model on instruction-following dataset (Alpaca)
 """
 
-import sys
 import json
 from pathlib import Path
 from datetime import datetime
 
-# Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-from simrag.instruction_following import InstructionFollowing
-from config import get_tuning_config
-from logging_config import setup_logging, get_logger
+from simrag_reproduction.simrag.instruction_following import InstructionFollowing
+from simrag_reproduction.config import get_tuning_config
+from simrag_reproduction.logging_config import setup_logging, get_logger
 
 # Setup logging
 setup_logging()

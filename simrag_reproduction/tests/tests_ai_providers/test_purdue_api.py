@@ -6,7 +6,7 @@ import pytest
 import json
 import os
 from unittest.mock import patch, MagicMock, mock_open
-from ai_providers.purdue_api import PurdueGenAI
+from simrag_reproduction.ai_providers.purdue_api import PurdueGenAI
 
 
 class TestPurdueGenAI:

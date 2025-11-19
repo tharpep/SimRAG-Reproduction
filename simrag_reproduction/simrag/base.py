@@ -8,11 +8,11 @@ import time
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
-from logging_config import get_logger
-from tuning.basic_tuning import BasicTuner
-from tuning.model_registry import get_model_registry
-from config import get_tuning_config
-from rag.rag_setup import BasicRAG
+from simrag_reproduction.logging_config import get_logger
+from simrag_reproduction.tuning.basic_tuning import BasicTuner
+from simrag_reproduction.tuning.model_registry import get_model_registry
+from simrag_reproduction.config import get_tuning_config
+from simrag_reproduction.rag.rag_setup import BasicRAG
 
 logger = get_logger(__name__)
 

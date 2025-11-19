@@ -3,17 +3,14 @@ Compare Baseline vs SimRAG Results
 Loads results from baseline and SimRAG experiments and generates comparison
 """
 
-import sys
 import json
+import sys
 from pathlib import Path
 from typing import Dict, Any, Optional
 
-# Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-from simrag.domain_adaptation import DomainAdaptation
-from config import get_tuning_config
-from logging_config import setup_logging, get_logger
+from simrag_reproduction.simrag.domain_adaptation import DomainAdaptation
+from simrag_reproduction.config import get_tuning_config
+from simrag_reproduction.logging_config import setup_logging, get_logger
 
 # Setup logging
 setup_logging()

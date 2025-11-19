@@ -3,15 +3,10 @@ SimRAG Test Suite
 Tests for SimRAG three-stage pipeline using pytest
 """
 
-import sys
 import os
 import pytest
 from unittest.mock import patch, MagicMock
 from pathlib import Path
-
-# Add project root to path for imports
-project_root = Path(__file__).parent.parent.parent
-sys.path.append(str(project_root))
 
 # Imports will be done within patched contexts to handle dependencies
 

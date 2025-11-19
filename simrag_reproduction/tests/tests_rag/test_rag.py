@@ -3,18 +3,13 @@ RAG System Tests
 Tests the RAG system with domain documents using pytest
 """
 
-import sys
 import os
 import pytest
 from pathlib import Path
 
-# Add project root to path for imports
-project_root = Path(__file__).parent.parent.parent
-sys.path.append(str(project_root))
-
-from rag.rag_setup import BasicRAG
-from rag.document_ingester import DocumentIngester
-from config import RAGConfig
+from simrag_reproduction.rag.rag_setup import BasicRAG
+from simrag_reproduction.rag.document_ingester import DocumentIngester
+from simrag_reproduction.config import RAGConfig
 
 
 class TestRAGSystem:
