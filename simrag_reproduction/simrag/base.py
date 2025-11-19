@@ -121,22 +121,63 @@ class SimRAGBase:
         """
         try:
             logger.info(f"Starting training with notes: {notes}")
+            
+            # Get the next version number BEFORE training so we can save to version-specific directory
+            # This ensures each run gets a unique version and doesn't overwrite previous models
+            next_version_str = None
+            if self.registry and self.config:
+                existing_versions = [v for v in self.registry.get_all_versions() if v.version.startswith('v')]
+                if not existing_versions:
+                    next_version_num = 1.0
+                else:
+                    version_numbers = []
+                    for v in existing_versions:
+                        try:
+                            num = float(v.version[1:])
+                            version_numbers.append(num)
+                        except ValueError:
+                            continue
+                    next_version_num = max(version_numbers) + 0.1 if version_numbers else 1.0
+                
+                next_version_str = f"v{next_version_num:.1f}"
+                
+                # Update output directory to include version number
+                # This ensures each training run saves to a unique directory
+                original_output_dir = self.tuner.trainer.args.output_dir
+                version_output_dir = os.path.join(original_output_dir, next_version_str)
+                self.tuner.trainer.args.output_dir = version_output_dir
+                os.makedirs(version_output_dir, exist_ok=True)
+                logger.info(f"Training will save to version-specific directory: {version_output_dir}")
+            
+            # Train the model (this will create and register the version)
             version = self.tuner.train(notes=notes)
+            
             if version:
                 logger.info(f"Training completed successfully. Version: {version.version}")
+                logger.info(f"Training time: {version.training_time_seconds:.1f}s")
+                if version.final_loss:
+                    logger.info(f"Final loss: {version.final_loss:.4f}")
+                
+                # Ensure model is saved to version-specific directory
+                # The trainer already saved during training, but we explicitly save to ensure tokenizer is saved
+                # The output_dir was already updated to include the version, so just save there
+                self.tuner.save_model(self.tuner.trainer.args.output_dir)
+                logger.info(f"Model saved to: {self.tuner.trainer.args.output_dir}")
             else:
                 logger.warning("Training completed but no version object returned")
+            
             return version
         except Exception as e:
             logger.error(f"Training failed: {e}")
             raise
     
-    def get_model_from_registry(self, version: Optional[str] = None) -> Optional[str]:
+    def get_model_from_registry(self, version: Optional[str] = None, stage: Optional[str] = None) -> Optional[str]:
         """
         Get model path from registry
         
         Args:
             version: Specific version to load (default: latest)
+            stage: Stage name ("stage_1" or "stage_2") - if None, searches both
             
         Returns:
             Model path if found (absolute path)
@@ -157,12 +198,30 @@ class SimRAGBase:
                 model_suffix = "1b" if self.config.use_laptop else "8b"
                 base_dir = f"./tuned_models/llama_{model_suffix}"
                 version_name = model_info.version
-                model_path = f"{base_dir}/{version_name}"
+                
+                # Try to find the model in stage directories
+                if stage:
+                    # Check specific stage
+                    model_path = f"{base_dir}/{stage}/{version_name}"
+                else:
+                    # Search both stages (try stage_2 first, then stage_1)
+                    model_path = None
+                    for stage_name in ["stage_2", "stage_1"]:
+                        candidate_path = f"{base_dir}/{stage_name}/{version_name}"
+                        from pathlib import Path
+                        if Path(candidate_path).exists():
+                            model_path = candidate_path
+                            break
+                    
+                    if not model_path:
+                        # Fallback: try without stage (old format)
+                        model_path = f"{base_dir}/{version_name}"
                 
                 # Convert to absolute path
                 from pathlib import Path
                 abs_path = Path(model_path).resolve()
                 if abs_path.exists():
+                    logger.info(f"Found model at: {abs_path}")
                     return str(abs_path)
                 else:
                     logger.warning(f"Model path does not exist: {abs_path}")

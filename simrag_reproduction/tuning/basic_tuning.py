@@ -144,6 +144,7 @@ class BasicTuner:
         print("Setting up trainer...")
         
         # Training arguments
+        # Note: output_dir may be updated by train_model() to include version number
         training_args = TrainingArguments(
             output_dir=output_dir,
             num_train_epochs=num_epochs,

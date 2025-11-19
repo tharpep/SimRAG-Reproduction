@@ -116,12 +116,12 @@ def run_full_pipeline(
     logger.info("TESTING: Evaluating SimRAG Performance")
     logger.info("="*60)
     
-    # Get the fine-tuned Stage 2 model path
-    stage2_model_path = stage2.get_model_from_registry(version2.version)
+    # Get the fine-tuned Stage 2 model path (explicitly specify stage_2)
+    stage2_model_path = stage2.get_model_from_registry(version2.version, stage="stage_2")
     if not stage2_model_path:
         raise Exception(f"Could not find Stage 2 model path for version {version2.version}")
     
-    logger.info(f"Using fine-tuned model: {stage2_model_path}")
+    logger.info(f"Using fine-tuned Stage 2 model: {stage2_model_path}")
     
     # Initialize RAG with documents - use fine-tuned model for testing
     rag = BasicRAG(
