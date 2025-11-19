@@ -75,8 +75,14 @@ class DomainAdaptation(SimRAGBase):
             logger.warning("No training data generated")
             return None
         
-        # Load model and prepare training data
-        self.load_model()
+        # Load model - use Stage 1 model if available, otherwise base model
+        if self.stage_1_model_path:
+            logger.info(f"Loading Stage 1 model for Stage 2 training: {self.stage_1_model_path}")
+            self.load_model(model_path=self.stage_1_model_path)
+        else:
+            logger.info("No Stage 1 model provided, loading base model for Stage 2 training")
+            self.load_model()
+        
         train_dataset = self.prepare_training_data(dataset["training_data"])
         
         # Setup trainer for Stage 2

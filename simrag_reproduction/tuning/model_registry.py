@@ -26,6 +26,7 @@ class ModelVersion:
     model_size_mb: Optional[float] = None
     notes: Optional[str] = None
     is_active: bool = True
+    experiment_run_id: Optional[str] = None  # Simple tracking: links Stage 1 and Stage 2 from same run
 
 
 class ModelRegistry:

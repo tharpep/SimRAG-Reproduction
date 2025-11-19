@@ -29,6 +29,7 @@ class SimRAGBase:
             config: TuningConfig instance (optional)
         """
         self.model_name = model_name
+        self.experiment_run_id = None  # Will be set before training to link versions
         try:
             self.config = config or get_tuning_config()
             self.tuner = BasicTuner(model_name, config=self.config)
@@ -38,16 +39,41 @@ class SimRAGBase:
             logger.error(f"Failed to initialize SimRAG base: {e}")
             raise
     
-    def load_model(self) -> None:
+    def load_model(self, model_path: Optional[str] = None) -> None:
         """Load the model for training
+        
+        Args:
+            model_path: Optional path to fine-tuned model to load from.
+                       If None, loads from base model (HuggingFace).
         
         Raises:
             Exception: If model loading fails
         """
         try:
-            logger.info("Loading model...")
-            self.tuner.load_model()
-            logger.info("Model loaded successfully")
+            if model_path:
+                logger.info(f"Loading fine-tuned model from: {model_path}")
+                # Load from fine-tuned model path
+                from transformers import AutoTokenizer, AutoModelForCausalLM
+                import torch
+                
+                self.tuner.tokenizer = AutoTokenizer.from_pretrained(model_path)
+                if self.tuner.tokenizer.pad_token is None:
+                    self.tuner.tokenizer.pad_token = self.tuner.tokenizer.eos_token
+                
+                self.tuner.model = AutoModelForCausalLM.from_pretrained(
+                    model_path,
+                    torch_dtype=torch.float16 if self.tuner.device == "cuda" else torch.float32,
+                    device_map=self.tuner.device if self.tuner.device == "cuda" else None
+                )
+                
+                if self.tuner.device != "cuda" and self.tuner.device != "mps":
+                    self.tuner.model = self.tuner.model.to(self.tuner.device)
+                
+                logger.info(f"Fine-tuned model loaded successfully from {model_path}")
+            else:
+                logger.info("Loading base model...")
+                self.tuner.load_model()
+                logger.info("Base model loaded successfully")
         except Exception as e:
             logger.error(f"Failed to load model: {e}")
             raise
@@ -122,34 +148,11 @@ class SimRAGBase:
         try:
             logger.info(f"Starting training with notes: {notes}")
             
-            # Get the next version number BEFORE training so we can save to version-specific directory
-            # This ensures each run gets a unique version and doesn't overwrite previous models
-            next_version_str = None
-            if self.registry and self.config:
-                existing_versions = [v for v in self.registry.get_all_versions() if v.version.startswith('v')]
-                if not existing_versions:
-                    next_version_num = 1.0
-                else:
-                    version_numbers = []
-                    for v in existing_versions:
-                        try:
-                            num = float(v.version[1:])
-                            version_numbers.append(num)
-                        except ValueError:
-                            continue
-                    next_version_num = max(version_numbers) + 0.1 if version_numbers else 1.0
-                
-                next_version_str = f"v{next_version_num:.1f}"
-                
-                # Update output directory to include version number
-                # This ensures each training run saves to a unique directory
-                original_output_dir = self.tuner.trainer.args.output_dir
-                version_output_dir = os.path.join(original_output_dir, next_version_str)
-                self.tuner.trainer.args.output_dir = version_output_dir
-                os.makedirs(version_output_dir, exist_ok=True)
-                logger.info(f"Training will save to version-specific directory: {version_output_dir}")
+            # Store original output directory
+            original_output_dir = self.tuner.trainer.args.output_dir
             
             # Train the model (this will create and register the version)
+            # We let tuner.train() create the version to avoid race conditions
             version = self.tuner.train(notes=notes)
             
             if version:
@@ -158,11 +161,34 @@ class SimRAGBase:
                 if version.final_loss:
                     logger.info(f"Final loss: {version.final_loss:.4f}")
                 
+                # Set experiment run ID if provided (links Stage 1 and Stage 2 versions)
+                if self.experiment_run_id:
+                    version.experiment_run_id = self.experiment_run_id
+                    self.registry.register_version(version)  # Re-register with updated ID
+                    logger.info(f"Linked version {version.version} to experiment run: {self.experiment_run_id}")
+                
+                # Now that we have the actual version, move model to version-specific directory
+                version_output_dir = os.path.join(original_output_dir, version.version)
+                
+                # If trainer saved to a different location, move it
+                if self.tuner.trainer.args.output_dir != version_output_dir:
+                    import shutil
+                    if os.path.exists(self.tuner.trainer.args.output_dir):
+                        os.makedirs(version_output_dir, exist_ok=True)
+                        # Move all files from trainer output to version directory
+                        for item in os.listdir(self.tuner.trainer.args.output_dir):
+                            src = os.path.join(self.tuner.trainer.args.output_dir, item)
+                            dst = os.path.join(version_output_dir, item)
+                            if os.path.isfile(src):
+                                shutil.move(src, dst)
+                            elif os.path.isdir(src) and item != version.version:
+                                shutil.move(src, dst)
+                    # Update trainer args to reflect new location
+                    self.tuner.trainer.args.output_dir = version_output_dir
+                
                 # Ensure model is saved to version-specific directory
-                # The trainer already saved during training, but we explicitly save to ensure tokenizer is saved
-                # The output_dir was already updated to include the version, so just save there
-                self.tuner.save_model(self.tuner.trainer.args.output_dir)
-                logger.info(f"Model saved to: {self.tuner.trainer.args.output_dir}")
+                self.tuner.save_model(version_output_dir)
+                logger.info(f"Model saved to: {version_output_dir}")
             else:
                 logger.warning("Training completed but no version object returned")
             

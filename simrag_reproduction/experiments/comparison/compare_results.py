@@ -65,16 +65,17 @@ def compare_results(
     simrag_results = load_results_file(simrag_file)
     
     # Extract performance metrics
+    # Baseline structure: summary.avg_context_score or context_scores list
     baseline_scores = baseline_results.get("context_scores", [])
-    simrag_scores = simrag_results.get("context_scores", [])
-    
-    # Calculate averages
     baseline_avg = baseline_results.get("summary", {}).get("avg_context_score", 0.0)
     if not baseline_avg and baseline_scores:
         all_baseline = [score for scores in baseline_scores if scores for score in scores]
         baseline_avg = sum(all_baseline) / len(all_baseline) if all_baseline else 0.0
     
-    simrag_avg = simrag_results.get("avg_context_score", 0.0)
+    # SimRAG structure: testing.avg_context_score and testing.context_scores
+    simrag_testing = simrag_results.get("testing", {})
+    simrag_scores = simrag_testing.get("context_scores", [])
+    simrag_avg = simrag_testing.get("avg_context_score", 0.0)
     if not simrag_avg and simrag_scores:
         all_simrag = [score for scores in simrag_scores if scores for score in scores]
         simrag_avg = sum(all_simrag) / len(all_simrag) if all_simrag else 0.0
@@ -84,7 +85,7 @@ def compare_results(
     
     # Response times
     baseline_time = baseline_results.get("summary", {}).get("avg_response_time", 0.0)
-    simrag_time = simrag_results.get("avg_response_time", 0.0)
+    simrag_time = simrag_testing.get("avg_response_time", 0.0)
     
     # Create comparison
     comparison = {

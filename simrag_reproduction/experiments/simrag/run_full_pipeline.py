@@ -52,9 +52,13 @@ def run_full_pipeline(
     tuning_config = get_tuning_config()
     rag_config = get_rag_config()
     
+    # Generate experiment run ID to link Stage 1 and Stage 2 versions
+    experiment_run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
     results = {
         "experiment_type": "simrag_full_pipeline",
         "timestamp": datetime.now().isoformat(),
+        "experiment_run_id": experiment_run_id,
         "stage1": {},
         "stage2": {},
         "testing": {}
@@ -66,12 +70,18 @@ def run_full_pipeline(
     logger.info("="*60)
     
     stage1 = InstructionFollowing(model_name=tuning_config.model_name, config=tuning_config)
+    stage1.experiment_run_id = experiment_run_id  # Link Stage 1 to experiment run
     version1 = stage1.train_stage_1(use_real_datasets=use_real_datasets)
     
     if not version1:
         raise Exception("Stage 1 training failed")
     
-    stage1_model_path = stage1.get_model_from_registry(version1.version)
+    # Get Stage 1 model path with explicit stage specification
+    stage1_model_path = stage1.get_model_from_registry(version1.version, stage="stage_1")
+    if not stage1_model_path:
+        raise Exception(f"Could not find Stage 1 model path for version {version1.version}")
+    
+    logger.info(f"Stage 1 model saved to: {stage1_model_path}")
     results["stage1"] = {
         "version": version1.version,
         "training_time": version1.training_time_seconds,
@@ -93,7 +103,7 @@ def run_full_pipeline(
         config=tuning_config,
         stage_1_model_path=stage1_model_path
     )
-    
+    stage2.experiment_run_id = experiment_run_id  # Link Stage 2 to same experiment run
     version2 = stage2.train_stage_2(
         documents=documents,
         questions_per_doc=tuning_config.simrag_questions_per_doc,
@@ -103,12 +113,18 @@ def run_full_pipeline(
     if not version2:
         raise Exception("Stage 2 training failed")
     
+    # Get Stage 2 model path with explicit stage specification and error handling
+    stage2_model_path_for_results = stage2.get_model_from_registry(version2.version, stage="stage_2")
+    if not stage2_model_path_for_results:
+        logger.warning(f"Could not find Stage 2 model path for version {version2.version} in results")
+    
     results["stage2"] = {
         "version": version2.version,
         "training_time": version2.training_time_seconds,
         "final_loss": version2.final_loss,
-        "model_path": stage2.get_model_from_registry(version2.version),
-        "num_documents": len(documents)
+        "model_path": stage2_model_path_for_results,
+        "num_documents": len(documents),
+        "experiment_run_id": experiment_run_id
     }
     
     # Testing: Evaluate on test questions
