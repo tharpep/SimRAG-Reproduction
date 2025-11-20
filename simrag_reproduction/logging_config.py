@@ -6,6 +6,7 @@ Centralized logging setup for the entire codebase
 import logging
 import logging.handlers
 import os
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -48,9 +49,15 @@ def setup_logging(
         '%(levelname)s | %(message)s'
     )
     
-    # Console handler
+    # Console handler (unbuffered for real-time output)
     if enable_console_logging:
-        console_handler = logging.StreamHandler()
+        # Create a custom handler that flushes after each emit for real-time output
+        class FlushingStreamHandler(logging.StreamHandler):
+            def emit(self, record):
+                super().emit(record)
+                self.stream.flush()
+        
+        console_handler = FlushingStreamHandler(sys.stdout)
         console_handler.setLevel(logging.INFO)
         console_handler.setFormatter(simple_formatter)
         root_logger.addHandler(console_handler)

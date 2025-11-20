@@ -64,7 +64,12 @@ class AIGateway:
                 base_url=config["ollama"].get("base_url", "http://localhost:11434"),
                 default_model=config["ollama"].get("default_model", os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b"))
             )
-            self.providers["ollama"] = OllamaClient(ollama_config)
+            try:
+                self.providers["ollama"] = OllamaClient(ollama_config)
+                logger.debug("Initialized Ollama from config")
+            except Exception as e:
+                # If Ollama is explicitly requested in config, raise error (don't silently fail)
+                raise ConnectionError(f"Failed to initialize Ollama (requested in config): {e}. Please ensure Ollama is running.")
         elif self.rag_config.use_ollama or os.getenv('USE_OLLAMA', 'false').lower() == 'true':
             # Use OLLAMA_MODEL env var or fallback to default Ollama model name
             ollama_model = os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b")
@@ -75,6 +80,17 @@ class AIGateway:
                 self.providers["ollama"] = OllamaClient(ollama_config)
             except Exception as e:
                 logger.warning(f"Failed to setup Ollama: {e}. Continuing without Ollama.")
+        elif self.rag_config.baseline_provider == "ollama":
+            # Initialize Ollama if baseline_provider is set to ollama
+            ollama_model = os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b")
+            ollama_config = OllamaConfig(
+                default_model=ollama_model
+            )
+            try:
+                self.providers["ollama"] = OllamaClient(ollama_config)
+                logger.debug("Initialized Ollama for baseline provider")
+            except Exception as e:
+                logger.warning(f"Failed to setup Ollama for baseline: {e}. Continuing without Ollama.")
     
     def chat(self, message: str, provider: Optional[str] = None, model: Optional[str] = None, force_provider: bool = False, **kwargs) -> str:
         """

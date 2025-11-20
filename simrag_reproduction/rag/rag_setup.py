@@ -3,6 +3,7 @@ RAG System Orchestrator
 Coordinates vector storage, retrieval, and generation components
 """
 
+import os
 from ..ai_providers.gateway import AIGateway
 from .vector_store import VectorStore
 from .retriever import DocumentRetriever
@@ -35,6 +36,17 @@ class BasicRAG:
             self.ollama_model_name = ollama_model_name
         else:
             self.ollama_model_name = None
+        
+        # If forcing a provider, explicitly add it to gateway config
+        if force_provider:
+            if force_provider == "ollama":
+                gateway_config["ollama"] = {
+                    "default_model": self.ollama_model_name or os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b")
+                }
+            elif force_provider == "purdue":
+                gateway_config["purdue"] = {}
+            elif force_provider == "huggingface":
+                gateway_config["huggingface"] = {}
         
         self.gateway = AIGateway(gateway_config)
         self.force_provider = force_provider
