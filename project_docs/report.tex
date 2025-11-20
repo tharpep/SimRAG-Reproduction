@@ -37,7 +37,7 @@
 % - Main findings
 % - Contribution/insights
 
-We present a simplified reproduction of SimRAG, implementing core RAG components (semantic retrieval, Qdrant vector storage, two-stage fine-tuning) to verify that RAG + fine-tuning improves domain-specific QA performance. Using consumer hardware (RTX 3080/CPU) with smaller models (Llama 3.2 1B, Qwen 2.5 7B), we demonstrate feasibility and validate SimRAG's core insights while providing an accessible framework for understanding RAG systems.
+We present a simplified reproduction of SimRAG, implementing core RAG components (semantic retrieval, Qdrant vector storage, two-stage QLoRA fine-tuning) to verify that RAG + fine-tuning improves domain-specific QA performance. Using consumer hardware (RTX 3080/10GB VRAM) with QLoRA-optimized models (Qwen 2.5 1.5B, Qwen 2.5 7B), we demonstrate feasibility and validate SimRAG's core insights while providing an accessible framework for understanding RAG systems. Fine-tuned models are automatically converted to Ollama format for fast, reliable inference.
 
 \end{abstract}
 
@@ -71,7 +71,7 @@ We present a simplified reproduction of SimRAG, implementing core RAG components
 
 \textbf{Implemented}: (1) RAG system (sentence-transformers + Qdrant), (2) Stage 1 fine-tuning (Alpaca dataset), (3) Stage 2 domain adaptation (synthetic QA), (4) Baseline vanilla RAG.
 
-\textbf{Simplifications}: (1) Smaller models (Llama 3.2 1B/CPU, Qwen 2.5 7B/GPU), (2) Standard fine-tuning (no QLoRA), (3) Smaller corpus (5k–20k chunks), (4) Limited self-improvement rounds. \textbf{Justification}: Verify improvement \textit{trend} rather than match exact numbers; demonstrate hardware accessibility.
+\textbf{Simplifications}: (1) Smaller models (Qwen 2.5 1.5B, Qwen 2.5 7B), (2) QLoRA fine-tuning (4-bit quantization + LoRA adapters), (3) Smaller corpus (5k–20k chunks), (4) Limited self-improvement rounds. \textbf{Justification}: Verify improvement \textit{trend} rather than match exact numbers; demonstrate hardware accessibility with memory-efficient training.
 
 \section{Related Work}
 \label{sec:related}
@@ -102,25 +102,25 @@ We present a simplified reproduction of SimRAG, implementing core RAG components
 
 \subsection{System Architecture}
 
-\textbf{Three Subsystems}: (1) \textit{RAG}: VectorStore (Qdrant), DocumentRetriever (embeddings), AIGateway (Ollama/Purdue/HuggingFace), orchestrated by BasicRAG. (2) \textit{Fine-tuning}: InstructionFollowing (Stage 1), SyntheticQAGeneration (QA pairs), DomainAdaptation (Stage 2), all inherit SimRAGBase. (3) \textit{Experiment Management}: Model registry (versioning, metadata, experiment run IDs), configuration system (hardware-aware, env var overrides).
+\textbf{Three Subsystems}: (1) \textit{RAG}: VectorStore (Qdrant), DocumentRetriever (embeddings), AIGateway (Ollama/Purdue/HuggingFace), orchestrated by BasicRAG. (2) \textit{Fine-tuning}: InstructionFollowing (Stage 1), SyntheticQAGeneration (QA pairs), DomainAdaptation (Stage 2), all inherit SimRAGBase. QLoRA training (4-bit quantization + LoRA adapters) with automatic Ollama conversion for inference. (3) \textit{Experiment Management}: Model registry (versioning, metadata, experiment run IDs), configuration system (hardware-aware, env var overrides).
 
 \subsubsection{Retrieval-Augmented Generation}
 
-\textbf{Components}: (1) \textit{Document ingestion}: HTML/Markdown/text → chunks (200–500 tokens), preserves boundaries. (2) \textit{Embeddings}: sentence-transformers → dense vectors → Qdrant (cosine similarity, in-memory/persistent). (3) \textit{Retrieval}: Query embedding → top-$k=5$ search → filter by threshold (0.7) → return docs + scores. (4) \textit{Generation}: Prompt = "Context: [docs]\n\nQuestion: [query]\n\nAnswer:" → LLM (Ollama baseline or HuggingFace fine-tuned).
+\textbf{Components}: (1) \textit{Document ingestion}: HTML/Markdown/text → chunks (200–500 tokens), preserves boundaries. (2) \textit{Embeddings}: sentence-transformers → dense vectors → Qdrant (cosine similarity, in-memory/persistent). (3) \textit{Retrieval}: Query embedding → top-$k=5$ search → filter by threshold (0.7) → return docs + scores. (4) \textit{Generation}: Prompt = "Context: [docs]\n\nQuestion: [query]\n\nAnswer:" → LLM (Ollama for baseline and fine-tuned models via GGUF conversion).
 
 \subsubsection{Model Fine-Tuning}
 
-\textbf{Base Models}: Llama 3.2 1B (CPU/laptop), Qwen 2.5 7B (GPU). HuggingFace Transformers, causal LM objective.
+\textbf{Base Models}: Qwen 2.5 1.5B-Instruct, Qwen 2.5 7B-Instruct. HuggingFace Transformers, causal LM objective. QLoRA training: 4-bit quantization (NF4), LoRA adapters (rank=16, alpha=32), target modules (q\_proj, k\_proj, v\_proj, o\_proj).
 
-\textbf{Stage 1}: Alpaca dataset (52K examples), format "Question: [instruction]\nAnswer: [response]". LR=$5 \times 10^{-5}$, batch=1–8, epochs=1–3.
+\textbf{Stage 1}: Alpaca dataset (52K examples), format "Question: [instruction]\nAnswer: [response]". LR=$5 \times 10^{-5}$, batch=8 (GPU), epochs=3. QLoRA adapters saved (~100MB for 1.5B, ~400MB for 7B).
 
-\textbf{Stage 2}: Continues from Stage 1 model. Synthetic QA from domain docs (Purdue API for questions, RAG for answers). Filter: context score $\geq 0.7$. Same hyperparams, fewer epochs (1–2).
+\textbf{Stage 2}: Continues from Stage 1 adapters. Synthetic QA from domain docs (Ollama/Purdue API for questions, RAG for answers). Filter: context score $\geq 0.7$. Same hyperparams, fewer epochs (1–2). Adapters merged and converted to GGUF for Ollama inference.
 
-\textbf{Optimizations}: Auto device detection, batch size (1 CPU/8 GPU), epoch reduction (CPU), model versioning.
+\textbf{Optimizations}: QLoRA (4-bit + LoRA) enables training on 10GB VRAM, automatic Ollama conversion for fast inference, gradient accumulation (effective batch=16), mixed precision (FP16), model versioning.
 
 \subsection{Baseline Implementation}
 
-\textbf{Vanilla RAG}: Same components as SimRAG (Qdrant, sentence-transformers, top-$k=5$, threshold=0.7) but uses base Ollama model (Llama 3.2 1B) without fine-tuning.
+\textbf{Vanilla RAG}: Same components as SimRAG (Qdrant, sentence-transformers, top-$k=5$, threshold=0.7) but uses base Ollama model (Qwen 2.5 1.5B) without fine-tuning.
 
 \textbf{Justification}: Isolates fine-tuning effect; identical infrastructure → differences attributed to fine-tuning. Represents standard RAG practice.
 
@@ -140,15 +140,15 @@ We present a simplified reproduction of SimRAG, implementing core RAG components
 
 \textbf{Metrics}: (1) \textit{Primary}: Avg context relevance (cosine similarity query↔docs). (2) \textit{Secondary}: Response time, answer length, qualitative assessment (relevance, terminology, coherence).
 
-\textbf{Hardware}: (1) Laptop/CPU: Llama 3.2 1B, batch=1, reduced epochs. (2) PC/GPU: Qwen 2.5 7B, RTX 3080, batch=8, full epochs.
+\textbf{Hardware}: (1) Small model: Qwen 2.5 1.5B, RTX 3080 (10GB VRAM), QLoRA training (~3–4GB VRAM), batch=8. (2) Medium model: Qwen 2.5 7B, RTX 3080 (10GB VRAM), QLoRA training (~8–10GB VRAM), batch=8.
 
 \subsection{Implementation Details}
 
-\textbf{Software}: Python 3.9+, PyTorch 2.0+, Transformers 4.30+, sentence-transformers 2.2+, Qdrant 1.7+, datasets library. Modular package structure.
+\textbf{Software}: Python 3.12+, PyTorch 2.5+ (CUDA), Transformers 4.30+, sentence-transformers 2.2+, Qdrant 1.7+, datasets library, PEFT (LoRA), bitsandbytes (4-bit quantization), Ollama (inference). Modular package structure.
 
-\textbf{Models}: CPU: Llama 3.2 1B (float32, batch=1, 1 epoch). GPU: Qwen 2.5 7B (float16, batch=8, 3 epochs). LR=$5 \times 10^{-5}$, max length=512.
+\textbf{Models}: Qwen 2.5 1.5B-Instruct, Qwen 2.5 7B-Instruct. QLoRA: 4-bit NF4 quantization, LoRA rank=16, alpha=32, dropout=0.05. Training: FP16 mixed precision, batch=8, gradient accumulation=2 (effective batch=16), LR=$5 \times 10^{-5}$, max length=512.
 
-\textbf{Hyperparameters}: Stage 1: Alpaca, causal LM loss. Stage 2: Synthetic QA (2 per doc, score≥0.7). Both: AdamW, linear LR decay, gradient accumulation, mixed precision (GPU), checkpointing.
+\textbf{Hyperparameters}: Stage 1: Alpaca (52K examples), causal LM loss, 3 epochs. Stage 2: Synthetic QA (2 per doc, score≥0.7), 1–2 epochs. Both: AdamW, linear LR decay, gradient accumulation, mixed precision (FP16), no gradient checkpointing (to avoid hangs).
 
 \textbf{Retrieval}: Top-$k=5$, threshold=0.7, sentence-transformers (384-dim), Qdrant (cosine similarity, in-memory/persistent).
 

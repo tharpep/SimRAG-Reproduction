@@ -15,7 +15,7 @@ class RAGConfig:
     model_size: str = "small"  # "small" for Qwen/Qwen2.5-1.5B-Instruct, "medium" for Qwen/Qwen2.5-7B-Instruct (both non-gated)
     
     # AI Provider settings
-    use_ollama: bool = True  # True for Ollama (intermediate steps), False for Purdue API
+    use_ollama: bool = False  # True for Ollama (intermediate steps), False for Purdue API (default: False for synthetic QA)
     baseline_provider: str = "ollama"  # Default to Ollama for baseline (fast, reliable)
     
     # Vector store settings
@@ -198,6 +198,9 @@ def get_tuning_config() -> TuningConfig:
     - TUNING_BATCH_SIZE: batch size as integer (1-16)
     - TUNING_EPOCHS: number of epochs as integer (1-10)
     - TUNING_DEVICE: device like "auto", "cpu", "cuda", "mps"
+    - LORA_R: LoRA rank as integer (8-64, default: 16)
+    - LORA_ALPHA: LoRA alpha as integer (1-128, default: 32)
+    - LORA_DROPOUT: LoRA dropout as float (0.0-1.0, default: 0.05)
     """
     config = TuningConfig()
     
@@ -239,5 +242,39 @@ def get_tuning_config() -> TuningConfig:
             config.device = tuning_device_env.lower()
         else:
             print(f"Warning: Invalid TUNING_DEVICE '{tuning_device_env}', using default")
+    
+    # QLoRA hyperparameters
+    lora_r_env = os.getenv("LORA_R")
+    if lora_r_env:
+        try:
+            lora_r = int(lora_r_env)
+            if 8 <= lora_r <= 64:
+                config.lora_r = lora_r
+            else:
+                print(f"Warning: LORA_R {lora_r} out of range (8-64), using default")
+        except ValueError:
+            print(f"Warning: Invalid LORA_R '{lora_r_env}', using default")
+    
+    lora_alpha_env = os.getenv("LORA_ALPHA")
+    if lora_alpha_env:
+        try:
+            lora_alpha = int(lora_alpha_env)
+            if 1 <= lora_alpha <= 128:
+                config.lora_alpha = lora_alpha
+            else:
+                print(f"Warning: LORA_ALPHA {lora_alpha} out of range (1-128), using default")
+        except ValueError:
+            print(f"Warning: Invalid LORA_ALPHA '{lora_alpha_env}', using default")
+    
+    lora_dropout_env = os.getenv("LORA_DROPOUT")
+    if lora_dropout_env:
+        try:
+            lora_dropout = float(lora_dropout_env)
+            if 0.0 <= lora_dropout <= 1.0:
+                config.lora_dropout = lora_dropout
+            else:
+                print(f"Warning: LORA_DROPOUT {lora_dropout} out of range (0.0-1.0), using default")
+        except ValueError:
+            print(f"Warning: Invalid LORA_DROPOUT '{lora_dropout_env}', using default")
     
     return config

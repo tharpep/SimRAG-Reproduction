@@ -11,6 +11,7 @@ from ..logging_config import get_logger
 from .base import SimRAGBase
 from ..rag.rag_setup import BasicRAG
 from ..ai_providers.gateway import AIGateway
+from ..config import get_rag_config
 
 logger = get_logger(__name__)
 
@@ -29,13 +30,17 @@ class SyntheticQAGeneration(SimRAGBase):
         """
         super().__init__(model_name, config)
         self.stage_1_model_path = stage_1_model_path
+        # Get RAG config to check use_ollama setting
+        self.rag_config = get_rag_config()
         try:
-            # Use Purdue API for QA generation (not testing the model)
+            # Use configured provider for QA generation (not testing the model)
+            # Default is Purdue API (use_ollama=False), but can be overridden via config
             self.gateway = AIGateway()
-            # Initialize RAG system with Purdue API for answer generation
+            # Initialize RAG system with configured provider for answer generation
             self.rag_system = self._initialize_rag_system()
             logger.info("Synthetic QA Generator initialized")
-            logger.info("Using Purdue API for QA generation (not testing model)")
+            provider_name = "Ollama" if self.rag_config.use_ollama else "Purdue API"
+            logger.info(f"Using {provider_name} for QA generation (not testing model)")
             if stage_1_model_path:
                 logger.info(f"Stage 1 model available: {stage_1_model_path} (for future use)")
         except Exception as e:
@@ -46,10 +51,12 @@ class SyntheticQAGeneration(SimRAGBase):
         """
         Initialize RAG system for synthetic QA generation
         
-        Uses Purdue API for answer generation (not testing the model)
+        Uses configured provider (Ollama or Purdue API) for answer generation (not testing the model)
+        Default is Purdue API (use_ollama=False), but can be overridden via config
         """
-        # Create RAG system that forces Purdue API for generation
-        return BasicRAG(force_provider="purdue")
+        # Use configured provider based on use_ollama setting (default: False = Purdue API)
+        provider = "ollama" if self.rag_config.use_ollama else "purdue"
+        return BasicRAG(force_provider=provider)
     
     def generate_questions_from_document(self, document: str, num_questions: int = 3) -> List[str]:
         """
@@ -75,8 +82,10 @@ Generate questions that cover:
 Questions:"""
         
         try:
-            # Force Purdue API for question generation (not testing the model)
-            response = self.gateway.chat(prompt, provider="purdue", force_provider=True)
+            # Use configured provider for question generation (not testing the model)
+            # Default is Purdue API (use_ollama=False), but can be overridden via config
+            provider = "ollama" if self.rag_config.use_ollama else "purdue"
+            response = self.gateway.chat(prompt, provider=provider, force_provider=True)
             questions = self._parse_questions(response)
             result = questions[:num_questions]  # Limit to requested number
             logger.debug(f"Generated {len(result)} questions from document")
