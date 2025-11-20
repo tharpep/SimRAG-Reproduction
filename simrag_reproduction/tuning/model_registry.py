@@ -27,6 +27,12 @@ class ModelVersion:
     notes: Optional[str] = None
     is_active: bool = True
     experiment_run_id: Optional[str] = None  # Simple tracking: links Stage 1 and Stage 2 from same run
+    
+    # QLoRA-specific metadata
+    is_lora: bool = False  # True if this is a LoRA adapter model
+    lora_r: Optional[int] = None  # LoRA rank
+    lora_alpha: Optional[int] = None  # LoRA alpha scaling
+    adapter_path: Optional[str] = None  # Path to adapter files (relative to model dir)
 
 
 class ModelRegistry:
@@ -151,7 +157,10 @@ class ModelRegistry:
                           learning_rate: float,
                           device: str,
                           notes: Optional[str] = None,
-                          experiment_run_id: Optional[str] = None) -> ModelVersion:
+                          experiment_run_id: Optional[str] = None,
+                          is_lora: bool = False,
+                          lora_r: Optional[int] = None,
+                          lora_alpha: Optional[int] = None) -> ModelVersion:
         """Create a new version with auto-incremented version number"""
         
         # Find the next version number
@@ -185,7 +194,10 @@ class ModelRegistry:
             learning_rate=learning_rate,
             device=device,
             notes=notes,
-            experiment_run_id=experiment_run_id
+            experiment_run_id=experiment_run_id,
+            is_lora=is_lora,
+            lora_r=lora_r,
+            lora_alpha=lora_alpha
         )
         
         return new_version

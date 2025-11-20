@@ -5,7 +5,6 @@ Designed to be easily extended for additional providers
 """
 
 import os
-import asyncio
 from typing import Dict, Any, Optional, List
 from dotenv import load_dotenv
 from .purdue_api import PurdueGenAI
@@ -80,7 +79,7 @@ class AIGateway:
             except Exception as e:
                 logger.warning(f"Failed to setup Ollama: {e}. Continuing without Ollama.")
     
-    def chat(self, message: str, provider: Optional[str] = None, model: Optional[str] = None, force_provider: bool = False) -> str:
+    def chat(self, message: str, provider: Optional[str] = None, model: Optional[str] = None, force_provider: bool = False, **kwargs) -> str:
         """
         Send a chat message to specified AI provider
         
@@ -90,6 +89,7 @@ class AIGateway:
                      If None, auto-selects based on availability
             model: Model to use (uses provider default if not specified)
             force_provider: If True, raises error if provider not available (default: False)
+            **kwargs: Additional parameters to pass to provider (e.g., max_tokens, temperature)
             
         Returns:
             str: AI response
@@ -129,7 +129,8 @@ class AIGateway:
             return self._chat_ollama(provider_client, message, model)
         elif provider == "huggingface":
             # HuggingFace client ignores model parameter (uses loaded model)
-            return provider_client.chat(message)
+            # Pass through kwargs (max_tokens, temperature, etc.)
+            return provider_client.chat(message, **kwargs)
         else:
             # Purdue API uses its own default model ("llama3.1:latest") if not specified
             # Don't use config.model_name here since Purdue has different model names

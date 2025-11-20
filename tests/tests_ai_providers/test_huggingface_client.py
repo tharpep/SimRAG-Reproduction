@@ -38,8 +38,13 @@ class TestHuggingFaceClient:
     @patch('os.path.exists')
     @patch('os.path.isdir')
     def test_init_with_local_path(self, mock_isdir, mock_exists, mock_tokenizer, mock_model):
-        """Test initialization with local model path"""
-        mock_exists.return_value = True
+        """Test initialization with local model path (full model, not adapter)"""
+        # Mock to return True for the base path, False for adapter_config.json
+        def exists_side_effect(path):
+            if "adapter_config.json" in path:
+                return False  # Not a LoRA adapter
+            return True
+        mock_exists.side_effect = exists_side_effect
         mock_isdir.return_value = True
         
         mock_tokenizer_instance = MagicMock()

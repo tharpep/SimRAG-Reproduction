@@ -21,6 +21,10 @@ pandas>=2.0.0
 # HTTP client for Ollama
 httpx>=0.24.0
 
+# Quantization and Parameter-Efficient Fine-Tuning
+bitsandbytes>=0.41.0
+peft>=0.7.0
+
 # Testing
 pytest>=7.0.0
 pytest-asyncio>=0.21.0

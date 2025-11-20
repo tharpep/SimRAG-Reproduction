@@ -4,10 +4,13 @@ For loading and using HuggingFace models (from Hub or local paths)
 """
 
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
+from peft import PeftModel
 from typing import Optional, Dict, Any
 import logging
 import os
+import time
+import json
 from pathlib import Path
 from dotenv import load_dotenv
 from .base_client import BaseLLMClient
@@ -68,11 +71,18 @@ class HuggingFaceClient(BaseLLMClient):
             # Determine if this is a local path or Hub ID
             is_local = self._is_local_path(self.model_path)
             
+            # Check if this is a LoRA adapter (has adapter_config.json)
+            adapter_config_path = os.path.join(self.model_path, "adapter_config.json") if is_local else None
+            is_lora_adapter = adapter_config_path and os.path.exists(adapter_config_path)
+            
             if is_local:
                 logger.info(f"Loading model from local path: {self.model_path}")
+                if is_lora_adapter:
+                    logger.info("✓ Detected LoRA adapter model")
             else:
                 logger.info(f"Loading model from HuggingFace Hub: {self.model_path} (this may take a moment on first download)")
             
+            # Load tokenizer (always from the adapter path or model path)
             logger.info("Loading tokenizer...")
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_path)
             
@@ -81,24 +91,79 @@ class HuggingFaceClient(BaseLLMClient):
                 self.tokenizer.pad_token = self.tokenizer.eos_token
             
             logger.info(f"Loading model (device: {self.device})...")
-            # Load model - use float16 for inference (faster, less memory)
-            # For training, model should be loaded in float32 (handled separately)
-            # Note: This may take several minutes on first download
-            self.model = AutoModelForCausalLM.from_pretrained(
-                self.model_path,
-                torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
-                device_map=self.device if self.device == "cuda" else None,
-                low_cpu_mem_usage=True  # More efficient memory usage
-            )
             
-            # Move to device if not using device_map
-            if self.device != "cuda" and self.device != "mps":
-                logger.info(f"Moving model to {self.device}...")
-                self.model = self.model.to(self.device)
-                logger.info("Model moved to device")
+            # Configure 4-bit quantization for CUDA
+            quantization_config = None
+            if self.device == "cuda":
+                logger.info("Configuring 4-bit quantization for efficient inference...")
+                quantization_config = BitsAndBytesConfig(
+                    load_in_4bit=True,
+                    bnb_4bit_compute_dtype=torch.float16,
+                    bnb_4bit_use_double_quant=True,
+                    bnb_4bit_quant_type="nf4"
+                )
             
-            source = "local path" if is_local else "HuggingFace Hub"
-            logger.info(f"Model loaded from {source} on {self.device}")
+            if is_lora_adapter:
+                # Load LoRA adapter model
+                # 1. Load adapter config to get base model info
+                with open(adapter_config_path, 'r') as f:
+                    adapter_config = json.load(f)
+                base_model_name = adapter_config.get("base_model_name_or_path")
+                
+                logger.info(f"Loading base model: {base_model_name}")
+                
+                # 2. Load base model (with quantization if CUDA)
+                base_model = AutoModelForCausalLM.from_pretrained(
+                    base_model_name,
+                    quantization_config=quantization_config,
+                    torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
+                    device_map="auto" if self.device == "cuda" else None,
+                    low_cpu_mem_usage=True
+                )
+                
+                # 3. Load LoRA adapters
+                logger.info(f"Loading LoRA adapters from {self.model_path}...")
+                self.model = PeftModel.from_pretrained(base_model, self.model_path)
+                
+                # Move to device if not CUDA (CUDA uses device_map="auto")
+                if self.device == "mps":
+                    logger.info(f"Moving model to {self.device}...")
+                    self.model = self.model.to(self.device)
+                    logger.info("Model moved to device")
+                elif self.device == "cpu" and quantization_config is None:
+                    self.model = self.model.to(self.device)
+                
+                logger.info(f"✓ LoRA adapter model loaded on {self.device}")
+                
+            else:
+                # Load full model (base or fully fine-tuned)
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    self.model_path,
+                    quantization_config=quantization_config,
+                    torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
+                    device_map="auto" if self.device == "cuda" else None,
+                    low_cpu_mem_usage=True
+                )
+                
+                # Move to device explicitly ONLY if NOT using quantization (quantization handles this)
+                if self.device == "cuda" and quantization_config is None:
+                    logger.info(f"Moving model to {self.device}...")
+                    self.model = self.model.to(self.device)
+                    logger.info("Model moved to device")
+                elif self.device == "mps":
+                    logger.info(f"Moving model to {self.device}...")
+                    self.model = self.model.to(self.device)
+                    logger.info("Model moved to device")
+                elif self.device != "cuda" and self.device != "mps": 
+                    # Only log if not cuda/mps (cuda handled by auto/quantization)
+                    logger.info(f"Model on {self.device} (default)")
+            
+            if quantization_config:
+                 logger.info("✓ 4-bit quantization enabled: Model loaded efficiently")
+            
+            source = "local LoRA adapter" if is_lora_adapter else ("local path" if is_local else "HuggingFace Hub")
+            logger.info(f"✓ Model loaded from {source}")
+            
         except Exception as e:
             logger.error(f"Failed to load model from {self.model_path}: {e}")
             raise
@@ -144,27 +209,56 @@ class HuggingFaceClient(BaseLLMClient):
         
         logger.info(f"Generating response (max_tokens={max_new_tokens}, device={self.device})...")
         
+        # Clear GPU cache BEFORE generation to free any lingering memory
+        if self.device.startswith("cuda"):
+            torch.cuda.synchronize()  # Wait for all operations to complete
+            torch.cuda.empty_cache()  # Clear unused cache
+        
+        # Calculate timeout: 30 seconds per 100 tokens (reasonable for GPU)
+        timeout_seconds = max(60, (max_new_tokens / 100) * 30)
+        start_time = time.time()
+        
         # Generate
         try:
-            with torch.no_grad():
+            # Use inference_mode for better performance and memory efficiency
+            with torch.inference_mode():
                 outputs = self.model.generate(
                     **inputs,
                     max_new_tokens=max_new_tokens,
+                    min_new_tokens=1,  # Ensure at least 1 token is generated
                     temperature=temperature,
                     do_sample=do_sample,
                     pad_token_id=self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
                     eos_token_id=self.tokenizer.eos_token_id,
+                    use_cache=True,  # Re-enable KV cache for speed (we clear cache between calls)
+                    num_beams=1,  # Greedy decoding (faster than beam search)
+                    repetition_penalty=1.1,  # Prevent repetition loops
+                    no_repeat_ngram_size=3,  # Prevent 3-gram repetition
                 )
+                
+                # Check for timeout (safety check)
+                elapsed = time.time() - start_time
+                if elapsed > timeout_seconds:
+                    logger.warning(f"Generation took {elapsed:.1f}s (timeout: {timeout_seconds}s)")
             
             # Decode output (skip input tokens)
             input_length = inputs["input_ids"].shape[1]
             generated_tokens = outputs[0][input_length:]
             generated_text = self.tokenizer.decode(generated_tokens, skip_special_tokens=True)
             
+            # Clear GPU cache after generation to prevent memory buildup
+            if self.device.startswith("cuda"):
+                torch.cuda.synchronize()  # Wait for all operations to complete
+                torch.cuda.empty_cache()  # Clear unused cache
+            
             logger.info(f"Generated {len(generated_tokens)} tokens")
             return generated_text.strip()
         except Exception as e:
             logger.error(f"Error during generation: {e}")
+            # Clear cache even on error
+            if self.device.startswith("cuda"):
+                torch.cuda.synchronize()
+                torch.cuda.empty_cache()
             import traceback
             logger.error(traceback.format_exc())
             raise

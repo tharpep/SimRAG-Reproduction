@@ -11,7 +11,7 @@ from datetime import datetime
 
 from ...rag.rag_setup import BasicRAG
 from ...config import get_rag_config
-from ..utils import load_documents_from_folder, get_test_questions
+from ..utils import load_documents_from_folder, get_test_questions, evaluate_answer_quality
 from ...logging_config import setup_logging, get_logger
 
 # Setup logging
@@ -42,14 +42,31 @@ def run_baseline_test(
     if test_questions is None:
         test_questions = get_test_questions()
     
-    # Initialize RAG system - use HuggingFace model (default)
+    # Initialize RAG system - prefer Ollama (fast), fall back to HuggingFace if unavailable
+    # Note: Ollama is ~10x faster (2s vs 20-30s per question), but HuggingFace works too
+    # SimRAG testing will use HuggingFace to load fine-tuned models
     logger.info("Initializing RAG system...")
     rag_config = get_rag_config()
-    rag = BasicRAG(
-        collection_name="baseline_experiment",
-        use_persistent=False,  # Use in-memory for experiments
-        force_provider="huggingface"  # Use HuggingFace model (same as training)
-    )
+    
+    # Use provider from config (default: HuggingFace, can be set to Ollama via BASELINE_PROVIDER env var)
+    baseline_provider = rag_config.baseline_provider
+    logger.info(f"Initializing RAG system with {baseline_provider}...")
+    
+    try:
+        rag = BasicRAG(
+            collection_name="baseline_experiment",
+            use_persistent=False,  # Use in-memory for experiments
+            force_provider=baseline_provider
+        )
+        logger.info(f"✓ Using {baseline_provider} for baseline")
+    except Exception as e:
+        logger.warning(f"{baseline_provider} not available ({e}), falling back to HuggingFace")
+        rag = BasicRAG(
+            collection_name="baseline_experiment",
+            use_persistent=False,
+            force_provider="huggingface"
+        )
+        logger.info("✓ Using HuggingFace for baseline (fallback)")
     
     # Load documents
     logger.info(f"Loading documents from {documents_folder}...")
@@ -89,7 +106,8 @@ def run_baseline_test(
         "answers": [],
         "context_scores": [],
         "response_times": [],
-        "context_docs": []
+        "context_docs": [],
+        "answer_quality_scores": []  # NEW: Answer quality metrics
     }
     
     for i, question in enumerate(test_questions, 1):
@@ -100,13 +118,18 @@ def run_baseline_test(
             answer, context_docs, context_scores = rag.query(question)
             elapsed = time.time() - start_time
             
+            # Evaluate answer quality
+            context_text = "\n\n".join(context_docs)
+            quality_scores = evaluate_answer_quality(question, answer, context_text)
+            
             results["answers"].append(answer)
             results["context_scores"].append(context_scores)
             results["response_times"].append(elapsed)
             results["context_docs"].append(context_docs)
+            results["answer_quality_scores"].append(quality_scores)
             
             avg_score = sum(context_scores) / len(context_scores) if context_scores else 0.0
-            logger.info(f"  Answer length: {len(answer)} chars, Avg score: {avg_score:.3f}, Time: {elapsed:.2f}s")
+            logger.info(f"  Answer length: {len(answer)} chars, Context: {avg_score:.3f}, Quality: {quality_scores['overall_score']:.3f}, Time: {elapsed:.2f}s")
             
         except Exception as e:
             logger.error(f"  Error processing question: {e}")
@@ -114,18 +137,36 @@ def run_baseline_test(
             results["context_scores"].append([])
             results["response_times"].append(0.0)
             results["context_docs"].append([])
+            results["answer_quality_scores"].append({
+                "length_score": 0.0,
+                "context_relevance": 0.0,
+                "not_refusal": 0.0,
+                "question_relevance": 0.0,
+                "overall_score": 0.0
+            })
     
     # Calculate summary metrics
     all_scores = [score for scores in results["context_scores"] if scores for score in scores]
+    
+    # Calculate average quality scores
+    quality_metrics = {}
+    if results["answer_quality_scores"]:
+        metric_keys = ["length_score", "context_relevance", "not_refusal", "question_relevance", "overall_score"]
+        for key in metric_keys:
+            values = [q[key] for q in results["answer_quality_scores"] if isinstance(q, dict)]
+            quality_metrics[f"avg_{key}"] = sum(values) / len(values) if values else 0.0
+    
     results["summary"] = {
         "avg_context_score": sum(all_scores) / len(all_scores) if all_scores else 0.0,
         "avg_response_time": sum(results["response_times"]) / len(results["response_times"]),
         "total_questions": len(test_questions),
-        "successful_queries": len([a for a in results["answers"] if a != "ERROR"])
+        "successful_queries": len([a for a in results["answers"] if a != "ERROR"]),
+        **quality_metrics  # Add quality metrics to summary
     }
     
     logger.info(f"Baseline experiment completed!")
     logger.info(f"  Avg context score: {results['summary']['avg_context_score']:.3f}")
+    logger.info(f"  Avg answer quality: {results['summary'].get('avg_overall_score', 0.0):.3f}")
     logger.info(f"  Avg response time: {results['summary']['avg_response_time']:.2f}s")
     
     # Save results

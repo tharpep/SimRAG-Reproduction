@@ -19,10 +19,12 @@ SimRAG introduces a self-improving framework that fine-tunes RAG systems through
 ## Features
 
 - **RAG System**: Document ingestion, semantic search with Qdrant, and context-aware generation
-- **Two-Stage Fine-Tuning**: Instruction following (Stage 1) and domain adaptation (Stage 2)
+- **QLoRA Fine-Tuning**: Memory-efficient training using 4-bit quantization and LoRA adapters
+- **Two-Stage Training**: Instruction following (Stage 1) and domain adaptation (Stage 2)
+- **Ollama Integration**: Automatic conversion of fine-tuned models for fast, reliable inference
 - **Synthetic QA Generation**: Self-improving data generation from domain documents
 - **Multiple AI Providers**: Unified interface for Ollama (local), Purdue GenAI, and HuggingFace
-- **Hardware-Aware**: Optimized for both GPU (RTX 3080) and CPU setups
+- **Hardware-Efficient**: Runs on consumer GPUs (10GB VRAM) with 4-bit quantization
 
 ## Installation
 
@@ -30,11 +32,13 @@ SimRAG introduces a self-improving framework that fine-tunes RAG systems through
 
 - Python 3.12 (required for PyTorch CUDA support)
 - [Poetry](https://python-poetry.org/docs/#installation) (recommended) or pip
-- [Ollama](https://ollama.ai/) (optional, only if you want to use Ollama instead of HuggingFace):
+- [Ollama](https://ollama.ai/) (optional, for 10x faster baseline testing):
   ```bash
-  ollama pull qwen2.5:1.5b  # Only needed if USE_OLLAMA=true
-  ollama pull qwen2.5:7b    # Only needed if USE_OLLAMA=true
+  # Optional: Install Ollama for faster baseline testing (~20s vs ~3min)
+  ollama pull qwen2.5:1.5b  # For small model (1.5B)
+  ollama pull qwen2.5:7b    # For large model (7B)
   ```
+  **Note**: Ollama is NOT required. The baseline will automatically fall back to HuggingFace if Ollama is unavailable.
 
 ### Setup
 
@@ -75,10 +79,18 @@ HF_TOKEN=your-huggingface-token-here  # Optional: Only needed for gated Llama mo
 USE_PERSISTENT=true
 COLLECTION_NAME=simrag_docs
 
+# Baseline provider (optional)
+BASELINE_PROVIDER=huggingface  # "huggingface" (default, works everywhere) or "ollama" (10x faster if installed)
+
 # Fine-tuning (optional)
 TUNING_BATCH_SIZE=4
 TUNING_EPOCHS=3
 TUNING_DEVICE=auto  # auto, cpu, cuda, mps
+
+# QLoRA settings (optional - defaults are optimized)
+USE_QLORA=true  # Enable QLoRA (4-bit + LoRA adapters) for efficient training
+LORA_R=16  # LoRA rank (8-64, higher = more expressive)
+LORA_ALPHA=32  # LoRA scaling (typically 2x lora_r)
 ```
 
 **Note**: Never commit `.env` files or API keys.
@@ -155,13 +167,40 @@ ruff check simrag_reproduction/
 mypy simrag_reproduction/
 ```
 
+## Hardware Requirements
+
+### Minimum (CPU-only)
+- **RAM**: 16GB
+- **Storage**: 10GB
+- **Performance**: Slow training (~hours), slow inference
+
+### Recommended (GPU)
+- **GPU**: 10GB+ VRAM (RTX 3080, RTX 4070, etc.)
+- **RAM**: 16GB
+- **Storage**: 10GB
+- **Performance**: Fast training (~minutes), fast inference
+
+### Memory Usage (with QLoRA + 4-bit Quantization)
+| Model | Training VRAM | Inference VRAM | Adapter Size |
+|-------|--------------|----------------|--------------|
+| Qwen 2.5 1.5B | ~3-4GB | ~1.5GB | ~100MB |
+| Qwen 2.5 7B | ~8-10GB | ~4-5GB | ~400MB |
+
+**Note**: Without QLoRA, memory requirements are 3-5x higher and may not fit on consumer GPUs.
+
 ## Troubleshooting
 
 **No providers available**: HuggingFace should be available by default. If needed, set `USE_OLLAMA=true` in `.env` or provide `PURDUE_API_KEY`
 
 **Model not found (Ollama)**: Only if using Ollama - Run `ollama pull qwen2.5:1.5b` (small) or `ollama pull qwen2.5:7b` (medium)
 
-**Out of memory**: Reduce `TUNING_BATCH_SIZE=1` or set `TUNING_DEVICE=cpu` in `.env`
+**CUDA Out of Memory**: 
+- Ensure QLoRA is enabled: `USE_QLORA=true` (default)
+- Reduce batch size: `TUNING_BATCH_SIZE=1`
+- Try smaller model: `MODEL_SIZE=small`
+- Last resort: `TUNING_DEVICE=cpu` (very slow)
+
+**Training loss is 0.0 or NaN**: Restart training - this was a known bug with FP16 conflicts, now fixed
 
 **Qdrant errors**: Delete `data/qdrant_db/` or set `USE_PERSISTENT=false`
 

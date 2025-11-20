@@ -13,7 +13,7 @@ from typing import Optional
 class BasicRAG:
     """RAG system that orchestrates vector storage, retrieval, and generation"""
     
-    def __init__(self, collection_name=None, use_persistent=None, force_provider=None, model_path=None):
+    def __init__(self, collection_name=None, use_persistent=None, force_provider=None, model_path=None, ollama_model_name=None):
         """
         Initialize RAG system
         
@@ -22,6 +22,7 @@ class BasicRAG:
             use_persistent: If True, use persistent Qdrant storage (uses config default if None)
             force_provider: Force provider to use ("purdue", "ollama", or "huggingface"). If None, uses config default.
             model_path: Path to fine-tuned HuggingFace model (only used if force_provider="huggingface")
+            ollama_model_name: Name of Ollama model to use (e.g., "simrag-1b-stage2-v1-0"). If provided, forces Ollama provider.
         """
         self.config = get_rag_config()
         self.collection_name = collection_name or self.config.collection_name
@@ -29,10 +30,18 @@ class BasicRAG:
         # Initialize components
         gateway_config = {}
         
-        # If model_path is provided, use HuggingFace client
-        if model_path:
+        # Priority: ollama_model_name > model_path > default
+        if ollama_model_name:
+            # Use Ollama with specific fine-tuned model
+            force_provider = "ollama"
+            self.ollama_model_name = ollama_model_name
+        elif model_path:
+            # Use HuggingFace with fine-tuned model
             gateway_config["huggingface"] = {"model_path": model_path}
             force_provider = "huggingface"
+            self.ollama_model_name = None
+        else:
+            self.ollama_model_name = None
         
         self.gateway = AIGateway(gateway_config)
         self.force_provider = force_provider
@@ -41,7 +50,10 @@ class BasicRAG:
         if force_provider:
             original_chat = self.gateway.chat
             def forced_chat(message: str, provider: Optional[str] = None, model: Optional[str] = None, **kwargs):
-                return original_chat(message, provider=force_provider, model=model, force_provider=True)
+                # Use Ollama model name if provided
+                if force_provider == "ollama" and self.ollama_model_name:
+                    model = self.ollama_model_name
+                return original_chat(message, provider=force_provider, model=model, force_provider=True, **kwargs)
             self.gateway.chat = forced_chat
         
         self.vector_store = VectorStore(use_persistent=use_persistent if use_persistent is not None else self.config.use_persistent)
@@ -67,6 +79,11 @@ class BasicRAG:
         Returns:
             Number of documents added
         """
+        # Clear collection first if configured to do so
+        if self.config.clear_on_ingest:
+            embedding_dim = self.retriever.get_embedding_dimension()
+            self.vector_store.clear_collection(self.collection_name, embedding_dim)
+        
         # Create embeddings
         embeddings = self.retriever.encode_documents(documents)
         
@@ -129,8 +146,12 @@ Question: {question}
 
 Answer:"""
         
-        # Generate answer
-        answer = self.gateway.chat(prompt)
+        # Generate answer - pass config parameters
+        answer = self.gateway.chat(
+            prompt,
+            max_tokens=self.config.max_tokens,
+            temperature=self.config.temperature
+        )
         
         # Return answer along with context details for logging
         context_docs = [doc for doc, _ in retrieved_docs]

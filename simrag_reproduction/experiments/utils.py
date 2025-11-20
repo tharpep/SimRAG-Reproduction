@@ -157,3 +157,82 @@ def has_timestamp(filename: str) -> bool:
     pattern = r'_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.json$'
     return bool(re.search(pattern, filename))
 
+
+def evaluate_answer_quality(question: str, answer: str, context: str) -> dict:
+    """
+    Evaluate answer quality using rule-based metrics
+    
+    This provides automated scoring for answer quality beyond just context similarity.
+    Useful for comparing baseline vs fine-tuned model performance.
+    
+    Args:
+        question: The original question
+        answer: The generated answer
+        context: The retrieved context documents (concatenated)
+        
+    Returns:
+        Dictionary with quality scores:
+        - length_score: 1.0 if reasonable length (20-500 chars), 0.5 if short, 0.0 if too long/empty
+        - context_relevance: 0.0-1.0, measures word overlap with context
+        - not_refusal: 1.0 if answer attempts to answer, 0.0 if refuses/deflects
+        - question_relevance: 0.0-1.0, measures word overlap with question
+        - overall_score: Average of all metrics (0.0-1.0)
+    """
+    scores = {}
+    
+    # 1. Length scoring (reasonable answer length)
+    answer_len = len(answer.strip())
+    if answer_len == 0:
+        scores['length_score'] = 0.0
+    elif answer_len < 20:
+        scores['length_score'] = 0.5  # Too short, likely incomplete
+    elif answer_len > 500:
+        scores['length_score'] = 0.7  # Very long, possibly rambling
+    else:
+        scores['length_score'] = 1.0  # Good length
+    
+    # 2. Context relevance (word overlap with context)
+    if context:
+        # Normalize and tokenize
+        context_words = set(w.lower() for w in context.split() if len(w) > 3)
+        answer_words = set(w.lower() for w in answer.split() if len(w) > 3)
+        
+        if len(context_words) > 0 and len(answer_words) > 0:
+            overlap = len(context_words & answer_words)
+            scores['context_relevance'] = min(1.0, overlap / max(len(answer_words), 5))
+        else:
+            scores['context_relevance'] = 0.0
+    else:
+        scores['context_relevance'] = 0.0
+    
+    # 3. Not a refusal (answer attempts to respond)
+    refusal_phrases = [
+        "don't know", "do not know", "cannot answer", "can't answer",
+        "no information", "not sure", "unclear", "i'm sorry",
+        "i apologize", "unable to"
+    ]
+    answer_lower = answer.lower()
+    is_refusal = any(phrase in answer_lower for phrase in refusal_phrases)
+    scores['not_refusal'] = 0.0 if is_refusal else 1.0
+    
+    # 4. Question relevance (answer addresses the question)
+    question_words = set(w.lower() for w in question.split() if len(w) > 3)
+    answer_words = set(w.lower() for w in answer.split() if len(w) > 3)
+    
+    if len(question_words) > 0 and len(answer_words) > 0:
+        overlap = len(question_words & answer_words)
+        scores['question_relevance'] = min(1.0, overlap / max(len(question_words), 3))
+    else:
+        scores['question_relevance'] = 0.0
+    
+    # 5. Overall score (average of all metrics)
+    metric_values = [
+        scores['length_score'],
+        scores['context_relevance'],
+        scores['not_refusal'],
+        scores['question_relevance']
+    ]
+    scores['overall_score'] = sum(metric_values) / len(metric_values)
+    
+    return scores
+

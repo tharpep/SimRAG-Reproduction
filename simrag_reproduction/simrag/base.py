@@ -11,6 +11,7 @@ from pathlib import Path
 from ..logging_config import get_logger
 from ..tuning.basic_tuning import BasicTuner
 from ..tuning.model_registry import get_model_registry
+from ..tuning.ollama_integration import register_model_with_ollama
 from ..config import get_tuning_config
 from ..rag.rag_setup import BasicRAG
 
@@ -30,6 +31,7 @@ class SimRAGBase:
         """
         self.model_name = model_name
         self.experiment_run_id = None  # Will be set before training to link versions
+        self.ollama_model_name = None  # Will be set after Ollama registration
         try:
             self.config = config or get_tuning_config()
             self.tuner = BasicTuner(model_name, device=self.config.device, config=self.config)
@@ -155,6 +157,9 @@ class SimRAGBase:
                 version_output_dir = self.tuner.trainer.args.output_dir
                 self.tuner.save_model(version_output_dir)
                 logger.info(f"Model saved to: {version_output_dir}")
+                
+                # Register with Ollama for fast inference
+                self._register_with_ollama(version_output_dir, version.version)
             else:
                 logger.warning("Training completed but no version object returned")
             
@@ -162,6 +167,45 @@ class SimRAGBase:
         except Exception as e:
             logger.error(f"Training failed: {e}")
             raise
+    
+    def _register_with_ollama(self, model_path: str, version: str):
+        """
+        Register trained model with Ollama for fast inference
+        
+        Args:
+            model_path: Path to model directory with adapters
+            version: Model version string
+        """
+        try:
+            # Determine stage from model path
+            if "stage_1" in model_path:
+                stage = "stage_1"
+            elif "stage_2" in model_path:
+                stage = "stage_2"
+            else:
+                stage = "unknown"
+            
+            logger.info(f"Registering model with Ollama (stage={stage}, version={version})...")
+            
+            ollama_model_name = register_model_with_ollama(
+                adapter_path=model_path,
+                stage=stage,
+                version=version,
+                model_size=self.config.model_size
+            )
+            
+            if ollama_model_name:
+                logger.info(f"✓ Model registered with Ollama: {ollama_model_name}")
+                logger.info(f"  You can test it with: ollama run {ollama_model_name}")
+                # Store the Ollama model name for later use
+                self.ollama_model_name = ollama_model_name
+            else:
+                logger.warning("Could not register model with Ollama (Ollama may not be installed)")
+                self.ollama_model_name = None
+                
+        except Exception as e:
+            logger.warning(f"Failed to register with Ollama: {e}")
+            self.ollama_model_name = None
     
     def get_model_from_registry(self, version: Optional[str] = None, stage: Optional[str] = None) -> Optional[str]:
         """
@@ -241,13 +285,17 @@ class SimRAGBase:
         if not test_questions:
             raise ValueError("test_questions cannot be empty")
         
+        # Import evaluate_answer_quality function
+        from ..experiments.utils import evaluate_answer_quality
+        
         logger.info(f"=== Testing Performance on {len(test_questions)} questions ===")
         
         results: Dict[str, Any] = {
             "questions": test_questions,
             "answers": [],
             "response_times": [],
-            "context_scores": []
+            "context_scores": [],
+            "answer_quality_scores": []  # NEW: Answer quality metrics
         }
         
         for i, question in enumerate(test_questions, 1):
@@ -259,12 +307,17 @@ class SimRAGBase:
                 answer, context_docs, context_scores = rag_system.query(question)
                 elapsed_time = time.time() - start_time
                 
+                # Evaluate answer quality
+                context_text = "\n\n".join(context_docs)
+                quality_scores = evaluate_answer_quality(question, answer, context_text)
+                
                 results["answers"].append(answer)
                 results["context_scores"].append(context_scores)
                 results["response_times"].append(elapsed_time)
+                results["answer_quality_scores"].append(quality_scores)
                 
                 avg_score = sum(context_scores) / len(context_scores) if context_scores else 0.0
-                logger.info(f"  Answer length: {len(answer)} chars, Avg context score: {avg_score:.3f}, Time: {elapsed_time:.2f}s")
+                logger.info(f"  Answer length: {len(answer)} chars, Context: {avg_score:.3f}, Quality: {quality_scores['overall_score']:.3f}, Time: {elapsed_time:.2f}s")
                 
             except Exception as e:
                 logger.error(f"Error testing question '{question[:50]}...': {e}")
@@ -272,6 +325,13 @@ class SimRAGBase:
                 results["answers"].append("ERROR")
                 results["context_scores"].append([])
                 results["response_times"].append(0.0)
+                results["answer_quality_scores"].append({
+                    "length_score": 0.0,
+                    "context_relevance": 0.0,
+                    "not_refusal": 0.0,
+                    "question_relevance": 0.0,
+                    "overall_score": 0.0
+                })
         
         # Calculate average metrics
         if results["context_scores"]:
@@ -282,7 +342,14 @@ class SimRAGBase:
             results["avg_context_score"] = 0.0
             results["avg_response_time"] = 0.0
         
-        logger.info(f"Performance test completed. Avg context score: {results['avg_context_score']:.3f}")
+        # Calculate average quality scores
+        if results["answer_quality_scores"]:
+            metric_keys = ["length_score", "context_relevance", "not_refusal", "question_relevance", "overall_score"]
+            for key in metric_keys:
+                values = [q[key] for q in results["answer_quality_scores"] if isinstance(q, dict)]
+                results[f"avg_{key}"] = sum(values) / len(values) if values else 0.0
+        
+        logger.info(f"Performance test completed. Avg context: {results['avg_context_score']:.3f}, Avg quality: {results.get('avg_overall_score', 0.0):.3f}")
         return results
     
     def calculate_improvement_metrics(self, baseline_results: Dict[str, Any], 

@@ -9,7 +9,14 @@ from transformers import (
     AutoModelForCausalLM, 
     TrainingArguments, 
     Trainer,
-    DataCollatorForLanguageModeling
+    DataCollatorForLanguageModeling,
+    BitsAndBytesConfig
+)
+from peft import (
+    LoraConfig,
+    get_peft_model,
+    prepare_model_for_kbit_training,
+    PeftModel
 )
 from datasets import Dataset
 from typing import List, Dict, Any, Optional
@@ -78,23 +85,81 @@ class BasicTuner:
         """
         if model_path:
             print(f"Loading fine-tuned model from: {model_path}")
-            # Load from fine-tuned model path
-            self.tokenizer = AutoTokenizer.from_pretrained(model_path)
-            if self.tokenizer.pad_token is None:
-                self.tokenizer.pad_token = self.tokenizer.eos_token
             
-            # Load model in float32 - Trainer's fp16 mode will handle mixed precision
-            # Loading in float16 + fp16 training causes gradient scaling conflicts
-            self.model = AutoModelForCausalLM.from_pretrained(
-                model_path,
-                torch_dtype=torch.float32,
-            )
+            # Check if this is a LoRA adapter (has adapter_config.json)
+            adapter_config_path = os.path.join(model_path, "adapter_config.json")
+            is_lora_adapter = os.path.exists(adapter_config_path)
             
-            # Move model to device and ensure it's in training mode
-            self.model = self.model.to(self.device)
-            self.model.train()  # Ensure model is in training mode
-            
-            print(f"Fine-tuned model loaded on {self.device}")
+            if is_lora_adapter:
+                print("✓ Detected LoRA adapter model")
+                
+                # Load adapter config to get base model info
+                import json
+                with open(adapter_config_path, 'r') as f:
+                    adapter_config = json.load(f)
+                base_model_name = adapter_config.get("base_model_name_or_path", self.model_name)
+                
+                # Load tokenizer from adapter path (it's saved there)
+                self.tokenizer = AutoTokenizer.from_pretrained(model_path)
+                if self.tokenizer.pad_token is None:
+                    self.tokenizer.pad_token = self.tokenizer.eos_token
+                
+                # Load base model in 4-bit (for continued training/fine-tuning)
+                if self.config and self.config.use_qlora and self.config.load_in_4bit:
+                    print(f"Loading base model '{base_model_name}' in 4-bit...")
+                    
+                    bnb_config = BitsAndBytesConfig(
+                        load_in_4bit=True,
+                        bnb_4bit_quant_type=self.config.bnb_4bit_quant_type,
+                        bnb_4bit_compute_dtype=torch.float16,
+                        bnb_4bit_use_double_quant=self.config.bnb_4bit_use_double_quant,
+                    )
+                    
+                    base_model = AutoModelForCausalLM.from_pretrained(
+                        base_model_name,
+                        quantization_config=bnb_config,
+                        device_map="auto",
+                        torch_dtype=torch.float16,
+                    )
+                    
+                    # Load LoRA adapters
+                    print(f"Loading LoRA adapters from {model_path}...")
+                    self.model = PeftModel.from_pretrained(base_model, model_path)
+                    
+                else:
+                    # Load full base model + adapters (no quantization)
+                    print(f"Loading base model '{base_model_name}'...")
+                    base_model = AutoModelForCausalLM.from_pretrained(
+                        base_model_name,
+                        torch_dtype=torch.float32,
+                    )
+                    base_model = base_model.to(self.device)
+                    
+                    print(f"Loading LoRA adapters from {model_path}...")
+                    self.model = PeftModel.from_pretrained(base_model, model_path)
+                    self.model = self.model.to(self.device)
+                
+                self.model.train()
+                print(f"✓ LoRA adapter model loaded on {self.device}")
+                
+            else:
+                # Full fine-tuned model (old format)
+                print("Loading full fine-tuned model...")
+                self.tokenizer = AutoTokenizer.from_pretrained(model_path)
+                if self.tokenizer.pad_token is None:
+                    self.tokenizer.pad_token = self.tokenizer.eos_token
+                
+                # Load model in float32 - Trainer's fp16 mode will handle mixed precision
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    model_path,
+                    torch_dtype=torch.float32,
+                )
+                
+                # Move model to device and ensure it's in training mode
+                self.model = self.model.to(self.device)
+                self.model.train()
+                
+                print(f"Full fine-tuned model loaded on {self.device}")
         else:
             print("Loading tokenizer...")
             
@@ -109,17 +174,65 @@ class BasicTuner:
             
             print("Loading model...")
             
-            # Use the same base model mapping for consistency
-            # Load model in float32 - Trainer's fp16 mode will handle mixed precision
-            # Loading in float16 + fp16 training causes gradient scaling conflicts
-            self.model = AutoModelForCausalLM.from_pretrained(
-                base_model,
-                torch_dtype=torch.float32,
-            )
-            
-            # Move model to device and ensure it's in training mode
-            self.model = self.model.to(self.device)
-            self.model.train()  # Ensure model is in training mode
+            # QLoRA: Load in 4-bit for efficient training
+            if self.config and self.config.use_qlora and self.config.load_in_4bit:
+                print("🔧 Using QLoRA: Loading base model in 4-bit...")
+                
+                # Configure 4-bit quantization
+                bnb_config = BitsAndBytesConfig(
+                    load_in_4bit=True,
+                    bnb_4bit_quant_type=self.config.bnb_4bit_quant_type,
+                    bnb_4bit_compute_dtype=torch.float16,
+                    bnb_4bit_use_double_quant=self.config.bnb_4bit_use_double_quant,
+                )
+                
+                # Load model in 4-bit
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    base_model,
+                    quantization_config=bnb_config,
+                    device_map="auto",
+                    torch_dtype=torch.float16,
+                )
+                
+                # Prepare model for k-bit training (gradient checkpointing, etc.)
+                self.model = prepare_model_for_kbit_training(self.model)
+                
+                # Configure LoRA
+                target_modules = self.config.lora_target_modules
+                if target_modules is None:
+                    # Auto-detect target modules based on model architecture
+                    # Qwen2.5 uses standard transformer architecture (q_proj, k_proj, v_proj, o_proj)
+                    # Older Qwen1 models used c_attn, but Qwen2.5 is standard
+                    target_modules = ["q_proj", "k_proj", "v_proj", "o_proj"]
+                
+                lora_config = LoraConfig(
+                    r=self.config.lora_r,
+                    lora_alpha=self.config.lora_alpha,
+                    target_modules=target_modules,
+                    lora_dropout=self.config.lora_dropout,
+                    bias="none",
+                    task_type="CAUSAL_LM"
+                )
+                
+                # Apply LoRA adapters
+                self.model = get_peft_model(self.model, lora_config)
+                
+                # Print trainable parameters
+                trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+                total_params = sum(p.numel() for p in self.model.parameters())
+                print(f"✓ LoRA adapters applied: {trainable_params:,} / {total_params:,} parameters trainable ({100 * trainable_params / total_params:.2f}%)")
+                
+            else:
+                # Full fine-tuning (old method)
+                print("Loading full model (no QLoRA)...")
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    base_model,
+                    torch_dtype=torch.float32,
+                )
+                
+                # Move model to device and ensure it's in training mode
+                self.model = self.model.to(self.device)
+                self.model.train()  # Ensure model is in training mode
             
             print(f"Model loaded on {self.device}")
     
@@ -192,10 +305,10 @@ class BasicTuner:
             save_total_limit=2,
             prediction_loss_only=True,
             remove_unused_columns=True,  # Remove "text" field after tokenization - DataCollator only needs tokenized fields
-            # Speed optimizations
+            # Speed optimizations (Conservative settings - 2x speedup, ~7-8GB VRAM)
             fp16=True,  # Mixed precision training (2x faster on GPU, uses less memory)
-            dataloader_num_workers=4,  # Parallel data loading (faster data preparation)
-            gradient_accumulation_steps=4,  # Simulate larger batch size (effective batch = batch_size * 4)
+            dataloader_num_workers=2,  # Parallel data loading (0→2 for faster preprocessing)
+            gradient_accumulation_steps=2,  # Simulate larger batch size (effective batch = batch_size * 2)
             dataloader_pin_memory=True,  # Faster GPU transfer (only useful with GPU)
         )
         
@@ -245,6 +358,11 @@ class BasicTuner:
                     self.registry.register_version(new_version)
             else:
                 # Create new version with experiment_run_id if provided
+                # Include LoRA metadata if using QLoRA
+                is_lora = self.config.use_qlora if self.config else False
+                lora_r = self.config.lora_r if (self.config and is_lora) else None
+                lora_alpha = self.config.lora_alpha if (self.config and is_lora) else None
+                
                 new_version = self.registry.create_new_version(
                     model_name=self.model_name,
                     base_model=self.model_name,  # For now, same as model_name
@@ -253,7 +371,10 @@ class BasicTuner:
                     learning_rate=self.config.learning_rate,
                     device=self.device,
                     notes=notes,
-                    experiment_run_id=experiment_run_id
+                    experiment_run_id=experiment_run_id,
+                    is_lora=is_lora,
+                    lora_r=lora_r,
+                    lora_alpha=lora_alpha
                 )
                 # Register it now so it's available
                 self.registry.register_version(new_version)
@@ -315,10 +436,27 @@ class BasicTuner:
         # Create directory if it doesn't exist
         os.makedirs(output_dir, exist_ok=True)
         
-        print(f"Saving model to {output_dir}...")
-        self.trainer.save_model(output_dir)
-        self.tokenizer.save_pretrained(output_dir)
-        print("Model saved successfully!")
+        # Check if model is a PEFT model (LoRA)
+        is_peft_model = hasattr(self.model, 'peft_config')
+        
+        if is_peft_model:
+            print(f"Saving LoRA adapters to {output_dir}...")
+            # Save only the adapters (lightweight)
+            self.model.save_pretrained(output_dir)
+            # Save tokenizer too
+            self.tokenizer.save_pretrained(output_dir)
+            adapter_size_mb = sum(
+                os.path.getsize(os.path.join(output_dir, f)) 
+                for f in os.listdir(output_dir) 
+                if os.path.isfile(os.path.join(output_dir, f))
+            ) / (1024 * 1024)
+            print(f"✓ LoRA adapters saved! ({adapter_size_mb:.1f} MB)")
+        else:
+            print(f"Saving full model to {output_dir}...")
+            # Save full model (old method)
+            self.trainer.save_model(output_dir)
+            self.tokenizer.save_pretrained(output_dir)
+            print("Full model saved successfully!")
         
         # Save model info if registry is available
         if self.registry:
@@ -371,11 +509,27 @@ class BasicTuner:
         if not self.model:
             return {"error": "Model not loaded"}
         
-        return {
+        info = {
             "model_name": self.model_name,
             "device": self.device,
             "num_parameters": sum(p.numel() for p in self.model.parameters()),
             "trainable_parameters": sum(p.numel() for p in self.model.parameters() if p.requires_grad),
             "model_size_mb": sum(p.numel() * p.element_size() for p in self.model.parameters()) / (1024 * 1024)
         }
+        
+        # Add LoRA-specific info if applicable
+        if hasattr(self.model, 'peft_config') and self.model.peft_config:
+            info["is_lora"] = True
+            info["trainable_percentage"] = 100 * info["trainable_parameters"] / info["num_parameters"]
+            # Get LoRA config if available
+            peft_config_values = list(self.model.peft_config.values())
+            if peft_config_values:
+                peft_config = peft_config_values[0]  # Get first config
+                info["lora_r"] = peft_config.r
+                info["lora_alpha"] = peft_config.lora_alpha
+                info["lora_target_modules"] = peft_config.target_modules
+        else:
+            info["is_lora"] = False
+        
+        return info
 

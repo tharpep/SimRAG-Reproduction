@@ -12,7 +12,7 @@ from ...simrag.instruction_following import InstructionFollowing
 from ...simrag.domain_adaptation import DomainAdaptation
 from ...rag.rag_setup import BasicRAG
 from ...config import get_tuning_config, get_rag_config
-from ..utils import load_documents_from_folder, get_test_questions
+from ..utils import load_documents_from_folder, get_test_questions, evaluate_answer_quality
 from ...logging_config import setup_logging, get_logger
 
 # Setup logging
@@ -138,13 +138,24 @@ def run_full_pipeline(
     
     logger.info(f"Using fine-tuned Stage 2 model: {stage2_model_path}")
     
-    # Initialize RAG with documents - use fine-tuned model for testing
+    # Initialize RAG with documents - prefer Ollama model if available, fallback to HuggingFace
     # Reuse documents already loaded for Stage 2 (no need to reload)
-    rag = BasicRAG(
-        collection_name="simrag_test", 
-        use_persistent=False, 
-        model_path=stage2_model_path  # Use fine-tuned model
-    )
+    ollama_model_name = stage2.ollama_model_name
+    if ollama_model_name:
+        logger.info(f"Using Ollama model for testing: {ollama_model_name}")
+        rag = BasicRAG(
+            collection_name="simrag_test", 
+            use_persistent=False, 
+            force_provider="ollama",
+            ollama_model_name=ollama_model_name
+        )
+    else:
+        logger.warning("Ollama model not available, falling back to HuggingFace (may be slow/OOM)")
+        rag = BasicRAG(
+            collection_name="simrag_test", 
+            use_persistent=False, 
+            model_path=stage2_model_path
+        )
     rag.add_documents(documents)  # Use documents already loaded above
     
     # Test performance
