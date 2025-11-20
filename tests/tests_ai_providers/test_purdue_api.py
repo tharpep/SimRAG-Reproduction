@@ -114,6 +114,7 @@ class TestPurdueGenAI:
         models = client.get_available_models()
         
         expected_models = [
+            "llama4:latest",
             "llama3.1:latest",
             "llama3.1:70b", 
             "mistral:latest",

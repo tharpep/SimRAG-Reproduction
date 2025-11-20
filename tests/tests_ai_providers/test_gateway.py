@@ -30,9 +30,13 @@ class TestAIGateway:
     def test_init_from_env_vars(self):
         """Test gateway initialization from environment variables"""
         with patch.dict(os.environ, {'PURDUE_API_KEY': 'test-key'}), \
-             patch('simrag_reproduction.ai_providers.gateway.PurdueGenAI') as mock_purdue:
+             patch('simrag_reproduction.ai_providers.gateway.PurdueGenAI') as mock_purdue, \
+             patch('simrag_reproduction.ai_providers.gateway.HuggingFaceClient') as mock_hf:
             
             gateway = AIGateway()
+            # HuggingFace should be initialized by default
+            mock_hf.assert_called_once()
+            # Purdue should also be initialized if API key is present
             mock_purdue.assert_called_once()
     
     def test_init_with_ollama_env(self):
@@ -57,20 +61,22 @@ class TestAIGateway:
         config = {"purdue": {"api_key": "test-key"}}
         
         with patch('simrag_reproduction.ai_providers.gateway.PurdueGenAI') as mock_purdue, \
+             patch('simrag_reproduction.ai_providers.gateway.HuggingFaceClient') as mock_hf, \
              patch('simrag_reproduction.ai_providers.gateway.get_rag_config') as mock_config:
-            # Mock config to prefer Purdue over Ollama
+            # Mock config - HuggingFace is default
             mock_config.return_value.use_ollama = False
-            mock_config.return_value.model_name = "llama3.1:latest"
+            mock_config.return_value.model_name = "Qwen/Qwen2.5-1.5B-Instruct"
             
-            mock_client = MagicMock()
-            mock_client.chat.return_value = "Test response"
-            mock_purdue.return_value = mock_client
+            mock_hf_client = MagicMock()
+            mock_hf_client.chat.return_value = "Test response"
+            mock_hf.return_value = mock_hf_client
             
             gateway = AIGateway(config)
             response = gateway.chat("Hello")
             
             assert response == "Test response"
-            mock_client.chat.assert_called_once_with("Hello", "llama3.1:latest")
+            # HuggingFace should be used by default
+            mock_hf_client.chat.assert_called_once_with("Hello")
     
     def test_chat_with_specific_provider(self):
         """Test chat with specific provider"""
@@ -90,18 +96,26 @@ class TestAIGateway:
     def test_chat_no_providers_available(self):
         """Test chat when no providers are available"""
         with patch('simrag_reproduction.ai_providers.gateway.get_rag_config') as mock_config, \
-             patch('simrag_reproduction.ai_providers.gateway.OllamaClient'), \
+             patch('simrag_reproduction.ai_providers.gateway.HuggingFaceClient') as mock_hf, \
              patch.dict('os.environ', {}, clear=True):  # Clear environment variables
-            # Mock config to not use any providers
+            # Mock config
             mock_config.return_value.use_ollama = False
-            mock_config.return_value.model_name = "llama3.2:1b"
+            mock_config.return_value.model_name = "Qwen/Qwen2.5-1.5B-Instruct"
             
-            # Don't create any providers - pass empty config and ensure no env vars
+            # Make HuggingFace client fail to initialize
+            mock_hf.side_effect = Exception("Failed to load model")
+            
+            # Gateway should still try to initialize HuggingFace but catch the exception
+            # and log a warning (not raise)
             gateway = AIGateway({})
             
-            # Ensure no providers were initialized
-            assert len(gateway.providers) == 0, "Expected no providers to be initialized"
+            # HuggingFace initialization should have been attempted but failed
+            mock_hf.assert_called_once()
             
+            # Gateway should have no providers (HuggingFace failed, no others available)
+            assert len(gateway.providers) == 0
+            
+            # Should raise error when trying to chat
             with pytest.raises(Exception, match="No providers available"):
                 gateway.chat("Hello")
     

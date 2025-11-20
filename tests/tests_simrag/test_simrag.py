@@ -52,7 +52,7 @@ class TestSimRAG:
             
             trainer = InstructionFollowing()
             assert trainer is not None
-            assert trainer.model_name == "llama3.2:1b"
+            assert trainer.model_name == "Qwen/Qwen2.5-1.5B-Instruct"  # Updated default
             print("[OK] InstructionFollowing initialized successfully")
     
     def test_instruction_following_data_preparation(self, mock_config):
@@ -86,7 +86,7 @@ class TestSimRAG:
             
             qa_generator = SyntheticQAGeneration()
             assert qa_generator is not None
-            assert qa_generator.model_name == "llama3.2:1b"
+            assert qa_generator.model_name == "Qwen/Qwen2.5-1.5B-Instruct"  # Updated default
             print("[OK] SyntheticQAGeneration initialized successfully")
     
     def test_synthetic_qa_generation_question_parsing(self, mock_config):
@@ -186,7 +186,7 @@ class TestSimRAG:
             
             trainer = DomainAdaptation()
             assert trainer is not None
-            assert trainer.model_name == "llama3.2:1b"
+            assert trainer.model_name == "Qwen/Qwen2.5-1.5B-Instruct"  # Updated default
             print("[OK] DomainAdaptation initialized successfully")
     
     def test_domain_adaptation_with_stage_1_model(self, mock_config):

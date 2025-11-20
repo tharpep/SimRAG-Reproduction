@@ -57,8 +57,8 @@ class AIGateway:
                 self.providers["huggingface"] = HuggingFaceClient(self.rag_config.model_name)
                 logger.info("HuggingFace client ready")
             except Exception as e:
-                logger.error(f"Failed to load HuggingFace model {self.rag_config.model_name}: {e}")
-                raise
+                logger.warning(f"Failed to load HuggingFace model {self.rag_config.model_name}: {e}")
+                # Don't raise - allow other providers to be used
         
         # Setup Local Ollama provider (optional, only if explicitly requested)
         # Note: Ollama uses its own model names (e.g., "qwen2.5:1.5b"), not HuggingFace Hub IDs

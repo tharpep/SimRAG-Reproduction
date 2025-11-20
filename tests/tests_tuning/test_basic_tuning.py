@@ -14,7 +14,7 @@ class TestBasicTuner:
     def test_init(self):
         """Test basic initialization"""
         tuner = BasicTuner()
-        assert tuner.model_name == "qwen3:1.7b"
+        assert tuner.model_name == "Qwen/Qwen2.5-1.5B-Instruct"  # Updated default
         assert tuner.device in ["cpu", "cuda", "mps"]
         assert tuner.tokenizer is None
         assert tuner.model is None
@@ -23,18 +23,18 @@ class TestBasicTuner:
     
     def test_init_custom(self):
         """Test initialization with custom parameters"""
-        tuner = BasicTuner(model_name="llama3.2:1b", device="cpu")
-        assert tuner.model_name == "llama3.2:1b"
+        tuner = BasicTuner(model_name="Qwen/Qwen2.5-7B-Instruct", device="cpu")
+        assert tuner.model_name == "Qwen/Qwen2.5-7B-Instruct"
         assert tuner.device == "cpu"
         assert tuner.config is None
         assert tuner.registry is None
     
     @patch('simrag_reproduction.tuning.basic_tuning.AutoTokenizer')
     @patch('simrag_reproduction.tuning.basic_tuning.AutoModelForCausalLM')
-    def test_model_name_mapping(self, mock_model, mock_tokenizer):
-        """Test that model names map to correct Hugging Face models"""
-        # Test llama3.2:1b mapping
-        tuner = BasicTuner(model_name="llama3.2:1b")
+    def test_model_name_direct_usage(self, mock_model, mock_tokenizer):
+        """Test that HuggingFace Hub IDs are used directly"""
+        # Test with HuggingFace Hub ID
+        tuner = BasicTuner(model_name="Qwen/Qwen2.5-1.5B-Instruct")
         
         # Mock the tokenizer and model
         mock_tokenizer.from_pretrained.return_value = MagicMock()
@@ -42,10 +42,10 @@ class TestBasicTuner:
         
         tuner.load_model()
         
-        # Verify it called with the correct HF model
-        mock_tokenizer.from_pretrained.assert_called_with("meta-llama/Llama-3.2-1B")
-        # Check that the model was called with the correct model name (ignore other parameters)
-        assert mock_model.from_pretrained.call_args[0][0] == "meta-llama/Llama-3.2-1B"
+        # Verify it called with the same HuggingFace Hub ID (no mapping needed)
+        mock_tokenizer.from_pretrained.assert_called_with("Qwen/Qwen2.5-1.5B-Instruct")
+        # Check that the model was called with the same model name
+        assert mock_model.from_pretrained.call_args[0][0] == "Qwen/Qwen2.5-1.5B-Instruct"
     
     @patch('simrag_reproduction.tuning.basic_tuning.Dataset')
     def test_prepare_data_structure(self, mock_dataset_class):
@@ -153,16 +153,16 @@ class TestTuningConfig:
             assert config.optimized_batch_size == 8
             assert config.optimized_num_epochs == 3
     
-    def test_model_name_mapping(self):
-        """Test config provides correct model names"""
+    def test_model_name_config(self):
+        """Test config provides correct HuggingFace Hub model IDs"""
         config = get_tuning_config()
         
         if config.model_size == "small":
-            assert config.model_name == "llama3.2:1b"
-            assert "1b" in config.output_dir
+            assert config.model_name == "Qwen/Qwen2.5-1.5B-Instruct"
+            assert "model_1b" in config.output_dir or "1b" in config.output_dir
         else:
-            assert config.model_name == "llama3:8b"
-            assert "8b" in config.output_dir
+            assert config.model_name == "Qwen/Qwen2.5-7B-Instruct"
+            assert "model_8b" in config.output_dir or "8b" in config.output_dir
 
 
 class TestTuningIntegration:

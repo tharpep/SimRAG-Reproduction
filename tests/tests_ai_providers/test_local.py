@@ -15,7 +15,7 @@ class TestOllamaConfig:
         """Test default configuration"""
         config = OllamaConfig()
         assert config.base_url == "http://localhost:11434"
-        assert config.default_model == "llama3.2:1b"
+        assert config.default_model == "qwen2.5:1.5b"  # Updated default
         assert config.chat_timeout == 60.0
         assert config.embeddings_timeout == 30.0
         assert config.connection_timeout == 5.0
@@ -58,7 +58,7 @@ class TestOllamaClient:
         with patch('simrag_reproduction.ai_providers.local.OllamaClient._check_ollama_health', return_value=True):
             client = OllamaClient()
             assert client.config.base_url == "http://localhost:11434"
-            assert client.config.default_model == "llama3.2:1b"
+            assert client.config.default_model == "qwen2.5:1.5b"  # Updated default
             assert client._sync_client is None
             assert client._async_client is None
     

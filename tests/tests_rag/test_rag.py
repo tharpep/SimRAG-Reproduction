@@ -22,9 +22,9 @@ class TestRAGSystem:
     def setup_method(self):
         """Setup for each test method"""
         self.config = RAGConfig(
-            use_ollama=True,
+            use_ollama=False,  # HuggingFace is default
             use_persistent=False,  # Use in-memory storage for tests to avoid lock conflicts
-            model_size="small"  # Use small model (llama3.2:1b)
+            model_size="small"  # Use small model (Qwen/Qwen2.5-1.5B-Instruct)
         )
         
         self.documents_folder = str(project_root / "data" / "documents")
@@ -81,23 +81,23 @@ class TestRAGSystem:
             use_persistent=self.config.use_persistent
         )
         
-        # Use sample documents if real documents folder doesn't exist
-        if not os.path.exists(self.documents_folder):
-            sample_docs = [
-                "Docker is a containerization platform that allows you to package applications and their dependencies into lightweight, portable containers.",
-                "Python is a versatile programming language commonly used for web development, data science, and automation.",
-                "DevOps is a set of practices that combines software development and IT operations to shorten the development lifecycle."
-            ]
-            rag.add_documents(sample_docs)
-        else:
-            ingester = DocumentIngester(rag)
-            ingester.ingest_folder(self.documents_folder)
+        # Always use sample documents for consistent testing
+        sample_docs = [
+            "Docker is a containerization platform that allows you to package applications and their dependencies into lightweight, portable containers.",
+            "Python is a versatile programming language commonly used for web development, data science, and automation.",
+            "DevOps is a set of practices that combines software development and IT operations to shorten the development lifecycle."
+        ]
+        num_added = rag.add_documents(sample_docs)
+        
+        # Verify documents were added
+        assert num_added > 0, f"Expected documents to be added, but got {num_added}"
+        print(f"[OK] Added {num_added} documents to vector store")
         
         # Test search
         query = "What is Docker?"
         results = rag.search(query, limit=3)
         
-        assert len(results) > 0, "No search results returned"
+        assert len(results) > 0, f"No search results returned. Collection may not be set up correctly."
         assert all(isinstance(result, tuple) and len(result) == 2 for result in results), "Invalid result format"
         
         print(f"[OK] Search returned {len(results)} results")
@@ -113,23 +113,20 @@ class TestRAGSystem:
             use_persistent=self.config.use_persistent
         )
         
-        # Use sample documents if real documents folder doesn't exist
-        if not os.path.exists(self.documents_folder):
-            sample_docs = [
-                "Docker is a containerization platform that allows you to package applications and their dependencies into lightweight, portable containers.",
-                "Python is a versatile programming language commonly used for web development, data science, and automation.",
-                "DevOps is a set of practices that combines software development and IT operations to shorten the development lifecycle."
-            ]
-            rag.add_documents(sample_docs)
-        else:
-            ingester = DocumentIngester(rag)
-            ingester.ingest_folder(self.documents_folder)
+        # Always use sample documents for consistent testing
+        sample_docs = [
+            "Docker is a containerization platform that allows you to package applications and their dependencies into lightweight, portable containers.",
+            "Python is a versatile programming language commonly used for web development, data science, and automation.",
+            "DevOps is a set of practices that combines software development and IT operations to shorten the development lifecycle."
+        ]
+        num_added = rag.add_documents(sample_docs)
+        assert num_added > 0, f"Expected documents to be added, but got {num_added}"
         
         # Test retrieval (without LLM generation)
         query = "What is Docker and how does it work?"
         retrieved_docs = rag.search(query, limit=3)
         
-        assert len(retrieved_docs) > 0, "No documents retrieved"
+        assert len(retrieved_docs) > 0, f"No documents retrieved. Collection may not be set up correctly."
         
         # Build context manually (simulating what RAG would do)
         context = "\n\n".join([doc for doc, score in retrieved_docs])
@@ -148,22 +145,19 @@ class TestRAGSystem:
             use_persistent=self.config.use_persistent
         )
         
-        # Use sample documents if real documents folder doesn't exist
-        if not os.path.exists(self.documents_folder):
-            sample_docs = [
-                "Docker is a containerization platform that allows you to package applications and their dependencies into lightweight, portable containers.",
-                "Python is a versatile programming language commonly used for web development, data science, and automation."
-            ]
-            rag.add_documents(sample_docs)
-        else:
-            ingester = DocumentIngester(rag)
-            ingester.ingest_folder(self.documents_folder)
+        # Always use sample documents for consistent testing
+        sample_docs = [
+            "Docker is a containerization platform that allows you to package applications and their dependencies into lightweight, portable containers.",
+            "Python is a versatile programming language commonly used for web development, data science, and automation."
+        ]
+        num_added = rag.add_documents(sample_docs)
+        assert num_added > 0, f"Expected documents to be added, but got {num_added}"
         
         stats = rag.get_stats()
         
         assert "points_count" in stats or "document_count" in stats, "Missing points_count/document_count in stats"
         doc_count = stats.get("points_count") or stats.get("document_count", 0)
-        assert doc_count > 0, "No points in collection"
+        assert doc_count > 0, f"No points in collection. Stats: {stats}"
         assert "vector_size" in stats, "Missing vector_size in stats"
         
         print(f"[OK] Collection stats: {stats}")
