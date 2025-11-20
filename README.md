@@ -156,6 +156,8 @@ mypy simrag_reproduction/
 
 **Qdrant errors**: Delete `data/qdrant_db/` or set `USE_PERSISTENT=false`
 
+**First-time setup**: The vector database (`data/qdrant_db/`) is auto-generated from `data/documents/` on first run.
+
 ## Citation
 
 If you use this code, please cite the original SimRAG paper:

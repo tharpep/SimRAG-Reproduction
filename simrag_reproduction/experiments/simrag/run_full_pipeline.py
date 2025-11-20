@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 
 
 def run_full_pipeline(
-    documents_folder: str = "../HTML_DOCS",
+    documents_folder: str = "../../data/documents",
     use_real_datasets: bool = True,
     test_questions: list = None,
     output_file: str = None,
@@ -181,8 +181,8 @@ if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description="Run full SimRAG pipeline")
-    parser.add_argument("--documents", type=str, default="../HTML_DOCS",
-                       help="Path to documents folder (default: ../HTML_DOCS)")
+    parser.add_argument("--documents", type=str, default="../../data/documents",
+                       help="Path to documents folder (default: ../../data/documents)")
     parser.add_argument("--test-data", action="store_true",
                        help="Use test data for Stage 1 instead of Alpaca")
     parser.add_argument("--output", type=str, default="full_pipeline_results.json",

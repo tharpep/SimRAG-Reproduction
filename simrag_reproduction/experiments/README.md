@@ -44,16 +44,16 @@ This will:
 
 ```bash
 # Baseline only
-python baseline/run_baseline.py --documents ../HTML_DOCS
+python baseline/run_baseline.py --documents ../../data/documents
 
 # Stage 1 only
 python simrag/run_stage1.py
 
 # Stage 2 only
-python simrag/run_stage2.py --documents ../HTML_DOCS
+python simrag/run_stage2.py --documents ../../data/documents
 
 # Full SimRAG pipeline
-python simrag/run_full_pipeline.py --documents ../HTML_DOCS
+python simrag/run_full_pipeline.py --documents ../../data/documents
 
 # Compare existing results
 python comparison/compare_results.py \

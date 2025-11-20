@@ -20,7 +20,7 @@ logger = get_logger(__name__)
 
 
 def run_baseline_test(
-    documents_folder: str = "../HTML_DOCS",
+    documents_folder: str = "../../data/documents",
     test_questions: list = None,
     output_file: str = None,
     use_timestamp: bool = True
@@ -154,8 +154,8 @@ if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description="Run baseline RAG experiment")
-    parser.add_argument("--documents", type=str, default="../HTML_DOCS",
-                       help="Path to documents folder (default: ../HTML_DOCS)")
+    parser.add_argument("--documents", type=str, default="../../data/documents",
+                       help="Path to documents folder (default: ../../data/documents)")
     parser.add_argument("--output", type=str, default="baseline_results.json",
                        help="Output filename (default: baseline_results.json, auto-timestamped)")
     parser.add_argument("--no-timestamp", action="store_true",

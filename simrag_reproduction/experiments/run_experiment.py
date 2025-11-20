@@ -11,8 +11,6 @@ from ..logging_config import setup_logging, get_logger
 
 # Import experiment modules
 from .baseline.run_baseline import run_baseline_test
-from .simrag.run_stage1 import run_stage1_training
-from .simrag.run_stage2 import run_stage2_training
 from .comparison.compare_results import compare_results
 
 # Setup logging
@@ -21,7 +19,7 @@ logger = get_logger(__name__)
 
 
 def run_complete_experiment(
-    documents_folder: str = "../HTML_DOCS",
+    documents_folder: str = "../../data/documents",
     use_real_datasets: bool = True,
     skip_baseline: bool = False,
     skip_simrag: bool = False,
@@ -116,8 +114,8 @@ Examples:
         """
     )
     
-    parser.add_argument("--documents", type=str, default="../HTML_DOCS",
-                       help="Path to documents folder (default: ../HTML_DOCS)")
+    parser.add_argument("--documents", type=str, default="../../data/documents",
+                       help="Path to documents folder (default: ../../data/documents)")
     parser.add_argument("--test-data", action="store_true",
                        help="Use test data for Stage 1 instead of Alpaca")
     parser.add_argument("--skip-baseline", action="store_true",

@@ -49,7 +49,7 @@ def _run_full_experiment(
 
         setup_logging()
 
-        documents_folder = documents or "../HTML_DOCS"
+        documents_folder = documents or "../../data/documents"
         run_complete_experiment(
             documents_folder=documents_folder,
             use_real_datasets=not test_data,
@@ -74,7 +74,7 @@ def _run_baseline(documents: Optional[str]) -> None:
 
         setup_logging()
 
-        documents_folder = documents or "../HTML_DOCS"
+        documents_folder = documents or "../../data/documents"
         run_baseline_test(
             documents_folder=documents_folder,
             output_file="baseline_results.json",
@@ -96,7 +96,7 @@ def _run_simrag(documents: Optional[str], test_data: bool) -> None:
 
         setup_logging()
 
-        documents_folder = documents or "../HTML_DOCS"
+        documents_folder = documents or "../../data/documents"
         run_full_pipeline(
             documents_folder=documents_folder,
             use_real_datasets=not test_data,

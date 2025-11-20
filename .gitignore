@@ -40,10 +40,12 @@ wandb/
 # Data files
 *.jsonl
 *.csv
-data/
 
-# Qdrant database
+# Qdrant database (generated, should not be committed)
 data/qdrant_db/
+
+# Allow data/documents/ to be committed (source documents for reproducibility)
+# data/documents/ is intentionally NOT ignored
 
 # Python
 *.pyc

@@ -19,7 +19,7 @@ logger = get_logger(__name__)
 
 
 def run_stage2_training(
-    documents_folder: str = "../HTML_DOCS",
+    documents_folder: str = "../../data/documents",
     stage_1_model_path: str = None,
     output_file: str = None,
     use_timestamp: bool = True
@@ -129,8 +129,8 @@ if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description="Run SimRAG Stage 2 training")
-    parser.add_argument("--documents", type=str, default="../HTML_DOCS",
-                       help="Path to documents folder (default: ../HTML_DOCS)")
+    parser.add_argument("--documents", type=str, default="../../data/documents",
+                       help="Path to documents folder (default: ../../data/documents)")
     parser.add_argument("--stage1-model", type=str, default=None,
                        help="Path to Stage 1 model (uses latest if not specified)")
     parser.add_argument("--output", type=str, default="stage2_results.json",
