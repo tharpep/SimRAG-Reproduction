@@ -147,13 +147,13 @@ class BasicTuner:
         print(f"Preparing {len(texts)} training examples...")
         
         # Tokenize texts
+        # Note: Don't use return_tensors="pt" here - DataCollator will handle tensor conversion
         def tokenize_function(examples):
             return self.tokenizer(
                 examples["text"],
                 truncation=True,
-                padding=True,
+                padding=False,  # DataCollator will handle padding
                 max_length=max_length,
-                return_tensors="pt"
             )
         
         # Create dataset
