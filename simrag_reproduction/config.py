@@ -70,7 +70,7 @@ class TuningConfig:
     # SimRAG specific settings
     simrag_stage_1_epochs: int = 1  # Epochs for Stage 1 (instruction following)
     simrag_stage_2_epochs: int = 1  # Epochs for Stage 2 (domain adaptation)
-    simrag_improvement_rounds: int = 2  # Number of self-improvement rounds
+    simrag_improvement_rounds: int = 1  # Number of Stage 2 rounds (1=no self-improvement, 2+=iterative refinement)
     simrag_questions_per_doc: int = 2  # Questions to generate per document
     simrag_min_context_score: float = 0.7  # Minimum context similarity threshold
     
@@ -201,6 +201,7 @@ def get_tuning_config() -> TuningConfig:
     - LORA_R: LoRA rank as integer (8-64, default: 16)
     - LORA_ALPHA: LoRA alpha as integer (1-128, default: 32)
     - LORA_DROPOUT: LoRA dropout as float (0.0-1.0, default: 0.05)
+    - SIMRAG_IMPROVEMENT_ROUNDS: number of Stage 2 self-improvement rounds (1-10, default: 2)
     """
     config = TuningConfig()
     
@@ -276,5 +277,17 @@ def get_tuning_config() -> TuningConfig:
                 print(f"Warning: LORA_DROPOUT {lora_dropout} out of range (0.0-1.0), using default")
         except ValueError:
             print(f"Warning: Invalid LORA_DROPOUT '{lora_dropout_env}', using default")
+    
+    # SimRAG self-improvement rounds
+    simrag_improvement_rounds_env = os.getenv("SIMRAG_IMPROVEMENT_ROUNDS")
+    if simrag_improvement_rounds_env:
+        try:
+            improvement_rounds = int(simrag_improvement_rounds_env)
+            if 1 <= improvement_rounds <= 10:
+                config.simrag_improvement_rounds = improvement_rounds
+            else:
+                print(f"Warning: SIMRAG_IMPROVEMENT_ROUNDS {improvement_rounds} out of range (1-10), using default")
+        except ValueError:
+            print(f"Warning: Invalid SIMRAG_IMPROVEMENT_ROUNDS '{simrag_improvement_rounds_env}', using default")
     
     return config

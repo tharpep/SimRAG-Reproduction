@@ -20,7 +20,8 @@ SimRAG introduces a self-improving framework that fine-tunes RAG systems through
 
 - **RAG System**: Document ingestion, semantic search with Qdrant, and context-aware generation
 - **QLoRA Fine-Tuning**: Memory-efficient training using 4-bit quantization and LoRA adapters
-- **Two-Stage Training**: Instruction following (Stage 1) and domain adaptation (Stage 2)
+- **Two-Stage Training**: Instruction following (Stage 1) and domain adaptation with integrated self-improvement (Stage 2)
+- **Self-Improvement Loop**: Stage 2 can run multiple rounds, each using the improved model to generate better synthetic QA
 - **Ollama Integration**: Automatic conversion of fine-tuned models for fast, reliable inference
 - **Synthetic QA Generation**: Self-improving data generation from domain documents
 - **Multiple AI Providers**: Unified interface for Ollama (local), Purdue GenAI, and HuggingFace
@@ -155,6 +156,9 @@ TUNING_DEVICE=auto  # auto, cpu, cuda, mps
 # Note: QLoRA is always enabled (4-bit + LoRA adapters)
 LORA_R=16  # LoRA rank (8-64, higher = more expressive)
 LORA_ALPHA=32  # LoRA scaling (typically 2x lora_r)
+
+# Self-improvement settings (optional)
+SIMRAG_IMPROVEMENT_ROUNDS=1  # Number of Stage 2 rounds (1=no self-improvement, 2+=iterative refinement)
 ```
 
 **Note**: Never commit `.env` files or API keys.
