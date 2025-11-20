@@ -138,7 +138,7 @@ def run_full_pipeline(
     
     logger.info(f"Using fine-tuned Stage 2 model: {stage2_model_path}")
     
-    # Initialize RAG with documents - prefer Ollama model if available, fallback to HuggingFace
+    # Initialize RAG with documents - use Ollama model for testing (fast and reliable)
     # Reuse documents already loaded for Stage 2 (no need to reload)
     ollama_model_name = stage2.ollama_model_name
     if ollama_model_name:
@@ -150,12 +150,10 @@ def run_full_pipeline(
             ollama_model_name=ollama_model_name
         )
     else:
-        logger.warning("Ollama model not available, falling back to HuggingFace (may be slow/OOM)")
-        rag = BasicRAG(
-            collection_name="simrag_test", 
-            use_persistent=False, 
-            model_path=stage2_model_path
-        )
+        logger.error("Ollama model not available for testing.")
+        logger.error("This usually means model registration with Ollama failed during training.")
+        logger.error(f"Model path: {stage2_model_path}")
+        raise Exception("Cannot test SimRAG model: Ollama model not registered. Check training logs for errors.")
     rag.add_documents(documents)  # Use documents already loaded above
     
     # Test performance

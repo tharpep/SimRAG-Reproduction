@@ -21,7 +21,7 @@ class BasicRAG:
             collection_name: Name for Qdrant collection (uses config default if None)
             use_persistent: If True, use persistent Qdrant storage (uses config default if None)
             force_provider: Force provider to use ("purdue", "ollama", or "huggingface"). If None, uses config default.
-            model_path: Path to fine-tuned HuggingFace model (only used if force_provider="huggingface")
+            model_path: Path to fine-tuned HuggingFace model (legacy fallback, not recommended - use ollama_model_name instead)
             ollama_model_name: Name of Ollama model to use (e.g., "simrag-1b-stage2-v1-0"). If provided, forces Ollama provider.
         """
         self.config = get_rag_config()

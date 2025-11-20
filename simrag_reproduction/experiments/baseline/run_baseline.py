@@ -42,13 +42,13 @@ def run_baseline_test(
     if test_questions is None:
         test_questions = get_test_questions()
     
-    # Initialize RAG system - prefer Ollama (fast), fall back to HuggingFace if unavailable
-    # Note: Ollama is ~10x faster (2s vs 20-30s per question), but HuggingFace works too
-    # SimRAG testing will use HuggingFace to load fine-tuned models
+    # Initialize RAG system - use Ollama for baseline testing (fast and reliable)
+    # Note: Ollama is ~10x faster than HuggingFace for inference
+    # SimRAG testing also uses Ollama (with fine-tuned models converted to GGUF format)
     logger.info("Initializing RAG system...")
     rag_config = get_rag_config()
     
-    # Use provider from config (default: HuggingFace, can be set to Ollama via BASELINE_PROVIDER env var)
+    # Use provider from config (default: Ollama, can be set via BASELINE_PROVIDER env var)
     baseline_provider = rag_config.baseline_provider
     logger.info(f"Initializing RAG system with {baseline_provider}...")
     
@@ -60,13 +60,9 @@ def run_baseline_test(
         )
         logger.info(f"✓ Using {baseline_provider} for baseline")
     except Exception as e:
-        logger.warning(f"{baseline_provider} not available ({e}), falling back to HuggingFace")
-        rag = BasicRAG(
-            collection_name="baseline_experiment",
-            use_persistent=False,
-            force_provider="huggingface"
-        )
-        logger.info("✓ Using HuggingFace for baseline (fallback)")
+        logger.error(f"{baseline_provider} not available: {e}")
+        logger.error("Baseline testing requires Ollama. Please ensure Ollama is installed and running.")
+        raise
     
     # Load documents
     logger.info(f"Loading documents from {documents_folder}...")

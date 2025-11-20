@@ -43,21 +43,18 @@ class AIGateway:
         elif os.getenv('PURDUE_API_KEY'):
             self.providers["purdue"] = PurdueGenAI()
         
-        # Setup HuggingFace provider (default for baseline and inference)
+        # Setup HuggingFace provider (only when explicitly requested)
+        # Note: We no longer auto-initialize HuggingFace to avoid unnecessary model loading
+        # HuggingFace is primarily used for training, not inference (Ollama is used for testing)
         if "huggingface" in config:
             model_path = config["huggingface"].get("model_path")
             if model_path:
-                self.providers["huggingface"] = HuggingFaceClient(model_path)
-        else:
-            # Default: Set up HuggingFace with base model from config (already a HuggingFace Hub ID)
-            try:
-                logger.info(f"Initializing HuggingFace client with model: {self.rag_config.model_name}")
-                logger.info("This may take a moment if the model needs to be downloaded...")
-                self.providers["huggingface"] = HuggingFaceClient(self.rag_config.model_name)
-                logger.info("HuggingFace client ready")
-            except Exception as e:
-                logger.warning(f"Failed to load HuggingFace model {self.rag_config.model_name}: {e}")
-                # Don't raise - allow other providers to be used
+                logger.debug(f"Initializing HuggingFace client with model: {model_path}")
+                try:
+                    self.providers["huggingface"] = HuggingFaceClient(model_path)
+                except Exception as e:
+                    logger.warning(f"Failed to load HuggingFace model {model_path}: {e}")
+                    # Don't raise - allow other providers to be used
         
         # Setup Local Ollama provider (optional, only if explicitly requested)
         # Note: Ollama uses its own model names (e.g., "qwen2.5:1.5b"), not HuggingFace Hub IDs
@@ -96,15 +93,15 @@ class AIGateway:
         """
         # Auto-select provider based on config if not specified
         if provider is None:
-            # Priority: huggingface (default) > purdue > ollama
-            if "huggingface" in self.providers:
-                provider = "huggingface"
+            # Priority: ollama (default for testing) > purdue > huggingface
+            if "ollama" in self.providers:
+                provider = "ollama"
             elif "purdue" in self.providers:
                 provider = "purdue"
-            elif "ollama" in self.providers:
-                provider = "ollama"
+            elif "huggingface" in self.providers:
+                provider = "huggingface"
             else:
-                raise Exception("No providers available. HuggingFace should be available by default.")
+                raise Exception("No providers available. Please ensure at least one provider is configured.")
         
         # Check if provider is available
         if provider not in self.providers:
@@ -112,13 +109,13 @@ class AIGateway:
             if force_provider:
                 raise Exception(f"Provider '{provider}' not available. Available: {available}")
             else:
-                # Fallback to available provider (priority: huggingface > purdue > ollama)
-                if "huggingface" in self.providers:
-                    provider = "huggingface"
+                # Fallback to available provider (priority: ollama > purdue > huggingface)
+                if "ollama" in self.providers:
+                    provider = "ollama"
                 elif "purdue" in self.providers:
                     provider = "purdue"
-                elif "ollama" in self.providers:
-                    provider = "ollama"
+                elif "huggingface" in self.providers:
+                    provider = "huggingface"
                 else:
                     raise Exception(f"Provider '{provider}' not available. Available: {available}")
         

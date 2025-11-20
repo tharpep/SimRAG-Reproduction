@@ -194,8 +194,9 @@ class BasicTuner:
                     torch_dtype=torch.float16,
                 )
                 
-                # Prepare model for k-bit training (gradient checkpointing, etc.)
-                self.model = prepare_model_for_kbit_training(self.model)
+                # Prepare model for k-bit training (gradient checkpointing disabled to avoid hangs)
+                # Note: use_reentrant=False is recommended for PyTorch 2.5+ but we disable checkpointing entirely
+                self.model = prepare_model_for_kbit_training(self.model, use_gradient_checkpointing=False)
                 
                 # Configure LoRA
                 target_modules = self.config.lora_target_modules

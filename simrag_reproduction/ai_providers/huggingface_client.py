@@ -76,26 +76,26 @@ class HuggingFaceClient(BaseLLMClient):
             is_lora_adapter = adapter_config_path and os.path.exists(adapter_config_path)
             
             if is_local:
-                logger.info(f"Loading model from local path: {self.model_path}")
+                logger.debug(f"Loading model from local path: {self.model_path}")
                 if is_lora_adapter:
-                    logger.info("✓ Detected LoRA adapter model")
+                    logger.debug("Detected LoRA adapter model")
             else:
-                logger.info(f"Loading model from HuggingFace Hub: {self.model_path} (this may take a moment on first download)")
+                logger.debug(f"Loading model from HuggingFace Hub: {self.model_path}")
             
             # Load tokenizer (always from the adapter path or model path)
-            logger.info("Loading tokenizer...")
+            logger.debug("Loading tokenizer...")
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_path)
             
             # Add padding token if it doesn't exist
             if self.tokenizer.pad_token is None:
                 self.tokenizer.pad_token = self.tokenizer.eos_token
             
-            logger.info(f"Loading model (device: {self.device})...")
+            logger.debug(f"Loading model (device: {self.device})...")
             
             # Configure 4-bit quantization for CUDA
             quantization_config = None
             if self.device == "cuda":
-                logger.info("Configuring 4-bit quantization for efficient inference...")
+                logger.debug("Configuring 4-bit quantization for efficient inference...")
                 quantization_config = BitsAndBytesConfig(
                     load_in_4bit=True,
                     bnb_4bit_compute_dtype=torch.float16,
@@ -110,7 +110,7 @@ class HuggingFaceClient(BaseLLMClient):
                     adapter_config = json.load(f)
                 base_model_name = adapter_config.get("base_model_name_or_path")
                 
-                logger.info(f"Loading base model: {base_model_name}")
+                logger.debug(f"Loading base model: {base_model_name}")
                 
                 # 2. Load base model (with quantization if CUDA)
                 base_model = AutoModelForCausalLM.from_pretrained(
@@ -122,18 +122,17 @@ class HuggingFaceClient(BaseLLMClient):
                 )
                 
                 # 3. Load LoRA adapters
-                logger.info(f"Loading LoRA adapters from {self.model_path}...")
+                logger.debug(f"Loading LoRA adapters from {self.model_path}...")
                 self.model = PeftModel.from_pretrained(base_model, self.model_path)
                 
                 # Move to device if not CUDA (CUDA uses device_map="auto")
                 if self.device == "mps":
-                    logger.info(f"Moving model to {self.device}...")
+                    logger.debug(f"Moving model to {self.device}...")
                     self.model = self.model.to(self.device)
-                    logger.info("Model moved to device")
                 elif self.device == "cpu" and quantization_config is None:
                     self.model = self.model.to(self.device)
                 
-                logger.info(f"✓ LoRA adapter model loaded on {self.device}")
+                logger.debug(f"LoRA adapter model loaded on {self.device}")
                 
             else:
                 # Load full model (base or fully fine-tuned)
@@ -147,22 +146,17 @@ class HuggingFaceClient(BaseLLMClient):
                 
                 # Move to device explicitly ONLY if NOT using quantization (quantization handles this)
                 if self.device == "cuda" and quantization_config is None:
-                    logger.info(f"Moving model to {self.device}...")
+                    logger.debug(f"Moving model to {self.device}...")
                     self.model = self.model.to(self.device)
-                    logger.info("Model moved to device")
                 elif self.device == "mps":
-                    logger.info(f"Moving model to {self.device}...")
+                    logger.debug(f"Moving model to {self.device}...")
                     self.model = self.model.to(self.device)
-                    logger.info("Model moved to device")
-                elif self.device != "cuda" and self.device != "mps": 
-                    # Only log if not cuda/mps (cuda handled by auto/quantization)
-                    logger.info(f"Model on {self.device} (default)")
             
             if quantization_config:
-                 logger.info("✓ 4-bit quantization enabled: Model loaded efficiently")
+                 logger.debug("4-bit quantization enabled: Model loaded efficiently")
             
             source = "local LoRA adapter" if is_lora_adapter else ("local path" if is_local else "HuggingFace Hub")
-            logger.info(f"✓ Model loaded from {source}")
+            logger.debug(f"Model loaded from {source}")
             
         except Exception as e:
             logger.error(f"Failed to load model from {self.model_path}: {e}")
@@ -251,7 +245,7 @@ class HuggingFaceClient(BaseLLMClient):
                 torch.cuda.synchronize()  # Wait for all operations to complete
                 torch.cuda.empty_cache()  # Clear unused cache
             
-            logger.info(f"Generated {len(generated_tokens)} tokens")
+            logger.debug(f"Generated {len(generated_tokens)} tokens")
             return generated_text.strip()
         except Exception as e:
             logger.error(f"Error during generation: {e}")
