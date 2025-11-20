@@ -20,7 +20,7 @@ logger = get_logger(__name__)
 class SimRAGBase:
     """Base class for all SimRAG stages with common functionality"""
     
-    def __init__(self, model_name: str = "llama3.2:1b", config: Optional[Any] = None):
+    def __init__(self, model_name: str = "Qwen/Qwen2.5-1.5B-Instruct", config: Optional[Any] = None):
         """
         Initialize SimRAG base functionality
         

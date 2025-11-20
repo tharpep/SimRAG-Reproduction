@@ -12,9 +12,12 @@ from .purdue_api import PurdueGenAI
 from .local import OllamaClient, OllamaConfig
 from .huggingface_client import HuggingFaceClient
 from ..config import get_rag_config
+import logging
 
 # Load environment variables from .env file
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 
 class AIGateway:
@@ -34,31 +37,44 @@ class AIGateway:
     
     def _setup_providers(self, config: Dict[str, Any]):
         """Setup available AI providers"""
-        # Setup Purdue provider
+        # Setup Purdue provider (for QA generation)
         if "purdue" in config:
             api_key = config["purdue"].get("api_key")
             self.providers["purdue"] = PurdueGenAI(api_key)
         elif os.getenv('PURDUE_API_KEY'):
             self.providers["purdue"] = PurdueGenAI()
         
-        # Setup HuggingFace provider if model path is provided
+        # Setup HuggingFace provider (default for baseline and inference)
         if "huggingface" in config:
             model_path = config["huggingface"].get("model_path")
             if model_path:
                 self.providers["huggingface"] = HuggingFaceClient(model_path)
+        else:
+            # Default: Set up HuggingFace with base model from config (already a HuggingFace Hub ID)
+            try:
+                self.providers["huggingface"] = HuggingFaceClient(self.rag_config.model_name)
+            except Exception as e:
+                logger.warning(f"Failed to load HuggingFace model {self.rag_config.model_name}: {e}")
         
-        # Setup Local Ollama provider
+        # Setup Local Ollama provider (optional, only if explicitly requested)
+        # Note: Ollama uses its own model names (e.g., "qwen2.5:1.5b"), not HuggingFace Hub IDs
+        # If using Ollama, explicitly set the model name in config or use OLLAMA_MODEL env var
         if "ollama" in config:
             ollama_config = OllamaConfig(
                 base_url=config["ollama"].get("base_url", "http://localhost:11434"),
-                default_model=config["ollama"].get("default_model", self.rag_config.model_name)
+                default_model=config["ollama"].get("default_model", os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b"))
             )
             self.providers["ollama"] = OllamaClient(ollama_config)
         elif self.rag_config.use_ollama or os.getenv('USE_OLLAMA', 'false').lower() == 'true':
+            # Use OLLAMA_MODEL env var or fallback to default Ollama model name
+            ollama_model = os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b")
             ollama_config = OllamaConfig(
-                default_model=self.rag_config.model_name
+                default_model=ollama_model
             )
-            self.providers["ollama"] = OllamaClient(ollama_config)
+            try:
+                self.providers["ollama"] = OllamaClient(ollama_config)
+            except Exception as e:
+                logger.warning(f"Failed to setup Ollama: {e}. Continuing without Ollama.")
     
     def chat(self, message: str, provider: Optional[str] = None, model: Optional[str] = None, force_provider: bool = False) -> str:
         """
@@ -76,16 +92,15 @@ class AIGateway:
         """
         # Auto-select provider based on config if not specified
         if provider is None:
-            if self.rag_config.use_ollama and "ollama" in self.providers:
-                provider = "ollama"
-            elif not self.rag_config.use_ollama and "purdue" in self.providers:
+            # Priority: huggingface (default) > purdue > ollama
+            if "huggingface" in self.providers:
+                provider = "huggingface"
+            elif "purdue" in self.providers:
                 provider = "purdue"
             elif "ollama" in self.providers:
                 provider = "ollama"
-            elif "purdue" in self.providers:
-                provider = "purdue"
             else:
-                raise Exception("No providers available. Set PURDUE_API_KEY or USE_OLLAMA=true")
+                raise Exception("No providers available. HuggingFace should be available by default.")
         
         # Check if provider is available
         if provider not in self.providers:
@@ -93,8 +108,10 @@ class AIGateway:
             if force_provider:
                 raise Exception(f"Provider '{provider}' not available. Available: {available}")
             else:
-                # Fallback to available provider
-                if "purdue" in self.providers:
+                # Fallback to available provider (priority: huggingface > purdue > ollama)
+                if "huggingface" in self.providers:
+                    provider = "huggingface"
+                elif "purdue" in self.providers:
                     provider = "purdue"
                 elif "ollama" in self.providers:
                     provider = "ollama"

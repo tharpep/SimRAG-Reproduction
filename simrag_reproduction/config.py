@@ -12,10 +12,10 @@ class RAGConfig:
     """Simple configuration for RAG system"""
     
     # Model size settings
-    model_size: str = "small"  # "small" for qwen2.5:1.5b (non-gated, non-thinking), "medium" for qwen2.5:7b (non-gated, non-thinking)
+    model_size: str = "small"  # "small" for Qwen/Qwen2.5-1.5B-Instruct, "medium" for Qwen/Qwen2.5-7B-Instruct (both non-gated)
     
     # AI Provider settings
-    use_ollama: bool = True  # True for Ollama (local), False for Purdue API
+    use_ollama: bool = False  # True for Ollama (optional, requires Ollama installed), False for HuggingFace (default)
     
     # Vector store settings
     use_persistent: bool = True  # True for persistent storage, False for in-memory only
@@ -32,9 +32,9 @@ class RAGConfig:
     
     @property
     def model_name(self) -> str:
-        """Get model name based on model size configuration"""
+        """Get HuggingFace model ID based on model size configuration"""
         # Default to Qwen 2.5 Instruct (non-gated, non-thinking) - no HuggingFace authentication required
-        return "qwen2.5:1.5b" if self.model_size == "small" else "qwen2.5:7b"
+        return "Qwen/Qwen2.5-1.5B-Instruct" if self.model_size == "small" else "Qwen/Qwen2.5-7B-Instruct"
 
 
 @dataclass
@@ -42,7 +42,7 @@ class TuningConfig:
     """Simple configuration for model fine-tuning"""
     
     # Model size settings
-    model_size: str = "small"  # "small" for qwen2.5:1.5b (non-gated, non-thinking), "medium" for qwen2.5:7b (non-gated, non-thinking)
+    model_size: str = "small"  # "small" for Qwen/Qwen2.5-1.5B-Instruct, "medium" for Qwen/Qwen2.5-7B-Instruct (both non-gated)
     
     # Model settings
     device: str = "auto"  # Options: "auto", "cpu", "cuda", "mps" (for Apple Silicon)
@@ -76,9 +76,9 @@ class TuningConfig:
     
     @property
     def model_name(self) -> str:
-        """Get model name based on model size configuration"""
+        """Get HuggingFace model ID based on model size configuration"""
         # Default to Qwen 2.5 Instruct (non-gated, non-thinking) - no HuggingFace authentication required
-        return "qwen2.5:1.5b" if self.model_size == "small" else "qwen2.5:7b"
+        return "Qwen/Qwen2.5-1.5B-Instruct" if self.model_size == "small" else "Qwen/Qwen2.5-7B-Instruct"
     
     @property
     def output_dir(self) -> str:
@@ -121,7 +121,7 @@ def get_rag_config() -> RAGConfig:
     """Get RAG configuration with environment variable overrides
     
     Environment variables that can be set:
-        - MODEL_SIZE: "small" or "medium" (small=llama3.2:1b, medium=llama3:8b)
+        - MODEL_SIZE: "small" or "medium" (small=Qwen/Qwen2.5-1.5B-Instruct, medium=Qwen/Qwen2.5-7B-Instruct)
     - USE_OLLAMA: "true" or "false" (use Ollama vs Purdue API)
     - USE_PERSISTENT: "true" or "false" (persistent vs in-memory storage)
     - COLLECTION_NAME: name for Qdrant collection
@@ -156,7 +156,7 @@ def get_tuning_config() -> TuningConfig:
     """Get tuning configuration with environment variable overrides
     
     Environment variables that can be set:
-        - MODEL_SIZE: "small" or "medium" (small=qwen2.5:1.5b, medium=qwen2.5:7b - both non-gated, non-thinking)
+        - MODEL_SIZE: "small" or "medium" (small=Qwen/Qwen2.5-1.5B-Instruct, medium=Qwen/Qwen2.5-7B-Instruct - both non-gated)
     - TUNING_BATCH_SIZE: batch size as integer (1-16)
     - TUNING_EPOCHS: number of epochs as integer (1-10)
     - TUNING_DEVICE: device like "auto", "cpu", "cuda", "mps"

@@ -30,10 +30,10 @@ SimRAG introduces a self-improving framework that fine-tunes RAG systems through
 
 - Python 3.12 (required for PyTorch CUDA support)
 - [Poetry](https://python-poetry.org/docs/#installation) (recommended) or pip
-- [Ollama](https://ollama.ai/) (optional, for local inference):
+- [Ollama](https://ollama.ai/) (optional, only if you want to use Ollama instead of HuggingFace):
   ```bash
-  ollama pull qwen2.5:1.5b  # Small model (non-thinking, standard generation)
-  ollama pull qwen2.5:7b    # Medium model (non-thinking, standard generation)
+  ollama pull qwen2.5:1.5b  # Only needed if USE_OLLAMA=true
+  ollama pull qwen2.5:7b    # Only needed if USE_OLLAMA=true
   ```
 
 ### Setup
@@ -62,7 +62,7 @@ Create a `.env` file in the project root:
 
 ```bash
 # Model size configuration
-MODEL_SIZE=small  # "small" for qwen2.5:1.5b (non-gated, non-thinking), "medium" for qwen2.5:7b (non-gated, non-thinking)
+MODEL_SIZE=small  # "small" for Qwen/Qwen2.5-1.5B-Instruct, "medium" for Qwen/Qwen2.5-7B-Instruct (both non-gated)
 
 # AI Provider
 USE_OLLAMA=true  # true for Ollama (local), false for Purdue API
@@ -157,9 +157,9 @@ mypy simrag_reproduction/
 
 ## Troubleshooting
 
-**No providers available**: Set `USE_OLLAMA=true` in `.env` or provide `PURDUE_API_KEY`
+**No providers available**: HuggingFace should be available by default. If needed, set `USE_OLLAMA=true` in `.env` or provide `PURDUE_API_KEY`
 
-**Model not found (Ollama)**: Run `ollama pull qwen2.5:1.5b` (small) or `ollama pull qwen2.5:7b` (medium)
+**Model not found (Ollama)**: Only if using Ollama - Run `ollama pull qwen2.5:1.5b` (small) or `ollama pull qwen2.5:7b` (medium)
 
 **Out of memory**: Reduce `TUNING_BATCH_SIZE=1` or set `TUNING_DEVICE=cpu` in `.env`
 

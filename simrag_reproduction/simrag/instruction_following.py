@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 class InstructionFollowing(SimRAGBase):
     """SimRAG Stage 1: Instruction-following fine-tuning"""
     
-    def __init__(self, model_name: str = "llama3.2:1b", config: Optional[Any] = None):
+    def __init__(self, model_name: str = "Qwen/Qwen2.5-1.5B-Instruct", config: Optional[Any] = None):
         """
         Initialize instruction following trainer
         

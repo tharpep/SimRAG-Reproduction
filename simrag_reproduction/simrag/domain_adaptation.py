@@ -18,7 +18,7 @@ logger = get_logger(__name__)
 class DomainAdaptation(SimRAGBase):
     """SimRAG Stage 2: Domain adaptation with self-improvement loop"""
     
-    def __init__(self, model_name: str = "llama3.2:1b", config: Optional[Any] = None, stage_1_model_path: Optional[str] = None):
+    def __init__(self, model_name: str = "Qwen/Qwen2.5-1.5B-Instruct", config: Optional[Any] = None, stage_1_model_path: Optional[str] = None):
         """
         Initialize domain adaptation trainer
         

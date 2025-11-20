@@ -67,7 +67,7 @@ def run_stage1_training(
                 "version": version.version,
                 "training_time_seconds": version.training_time_seconds,
                 "final_loss": version.final_loss,
-                "model_path": stage1.get_model_from_registry(version.version)
+                "model_path": stage1.get_model_from_registry(version.version, stage="stage_1")
             }
         }
         

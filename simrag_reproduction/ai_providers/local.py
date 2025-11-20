@@ -1,7 +1,7 @@
 """Minimal Ollama client wrapper for local development.
 
 This file provides both synchronous and asynchronous methods for Ollama.
-It focuses on a single default model (llama3.2:1b) with clear methods:
+It focuses on a single default model (qwen2.5:1.5b) with clear methods:
 
 Synchronous (for current usage):
 - chat(model, messages, **kwargs)
@@ -29,7 +29,7 @@ import httpx
 from .base_client import BaseLLMClient
 
 
-DEFAULT_MODEL = "llama3.2:1b"
+DEFAULT_MODEL = "qwen2.5:1.5b"  # Ollama model name (not HuggingFace Hub ID)
 
 
 @dataclass

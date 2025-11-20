@@ -18,7 +18,7 @@ logger = get_logger(__name__)
 class SyntheticQAGeneration(SimRAGBase):
     """SimRAG Stage 2: Synthetic QA generation from domain documents"""
     
-    def __init__(self, model_name: str = "llama3.2:1b", config: Optional[Any] = None, stage_1_model_path: Optional[str] = None):
+    def __init__(self, model_name: str = "Qwen/Qwen2.5-1.5B-Instruct", config: Optional[Any] = None, stage_1_model_path: Optional[str] = None):
         """
         Initialize synthetic QA generator
         
