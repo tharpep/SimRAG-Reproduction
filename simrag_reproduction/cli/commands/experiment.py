@@ -49,7 +49,16 @@ def _run_full_experiment(
 
         setup_logging()
 
-        documents_folder = documents or "../../data/documents"
+        # Resolve path relative to project root when running via CLI
+        if documents:
+            documents_folder = documents
+        else:
+            # Default: data/documents relative to project root
+            # CLI file is at: simrag_reproduction/cli/commands/experiment.py
+            # Project root is 4 levels up: commands -> cli -> simrag_reproduction -> project_root
+            cli_file = Path(__file__)
+            project_root = cli_file.parent.parent.parent.parent
+            documents_folder = str(project_root / "data" / "documents")
         run_complete_experiment(
             documents_folder=documents_folder,
             use_real_datasets=not test_data,
@@ -74,7 +83,16 @@ def _run_baseline(documents: Optional[str]) -> None:
 
         setup_logging()
 
-        documents_folder = documents or "../../data/documents"
+        # Resolve path relative to project root when running via CLI
+        if documents:
+            documents_folder = documents
+        else:
+            # Default: data/documents relative to project root
+            # CLI file is at: simrag_reproduction/cli/commands/experiment.py
+            # Project root is 4 levels up: commands -> cli -> simrag_reproduction -> project_root
+            cli_file = Path(__file__)
+            project_root = cli_file.parent.parent.parent.parent
+            documents_folder = str(project_root / "data" / "documents")
         run_baseline_test(
             documents_folder=documents_folder,
             output_file="baseline_results.json",
@@ -96,7 +114,16 @@ def _run_simrag(documents: Optional[str], test_data: bool) -> None:
 
         setup_logging()
 
-        documents_folder = documents or "../../data/documents"
+        # Resolve path relative to project root when running via CLI
+        if documents:
+            documents_folder = documents
+        else:
+            # Default: data/documents relative to project root
+            # CLI file is at: simrag_reproduction/cli/commands/experiment.py
+            # Project root is 4 levels up: commands -> cli -> simrag_reproduction -> project_root
+            cli_file = Path(__file__)
+            project_root = cli_file.parent.parent.parent.parent
+            documents_folder = str(project_root / "data" / "documents")
         run_full_pipeline(
             documents_folder=documents_folder,
             use_real_datasets=not test_data,
