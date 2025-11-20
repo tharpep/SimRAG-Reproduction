@@ -28,41 +28,105 @@ SimRAG introduces a self-improving framework that fine-tunes RAG systems through
 
 ## Installation
 
-### Prerequisites
+### Step 1: Install Prerequisites
 
-- Python 3.12 (required for PyTorch CUDA support)
-- [Poetry](https://python-poetry.org/docs/#installation) (recommended) or pip
-- [Ollama](https://ollama.ai/) (optional, for 10x faster baseline testing):
+**Python 3.12** (required for PyTorch CUDA support):
+- Download from [python.org](https://www.python.org/downloads/)
+- Ensure Python 3.12 is in your PATH
+
+**Poetry** (dependency management):
+```bash
+# Install Poetry using pip
+pip install poetry
+
+# Verify Poetry is installed
+poetry --version
+
+# Note: If 'poetry shell' doesn't work, install the shell plugin:
+# poetry self add poetry-plugin-shell
+# (Most modern Poetry versions include shell support by default)
+```
+
+**Ollama** (recommended for 10x faster baseline testing):
+- Download from [ollama.ai](https://ollama.ai/)
+- Install and start Ollama service
+- Pull required models:
   ```bash
-  # Optional: Install Ollama for faster baseline testing (~20s vs ~3min)
   ollama pull qwen2.5:1.5b  # For small model (1.5B)
-  ollama pull qwen2.5:7b    # For large model (7B)
+  ollama pull qwen2.5:7b    # For large model (7B) - optional
   ```
-  **Note**: Ollama is NOT required. The baseline will automatically fall back to HuggingFace if Ollama is unavailable.
+  **Note**: Ollama is recommended but not required. The baseline will fall back to HuggingFace if Ollama is unavailable (slower).
 
-### Setup
+### Step 2: Clone Repository
 
 ```bash
-# Clone repository
 git clone <repository-url>
 cd SimRAG-Reproduction
+```
 
-# Install with Poetry (uses Python 3.12 automatically)
-poetry env use python3.12  # Ensure using Python 3.12
-poetry install  # Installs PyTorch with CUDA support automatically
+### Step 3: Setup Python Environment
+
+```bash
+# Ensure Poetry uses Python 3.12
+poetry env use python3.12
+
+# Install all dependencies (includes PyTorch with CUDA support)
+poetry install
+
+# Activate the Poetry virtual environment
 poetry shell
+```
 
-# Or with pip
+**Important**: 
+- After running `poetry shell`, you should see your prompt change to indicate you're in the virtual environment (e.g., `(simrag-py3.12)`).
+- You **must** run `poetry shell` before using any `simrag` commands.
+- If you open a new terminal, run `poetry shell` again to reactivate the environment.
+- The `poetry install` step may take 5-10 minutes on first run (downloads PyTorch and dependencies).
+
+### Step 4: Verify Installation
+
+```bash
+# Check that simrag command is available
+simrag --help
+
+# View current configuration
+simrag config
+
+# (Optional) Run tests to verify everything works
+simrag test --all
+```
+
+If `simrag --help` works, you're ready to run experiments!
+
+### Alternative: pip Installation (Not Recommended)
+
+If you prefer pip over Poetry:
+
+```bash
+# Create virtual environment
 python3.12 -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# Activate virtual environment
+# Windows:
+venv\Scripts\activate
+# Linux/Mac:
+source venv/bin/activate
+
+# Install dependencies
 pip install -r requirements.txt
 pip install -e .
-# For GPU support: pip install torch --index-url https://download.pytorch.org/whl/cu121
+
+# For GPU support (if not using Poetry):
+pip install torch --index-url https://download.pytorch.org/whl/cu121
 ```
+
+**Note**: Poetry is recommended as it handles PyTorch CUDA installation automatically and ensures consistent environments.
 
 ## Configuration
 
-Create a `.env` file in the project root:
+**Note**: A `.env` file is **optional** for basic usage. The project works with sensible defaults. Create a `.env` file only if you need to customize settings.
+
+Create a `.env` file in the project root (optional):
 
 ```bash
 # Model size configuration
@@ -80,7 +144,7 @@ USE_PERSISTENT=true
 COLLECTION_NAME=simrag_docs
 
 # Baseline provider (optional)
-BASELINE_PROVIDER=huggingface  # "huggingface" (default, works everywhere) or "ollama" (10x faster if installed)
+BASELINE_PROVIDER=ollama  # "ollama" (default, 10x faster) or "huggingface" (fallback)
 
 # Fine-tuning (optional)
 TUNING_BATCH_SIZE=4
@@ -101,21 +165,31 @@ LORA_ALPHA=32  # LoRA scaling (typically 2x lora_r)
 
 ## Quick Start
 
-```bash
-# Run tests
-simrag test --all
+After completing installation (Steps 1-4 above), you're ready to use SimRAG:
 
-# View configuration
-simrag config
+```bash
+# IMPORTANT: Make sure you're in the Poetry shell
+# If your prompt doesn't show (simrag-py3.12), run:
+poetry shell
+
+# Verify installation
+simrag config  # View current configuration
+
+# (Optional) Run tests to verify everything works
+simrag test --all
 
 # Run full experiment pipeline
 simrag experiment run
 
 # Or run stages individually
-simrag experiment baseline     # Baseline RAG only
-simrag experiment simrag       # SimRAG pipeline only
+simrag experiment baseline     # Baseline RAG only (~2-3 minutes)
+simrag experiment simrag       # SimRAG pipeline only (~6-8 hours for 1.5B)
 simrag experiment compare      # Compare results
 ```
+
+**First Run Notes**: 
+- The first time you run experiments, models will be downloaded from HuggingFace Hub (this may take a few minutes).
+- If you see "command not found: simrag", make sure you've run `poetry shell`.
 
 ## Usage
 
@@ -152,8 +226,31 @@ simrag_reproduction/
 ├── simrag/           # SimRAG pipeline (Stage 1 & 2 fine-tuning)
 ├── tuning/            # Model fine-tuning utilities
 ├── experiments/       # Experiment orchestration
+│   ├── baseline/     # Baseline RAG experiments
+│   ├── simrag/       # SimRAG training experiments
+│   └── comparison/   # Result comparison utilities
 └── cli/               # Command-line interface
 ```
+
+## Experiments
+
+Run the complete SimRAG pipeline: baseline testing, Stage 1 & 2 training, and performance comparison.
+
+**Full Pipeline** (recommended):
+```bash
+simrag experiment run
+```
+
+This runs: baseline test (~2-3 min) → Stage 1 training (~3-4 hrs) → Stage 2 training (~3-4 hrs) → testing → comparison.
+
+**Individual Commands**:
+```bash
+simrag experiment baseline     # Baseline only
+simrag experiment simrag       # SimRAG pipeline only  
+simrag experiment compare      # Compare existing results
+```
+
+**Results**: Saved as timestamped JSON files in `experiments/*/results/` with metrics, Q&A pairs, and model info.
 
 ## Development
 
@@ -190,7 +287,34 @@ mypy simrag_reproduction/
 
 ## Troubleshooting
 
-**No providers available**: HuggingFace should be available by default. If needed, set `USE_OLLAMA=true` in `.env` or provide `PURDUE_API_KEY`
+### Setup Issues
+
+**"command not found: simrag"**:
+- Make sure you've run `poetry shell` to activate the virtual environment
+- Verify installation: `poetry install` should complete without errors
+- Check Poetry environment: `poetry env info`
+
+**"poetry shell" doesn't work**:
+- Install Poetry shell plugin: `poetry self add poetry-plugin-shell`
+- Or use `poetry run simrag` instead of `simrag` (no shell needed)
+
+**"poetry env use python3.12" fails**:
+- Ensure Python 3.12 is installed: `python3.12 --version`
+- On Windows, try: `poetry env use C:\Python312\python.exe` (adjust path)
+- Verify Python is in PATH: `where python3.12` (Windows) or `which python3.12` (Linux/Mac)
+
+**Poetry installation issues**:
+- Try: `pip install --upgrade poetry`
+- Or use official installer: `curl -sSL https://install.python-poetry.org | python3 -`
+
+**Ollama not found**:
+- Install from [ollama.ai](https://ollama.ai/)
+- Verify it's running: `ollama list` (should show available models)
+- On Windows, ensure Ollama service is running
+
+### Runtime Issues
+
+**No providers available**: Ollama is the default provider. Ensure Ollama is installed and running, or set `BASELINE_PROVIDER=huggingface` in `.env` as fallback
 
 **Model not found (Ollama)**: Only if using Ollama - Run `ollama pull qwen2.5:1.5b` (small) or `ollama pull qwen2.5:7b` (medium)
 
@@ -205,6 +329,18 @@ mypy simrag_reproduction/
 **Qdrant errors**: Delete `data/qdrant_db/` or set `USE_PERSISTENT=false`
 
 **First-time setup**: The vector database (`data/qdrant_db/`) is auto-generated from `data/documents/` on first run.
+
+## Model Management
+
+Trained models are stored in `tuned_models/` as LoRA adapters (~100MB for 1.5B, ~400MB for 7B):
+- `model_1b/` and `model_8b/` contain `stage_1/` and `stage_2/` subdirectories
+- Each version (v1.0, v1.1, etc.) contains adapter files and metadata
+- `model_registry.json` tracks all versions, training parameters, and metrics
+- Models are automatically registered with Ollama after training for fast inference
+
+## Logging
+
+Logs are automatically created in `logs/rag/` and `logs/tuning/` during experiments. They include query details, training metrics, and performance data. Logs rotate at 1MB (keeps 3 backups) and are git-ignored.
 
 ## Citation
 
