@@ -16,17 +16,34 @@ venv.bak/
 *.gguf
 finetuned_model/
 my_finetuned_model/
-# Exclude actual model files but keep registry/metadata
-tuned_models/*/v*/pytorch_model.bin
-tuned_models/*/v*/config.json
-tuned_models/*/v*/tokenizer.json
-tuned_models/*/v*/tokenizer_config.json
-tuned_models/*/v*/special_tokens_map.json
-tuned_models/*/v*/tokenizer_config.json
-tuned_models/*/v*/training_args.bin
-tuned_models/*/v*/trainer_state.json
-tuned_models/*/v*/rng_state.pth
 .cache/
+
+# QLoRA adapter files (keep adapter_config.json for metadata, but ignore weights)
+tuned_models/**/adapter_model.safetensors
+tuned_models/**/adapter_model.bin
+
+# Training checkpoints (ignore checkpoint directories, keep final models)
+tuned_models/**/checkpoint-*/
+tuned_models/**/checkpoint-*/*
+
+# Training state files (optimizer, scheduler, etc.)
+tuned_models/**/optimizer.pt
+tuned_models/**/scheduler.pt
+tuned_models/**/scaler.pt
+tuned_models/**/rng_state.pth
+tuned_models/**/training_args.bin
+tuned_models/**/trainer_state.json
+
+# Model weights (keep configs and tokenizers for reproducibility)
+tuned_models/**/pytorch_model.bin
+tuned_models/**/model.safetensors
+
+# Keep these for reproducibility (DO NOT ignore):
+# - adapter_config.json (LoRA config)
+# - tokenizer files (tokenizer.json, tokenizer_config.json, vocab.json, merges.txt)
+# - model_registry.json (version tracking)
+# - README.md files
+# - model_info.json files
 # Python cache
 __pycache__/
 *.py[cod]
@@ -36,6 +53,10 @@ __pycache__/
 results/
 checkpoints/
 wandb/
+
+# Experiment results (timestamped JSON files)
+simrag_reproduction/experiments/**/results/*.json
+simrag_reproduction/experiments/**/results/*.jsonl
 
 # Data files
 *.jsonl
@@ -101,10 +122,10 @@ typecheck/
 *.log
 *.tmp
 *.temp
-logs/*.log
-logs/*/rag_results.log*
-logs/*/tuning_results.log*
+logs/
 temp/
+# Keep logs/README.md if it exists for documentation
+!logs/README.md
 
 # Environment and secrets
 .env.local
@@ -149,3 +170,7 @@ service_account.json
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Old/deprecated model directories (if any exist)
+tuned_models/llama_*/
+tuned_models/llama_*/*/
