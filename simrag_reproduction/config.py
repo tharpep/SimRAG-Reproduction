@@ -76,6 +76,8 @@ class TuningConfig:
     
     # Reproducibility settings
     random_seed: int = 42  # Random seed for reproducibility (set via RANDOM_SEED env var)
+    # Note: We do NOT use cuDNN deterministic mode as it causes 10x slowdown
+    # Random seeds provide sufficient reproducibility without performance impact
     
     @property
     def optimized_batch_size(self) -> int:

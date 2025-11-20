@@ -36,6 +36,9 @@ class SimRAGBase:
             self.config = config or get_tuning_config()
             self.tuner = BasicTuner(model_name, device=self.config.device, config=self.config)
             self.registry = get_model_registry(self.config)
+            # Preload model in __init__ for better performance (warm up GPU, avoid lazy loading during training)
+            logger.info(f"Preloading model for faster training...")
+            self.tuner.load_model()
             logger.info(f"SimRAG base initialized with model: {model_name}")
         except Exception as e:
             logger.error(f"Failed to initialize SimRAG base: {e}")
@@ -47,11 +50,17 @@ class SimRAGBase:
         Args:
             model_path: Optional path to fine-tuned model to load from.
                        If None, loads from base model (HuggingFace).
+                       If model already loaded and model_path is None, skips reload.
         
         Raises:
             Exception: If model loading fails
         """
         try:
+            # Skip reload if model already loaded and no specific path provided
+            if model_path is None and self.tuner.model is not None:
+                logger.info("Model already loaded, skipping reload")
+                return
+            
             if model_path:
                 logger.info(f"Loading fine-tuned model from: {model_path}")
             else:

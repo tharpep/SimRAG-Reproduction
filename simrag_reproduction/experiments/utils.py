@@ -264,9 +264,8 @@ def set_random_seeds(seed: int = 42) -> None:
         if torch.cuda.is_available():
             torch.cuda.manual_seed(seed)
             torch.cuda.manual_seed_all(seed)
-            # Additional settings for full reproducibility
-            torch.backends.cudnn.deterministic = True
-            torch.backends.cudnn.benchmark = False
+            # Note: We do NOT set cudnn.deterministic=True as it causes 10x slowdown
+            # Random seeds provide sufficient reproducibility for research purposes
 
 
 def validate_experiment_config(

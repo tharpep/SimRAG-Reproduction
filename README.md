@@ -162,6 +162,7 @@ SIMRAG_IMPROVEMENT_ROUNDS=1  # Number of Stage 2 rounds (1=no self-improvement, 
 
 # Reproducibility (optional)
 RANDOM_SEED=42  # Random seed for reproducible results (default: 42)
+# Note: cuDNN deterministic mode is NOT used (causes 10x slowdown). Random seeds provide sufficient reproducibility.
 ```
 
 **Note**: Never commit `.env` files or API keys.

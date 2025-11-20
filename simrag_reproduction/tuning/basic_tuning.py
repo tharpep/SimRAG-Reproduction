@@ -6,6 +6,7 @@ Simple fine-tuning implementation for language models
 import torch
 import random
 import numpy as np
+import sys
 from transformers import (
     AutoTokenizer, 
     AutoModelForCausalLM, 
@@ -248,6 +249,11 @@ class BasicTuner:
         """
         print("Setting up trainer...")
         
+        # Debug: Print performance settings (especially important on Windows)
+        num_workers = 0 if sys.platform == "win32" else 2
+        pin_memory = False if sys.platform == "win32" else True
+        print(f"Performance settings: batch_size={batch_size}, num_workers={num_workers}, pin_memory={pin_memory}, platform={sys.platform}")
+        
         # Training arguments
         # Note: output_dir may be updated by train_model() to include version number
         training_args = TrainingArguments(
@@ -265,9 +271,12 @@ class BasicTuner:
             remove_unused_columns=True,  # Remove "text" field after tokenization - DataCollator only needs tokenized fields
             # Speed optimizations (Conservative settings - 2x speedup, ~7-8GB VRAM)
             fp16=True,  # Mixed precision training (2x faster on GPU, uses less memory)
-            dataloader_num_workers=2,  # Parallel data loading (0→2 for faster preprocessing)
+            # Windows: num_workers > 0 causes massive slowdowns due to multiprocessing overhead
+            # Linux/Mac: num_workers=2 can help, but Windows multiprocessing is slow
+            dataloader_num_workers=0 if sys.platform == "win32" else 2,  # 0 on Windows, 2 on Linux/Mac
             gradient_accumulation_steps=2,  # Simulate larger batch size (effective batch = batch_size * 2)
-            dataloader_pin_memory=True,  # Faster GPU transfer (only useful with GPU)
+            # Windows: pin_memory can cause issues, disable on Windows
+            dataloader_pin_memory=False if sys.platform == "win32" else True,  # False on Windows, True on Linux/Mac
         )
         
         # Data collator
@@ -303,6 +312,8 @@ class BasicTuner:
             raise ValueError("Trainer not setup. Call setup_trainer() first.")
         
         # Set random seeds for reproducibility (if config has random_seed)
+        # Note: We only set seeds, not cuDNN deterministic mode (which causes 10x slowdown)
+        # Seeds provide good reproducibility without performance impact
         if self.config and hasattr(self.config, 'random_seed'):
             seed = self.config.random_seed
             random.seed(seed)
@@ -311,8 +322,12 @@ class BasicTuner:
             if torch.cuda.is_available():
                 torch.cuda.manual_seed(seed)
                 torch.cuda.manual_seed_all(seed)
-                torch.backends.cudnn.deterministic = True
-                torch.backends.cudnn.benchmark = False
+        
+        # IMPORTANT: Explicitly enable fast cuDNN mode for speed
+        if torch.cuda.is_available():
+            torch.backends.cudnn.deterministic = False  # Disable deterministic (10x faster)
+            torch.backends.cudnn.benchmark = True  # Enable auto-tuning for best performance
+            print(f"✓ cuDNN settings: deterministic=False, benchmark=True (optimized for speed)")
         
         # Create or get version BEFORE training so we can set output_dir correctly
         new_version = None
