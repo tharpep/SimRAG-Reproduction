@@ -71,25 +71,31 @@ class HuggingFaceClient(BaseLLMClient):
             if is_local:
                 logger.info(f"Loading model from local path: {self.model_path}")
             else:
-                logger.info(f"Loading model from HuggingFace Hub: {self.model_path}")
+                logger.info(f"Loading model from HuggingFace Hub: {self.model_path} (this may take a moment on first download)")
             
+            logger.info("Loading tokenizer...")
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_path)
             
             # Add padding token if it doesn't exist
             if self.tokenizer.pad_token is None:
                 self.tokenizer.pad_token = self.tokenizer.eos_token
             
+            logger.info(f"Loading model (device: {self.device})...")
             # Load model - use float16 for inference (faster, less memory)
             # For training, model should be loaded in float32 (handled separately)
+            # Note: This may take several minutes on first download
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_path,
                 torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
-                device_map=self.device if self.device == "cuda" else None
+                device_map=self.device if self.device == "cuda" else None,
+                low_cpu_mem_usage=True  # More efficient memory usage
             )
             
             # Move to device if not using device_map
             if self.device != "cuda" and self.device != "mps":
+                logger.info(f"Moving model to {self.device}...")
                 self.model = self.model.to(self.device)
+                logger.info("Model moved to device")
             
             source = "local path" if is_local else "HuggingFace Hub"
             logger.info(f"Model loaded from {source} on {self.device}")
@@ -136,23 +142,32 @@ class HuggingFaceClient(BaseLLMClient):
         temperature = kwargs.get("temperature", 0.7)
         do_sample = temperature > 0
         
+        logger.info(f"Generating response (max_tokens={max_new_tokens}, device={self.device})...")
+        
         # Generate
-        with torch.no_grad():
-            outputs = self.model.generate(
-                **inputs,
-                max_new_tokens=max_new_tokens,
-                temperature=temperature,
-                do_sample=do_sample,
-                pad_token_id=self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
-                eos_token_id=self.tokenizer.eos_token_id,
-            )
-        
-        # Decode output (skip input tokens)
-        input_length = inputs["input_ids"].shape[1]
-        generated_tokens = outputs[0][input_length:]
-        generated_text = self.tokenizer.decode(generated_tokens, skip_special_tokens=True)
-        
-        return generated_text.strip()
+        try:
+            with torch.no_grad():
+                outputs = self.model.generate(
+                    **inputs,
+                    max_new_tokens=max_new_tokens,
+                    temperature=temperature,
+                    do_sample=do_sample,
+                    pad_token_id=self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
+                    eos_token_id=self.tokenizer.eos_token_id,
+                )
+            
+            # Decode output (skip input tokens)
+            input_length = inputs["input_ids"].shape[1]
+            generated_tokens = outputs[0][input_length:]
+            generated_text = self.tokenizer.decode(generated_tokens, skip_special_tokens=True)
+            
+            logger.info(f"Generated {len(generated_tokens)} tokens")
+            return generated_text.strip()
+        except Exception as e:
+            logger.error(f"Error during generation: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            raise
     
     def get_available_models(self) -> list:
         """Return list with just the loaded model path"""
