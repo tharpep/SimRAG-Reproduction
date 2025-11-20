@@ -142,11 +142,11 @@ class TestTuningConfig:
     """Test tuning configuration"""
     
     def test_config_hardware_optimization(self):
-        """Test that config provides hardware-optimized settings"""
+        """Test that config provides model size-optimized settings"""
         config = get_tuning_config()
         
-        # Test laptop optimization
-        if config.use_laptop:
+        # Test small model optimization
+        if config.model_size == "small":
             assert config.optimized_batch_size == 1
             assert config.optimized_num_epochs == 1
         else:
@@ -157,11 +157,11 @@ class TestTuningConfig:
         """Test config provides correct model names"""
         config = get_tuning_config()
         
-        if config.use_laptop:
+        if config.model_size == "small":
             assert config.model_name == "llama3.2:1b"
             assert "1b" in config.output_dir
         else:
-            assert config.model_name == "qwen3:8b"
+            assert config.model_name == "llama3:8b"
             assert "8b" in config.output_dir
 
 

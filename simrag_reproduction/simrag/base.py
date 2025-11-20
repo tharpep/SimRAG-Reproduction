@@ -187,7 +187,7 @@ class SimRAGBase:
             
             if model_info:
                 # Construct model path from registry info
-                model_suffix = "1b" if self.config.use_laptop else "8b"
+                model_suffix = "1b" if self.config.model_size == "small" else "8b"
                 base_dir = f"./tuned_models/llama_{model_suffix}"
                 version_name = model_info.version
                 

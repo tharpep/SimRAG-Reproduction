@@ -89,6 +89,9 @@ class BasicTuner:
             # Map Ollama model names to Hugging Face equivalents
             if "llama3.2:1b" in self.model_name.lower():
                 base_model = "meta-llama/Llama-3.2-1B"
+            elif "llama3:8b" in self.model_name.lower() or "llama3.1:8b" in self.model_name.lower():
+                # Support both llama3:8b and llama3.1:8b formats
+                base_model = "meta-llama/Llama-3.1-8B"
             elif "qwen3:1.7b" in self.model_name.lower():
                 base_model = "Qwen/Qwen2.5-1.5B"
             elif "qwen3:8b" in self.model_name.lower():

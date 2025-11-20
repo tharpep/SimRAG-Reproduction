@@ -28,9 +28,8 @@ def config() -> None:
         rag_config = get_rag_config()
         tuning_config = get_tuning_config()
 
-        typer.echo("Hardware Configuration:")
-        typer.echo(f"  Platform: {'Laptop' if rag_config.use_laptop else 'PC'}")
-        typer.echo(f"  Model: {rag_config.model_name}")
+        typer.echo("Model Configuration:")
+        typer.echo(f"  Model Size: {rag_config.model_size} ({rag_config.model_name})")
         typer.echo("")
 
         typer.echo("RAG Configuration:")
@@ -48,7 +47,7 @@ def config() -> None:
         typer.echo("")
 
         typer.echo("Note: You can override these settings by editing config.py")
-        typer.echo("or setting environment variables (USE_LAPTOP, USE_OLLAMA, etc.)")
+        typer.echo("or setting environment variables (MODEL_SIZE, USE_OLLAMA, etc.)")
 
     except Exception as e:
         typer.echo(f"Error: Could not load configuration: {e}", err=True)

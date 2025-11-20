@@ -37,7 +37,7 @@ class TestAIGateway:
     
     def test_init_with_ollama_env(self):
         """Test gateway initialization with Ollama environment variable"""
-        with patch.dict(os.environ, {'USE_OLLAMA': 'true', 'USE_LAPTOP': 'true'}), \
+        with patch.dict(os.environ, {'USE_OLLAMA': 'true', 'MODEL_SIZE': 'small'}), \
              patch('simrag_reproduction.ai_providers.gateway.OllamaClient') as mock_ollama:
             
             gateway = AIGateway()

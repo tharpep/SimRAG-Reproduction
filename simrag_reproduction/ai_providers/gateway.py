@@ -110,8 +110,9 @@ class AIGateway:
             # HuggingFace client ignores model parameter (uses loaded model)
             return provider_client.chat(message)
         else:
-            # Use config model for Purdue API if no model specified
-            model = model or self.rag_config.model_name
+            # Purdue API uses its own default model ("llama3.1:latest") if not specified
+            # Don't use config.model_name here since Purdue has different model names
+            # Purdue is used for intermediate steps (QA generation), not model testing
             return provider_client.chat(message, model)
     
     def _chat_ollama(self, client: OllamaClient, message: str, model: Optional[str] = None) -> str:

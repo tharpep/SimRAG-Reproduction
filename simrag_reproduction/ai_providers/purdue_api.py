@@ -46,14 +46,14 @@ class PurdueGenAI(BaseLLMClient):
         
         Args:
             messages: Your message (str) or messages list
-            model: Model to use (default: llama3.1:latest)
+            model: Model to use (default: llama4:latest)
             
         Returns:
             str: AI response
         """
         # Use default model if none specified
         if model is None:
-            model = "llama3.1:latest"
+            model = "llama4:latest"
             
         # Handle both string and message list formats
         if isinstance(messages, list):
@@ -96,6 +96,7 @@ class PurdueGenAI(BaseLLMClient):
     def get_available_models(self) -> List[str]:
         """Get list of available models (hardcoded for Purdue)"""
         return [
+            "llama4:latest",
             "llama3.1:latest",
             "llama3.1:70b",
             "mistral:latest",

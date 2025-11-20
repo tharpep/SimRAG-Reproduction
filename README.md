@@ -32,8 +32,8 @@ SimRAG introduces a self-improving framework that fine-tunes RAG systems through
 - [Poetry](https://python-poetry.org/docs/#installation) (recommended) or pip
 - [Ollama](https://ollama.ai/) (optional, for local inference):
   ```bash
-  ollama pull llama3.2:1b  # For CPU/laptop
-  ollama pull qwen2.5:7b   # For GPU systems
+  ollama pull llama3.2:1b  # Small model
+  ollama pull llama3:8b    # Medium model
   ```
 
 ### Setup
@@ -59,8 +59,8 @@ pip install -e .
 Create a `.env` file in the project root:
 
 ```bash
-# Hardware configuration
-USE_LAPTOP=true  # true for laptop (llama3.2:1b), false for PC (qwen2.5:7b)
+# Model size configuration
+MODEL_SIZE=small  # "small" for llama3.2:1b, "medium" for llama3:8b
 
 # AI Provider
 USE_OLLAMA=true  # true for Ollama (local), false for Purdue API

@@ -24,7 +24,7 @@ class TestRAGSystem:
         self.config = RAGConfig(
             use_ollama=True,
             use_persistent=False,  # Use in-memory storage for tests to avoid lock conflicts
-            use_laptop=True  # Use laptop model (qwen3:1.7b)
+            model_size="small"  # Use small model (llama3.2:1b)
         )
         
         self.documents_folder = str(project_root / "data" / "documents")

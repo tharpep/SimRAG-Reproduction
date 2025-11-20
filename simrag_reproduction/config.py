@@ -11,8 +11,8 @@ from dataclasses import dataclass
 class RAGConfig:
     """Simple configuration for RAG system"""
     
-    # Hardware settings
-    use_laptop: bool = True  # True for laptop (llama3.2:1b), False for PC (qwen3:8b)
+    # Model size settings
+    model_size: str = "small"  # "small" for llama3.2:1b, "medium" for llama3:8b
     
     # AI Provider settings
     use_ollama: bool = True  # True for Ollama (local), False for Purdue API
@@ -32,22 +32,22 @@ class RAGConfig:
     
     @property
     def model_name(self) -> str:
-        """Get model name based on hardware configuration"""
-        return "llama3.2:1b" if self.use_laptop else "qwen3:8b"
+        """Get model name based on model size configuration"""
+        return "llama3.2:1b" if self.model_size == "small" else "llama3:8b"
 
 
 @dataclass
 class TuningConfig:
     """Simple configuration for model fine-tuning"""
     
-    # Hardware settings
-    use_laptop: bool = True  # True for laptop (llama3.2:1b), False for PC (qwen3:8b)
+    # Model size settings
+    model_size: str = "small"  # "small" for llama3.2:1b, "medium" for llama3:8b
     
     # Model settings
     device: str = "auto"  # Options: "auto", "cpu", "cuda", "mps" (for Apple Silicon)
     max_length: int = 512  # Maximum sequence length (256-1024 recommended)
     
-    # Training settings (will be optimized based on use_laptop)
+    # Training settings (will be optimized based on model_size)
     num_epochs: int = 3  # Number of training epochs (1-10 recommended)
     batch_size: int = 4  # Batch size (1-16, adjust based on GPU memory)
     learning_rate: float = 5e-5  # Learning rate (1e-5 to 1e-3 recommended)
@@ -65,23 +65,23 @@ class TuningConfig:
     
     @property
     def optimized_batch_size(self) -> int:
-        """Get batch size optimized for hardware"""
-        return 1 if self.use_laptop else 8  # CPU: 1, GPU: 8
+        """Get batch size optimized for model size"""
+        return 1 if self.model_size == "small" else 8  # Small: 1, Medium: 8
     
     @property
     def optimized_num_epochs(self) -> int:
-        """Get number of epochs optimized for hardware"""
-        return 1 if self.use_laptop else 3  # CPU: 1 for speed, GPU: 3 for quality
+        """Get number of epochs optimized for model size"""
+        return 1 if self.model_size == "small" else 3  # Small: 1 for speed, Medium: 3 for quality
     
     @property
     def model_name(self) -> str:
-        """Get model name based on hardware configuration"""
-        return "llama3.2:1b" if self.use_laptop else "qwen3:8b"
+        """Get model name based on model size configuration"""
+        return "llama3.2:1b" if self.model_size == "small" else "llama3:8b"
     
     @property
     def output_dir(self) -> str:
-        """Get output directory based on hardware configuration"""
-        model_suffix = "1b" if self.use_laptop else "8b"
+        """Get output directory based on model size configuration"""
+        model_suffix = "1b" if self.model_size == "small" else "8b"
         base_dir = f"./tuned_models/llama_{model_suffix}"
         
         if self.create_version_dir:
@@ -91,7 +91,7 @@ class TuningConfig:
     @property
     def model_registry_path(self) -> str:
         """Get path to model registry metadata file"""
-        model_suffix = "1b" if self.use_laptop else "8b"
+        model_suffix = "1b" if self.model_size == "small" else "8b"
         return f"./tuned_models/llama_{model_suffix}/model_registry.json"
     
     def get_stage_output_dir(self, stage: str) -> str:
@@ -104,7 +104,7 @@ class TuningConfig:
         Returns:
             Path to stage-specific output directory
         """
-        model_suffix = "1b" if self.use_laptop else "8b"
+        model_suffix = "1b" if self.model_size == "small" else "8b"
         base_dir = f"./tuned_models/llama_{model_suffix}"
         return f"{base_dir}/{stage}"
 
@@ -118,7 +118,7 @@ def get_rag_config() -> RAGConfig:
     """Get RAG configuration with environment variable overrides
     
     Environment variables that can be set:
-        - USE_LAPTOP: "true" or "false" (laptop=llama3.2:1b, PC=qwen3:8b)
+        - MODEL_SIZE: "small" or "medium" (small=llama3.2:1b, medium=llama3:8b)
     - USE_OLLAMA: "true" or "false" (use Ollama vs Purdue API)
     - USE_PERSISTENT: "true" or "false" (persistent vs in-memory storage)
     - COLLECTION_NAME: name for Qdrant collection
@@ -126,9 +126,13 @@ def get_rag_config() -> RAGConfig:
     config = RAGConfig()
     
     # Override with environment variables if set
-    use_laptop_env = os.getenv("USE_LAPTOP")
-    if use_laptop_env:
-        config.use_laptop = use_laptop_env.lower() == "true"
+    model_size_env = os.getenv("MODEL_SIZE")
+    if model_size_env:
+        model_size_lower = model_size_env.lower()
+        if model_size_lower in ["small", "medium"]:
+            config.model_size = model_size_lower
+        else:
+            print(f"Warning: Invalid MODEL_SIZE '{model_size_env}', must be 'small' or 'medium'. Using default.")
     
     use_ollama_env = os.getenv("USE_OLLAMA")
     if use_ollama_env:
@@ -149,7 +153,7 @@ def get_tuning_config() -> TuningConfig:
     """Get tuning configuration with environment variable overrides
     
     Environment variables that can be set:
-        - USE_LAPTOP: "true" or "false" (laptop=llama3.2:1b, PC=qwen3:8b)
+        - MODEL_SIZE: "small" or "medium" (small=llama3.2:1b, medium=llama3:8b)
     - TUNING_BATCH_SIZE: batch size as integer (1-16)
     - TUNING_EPOCHS: number of epochs as integer (1-10)
     - TUNING_DEVICE: device like "auto", "cpu", "cuda", "mps"
@@ -157,9 +161,13 @@ def get_tuning_config() -> TuningConfig:
     config = TuningConfig()
     
     # Override with environment variables if set
-    use_laptop_env = os.getenv("USE_LAPTOP")
-    if use_laptop_env:
-        config.use_laptop = use_laptop_env.lower() == "true"
+    model_size_env = os.getenv("MODEL_SIZE")
+    if model_size_env:
+        model_size_lower = model_size_env.lower()
+        if model_size_lower in ["small", "medium"]:
+            config.model_size = model_size_lower
+        else:
+            print(f"Warning: Invalid MODEL_SIZE '{model_size_env}', must be 'small' or 'medium'. Using default.")
     
     tuning_batch_size_env = os.getenv("TUNING_BATCH_SIZE")
     if tuning_batch_size_env:

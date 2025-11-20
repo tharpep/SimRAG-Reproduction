@@ -22,7 +22,7 @@ class TestSimRAG:
         config.optimized_batch_size = 1
         config.learning_rate = 0.0001
         config.max_length = 512
-        config.use_laptop = True
+        config.model_size = "small"
         config.simrag_stage_1_epochs = 1
         config.simrag_stage_2_epochs = 1
         config.simrag_improvement_rounds = 2

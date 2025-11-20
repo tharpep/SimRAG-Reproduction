@@ -14,9 +14,10 @@
 
 ### 2. **Synthetic QA Generation** → Purdue API
 - **Provider**: Purdue GenAI API
-- **Model**: Cloud model (not testing our model)
-- **Why**: Generating training data, not testing model performance
+- **Model**: `llama4:latest` (default, independent of model_size config)
+- **Why**: Generating training data for intermediate steps, not testing model performance
 - **Location**: `simrag/synthetic_qa_generation.py`
+- **Note**: Purdue API model selection is independent of `model_size` config. It uses its own default model names (e.g., "llama4:latest", "llama3.1:latest", "llama3.1:70b", "mistral:latest")
 
 ### 3. **SimRAG Testing** → HuggingFace (Fine-Tuned Model)
 - **Provider**: HuggingFace Transformers (direct loading)
@@ -77,6 +78,8 @@ rag = BasicRAG(model_path=model_path)  # Uses fine-tuned model
 
 ### Synthetic QA (Purdue API)
 ```python
-rag = BasicRAG(force_provider="purdue")  # Uses cloud model
+rag = BasicRAG(force_provider="purdue")  # Uses Purdue's default model (llama4:latest)
+# Purdue model selection is independent of model_size config
+# Available Purdue models: llama4:latest, llama3.1:latest, llama3.1:70b, mistral:latest, mixtral:latest
 ```
 
