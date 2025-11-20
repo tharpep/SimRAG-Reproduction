@@ -431,8 +431,16 @@ class BasicTuner:
         if not self.model or not self.tokenizer:
             raise ValueError("Model not loaded. Call load_model() first.")
         
+        # Get actual device from model (handles device_map="auto" case)
+        # Try to get device from model parameters
+        try:
+            model_device = next(self.model.parameters()).device
+        except (StopIteration, AttributeError):
+            # Fallback to self.device if model has no parameters or device_map wasn't used
+            model_device = self.device
+        
         # Tokenize input
-        inputs = self.tokenizer.encode(prompt, return_tensors="pt").to(self.device)
+        inputs = self.tokenizer.encode(prompt, return_tensors="pt").to(model_device)
         
         # Generate
         with torch.no_grad():

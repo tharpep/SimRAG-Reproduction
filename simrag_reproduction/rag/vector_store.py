@@ -43,7 +43,7 @@ class VectorStore:
             # Check if collection exists
             self.client.get_collection(collection_name)
             return True
-        except:
+        except Exception:
             # Create collection if it doesn't exist
             try:
                 self.client.create_collection(
@@ -95,7 +95,15 @@ class VectorStore:
                 limit=limit
             ).points
             
-            return [(hit.payload["text"], hit.score) for hit in search_results]
+            # Validate payload structure and extract text
+            results = []
+            for hit in search_results:
+                if "text" in hit.payload:
+                    results.append((hit.payload["text"], hit.score))
+                else:
+                    # Log warning if payload structure is unexpected
+                    print(f"Warning: Search result missing 'text' in payload: {hit.payload.keys()}")
+            return results
         except Exception as e:
             print(f"Error searching: {e}")
             return []
@@ -167,7 +175,7 @@ class VectorStore:
             # Delete the entire collection
             try:
                 self.client.delete_collection(collection_name)
-            except:
+            except Exception:
                 pass  # Collection might not exist
             
             # Recreate the collection immediately

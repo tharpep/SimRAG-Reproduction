@@ -45,6 +45,6 @@ class BaseLLMClient(ABC):
         try:
             # Default implementation - can be overridden
             return True
-        except:
+        except Exception:
             return False
 

@@ -166,6 +166,7 @@ class DomainAdaptation(SimRAGBase):
         
         current_model_path = self.stage_1_model_path
         final_version = None
+        final_round_num = 0  # Track final round number for logging
         
         # Run improvement rounds
         for round_num in range(1, improvement_rounds + 1):
@@ -196,6 +197,7 @@ class DomainAdaptation(SimRAGBase):
                 
                 if version:
                     final_version = version
+                    final_round_num = round_num  # Update final round number
                     # Get model path for next round
                     current_model_path = self.get_model_from_registry(version.version, stage="stage_2")
                     logger.info(f"✓ Round {round_num} successful - model saved as version {version.version}")
@@ -216,7 +218,7 @@ class DomainAdaptation(SimRAGBase):
         if final_version:
             logger.info(f"\n{'='*60}")
             logger.info(f"Stage 2 Training Complete!")
-            logger.info(f"Total rounds completed: {round_num}")
+            logger.info(f"Total rounds completed: {final_round_num}")
             logger.info(f"Final model version: {final_version.version}")
             logger.info(f"{'='*60}")
         else:
