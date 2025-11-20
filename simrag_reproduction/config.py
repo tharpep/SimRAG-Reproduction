@@ -55,12 +55,11 @@ class TuningConfig:
     learning_rate: float = 5e-5  # Learning rate (1e-5 to 1e-3 recommended)
     
     # QLoRA (Quantized Low-Rank Adaptation) settings
-    use_qlora: bool = True  # Enable QLoRA for efficient fine-tuning
+    # Note: QLoRA is always enabled - these settings control QLoRA hyperparameters
     lora_r: int = 16  # LoRA rank (8-64, higher = more expressive but larger adapters)
     lora_alpha: int = 32  # LoRA scaling factor (typically 2x lora_r)
     lora_dropout: float = 0.05  # Dropout for LoRA layers
     lora_target_modules: list = field(default_factory=lambda: None)  # Auto-detect from model if None
-    load_in_4bit: bool = True  # Load base model in 4-bit for training (QLoRA)
     bnb_4bit_quant_type: str = "nf4"  # Quantization type: "nf4" or "fp4"
     bnb_4bit_use_double_quant: bool = True  # Use nested quantization
     

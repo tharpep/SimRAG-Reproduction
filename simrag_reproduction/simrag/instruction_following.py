@@ -27,16 +27,13 @@ class InstructionFollowing(SimRAGBase):
         super().__init__(model_name, config)
         logger.info("Instruction Following trainer initialized")
     
-    def load_instruction_datasets(self, dataset_names: Optional[List[str]] = None) -> List[str]:
+    def load_instruction_datasets(self) -> List[str]:
         """
         Load instruction-following dataset from Hugging Face
         
         Uses Stanford Alpaca dataset (tatsu-lab/alpaca) - 52K instruction examples.
         Downloads and caches locally on first use.
         
-        Args:
-            dataset_names: Ignored - always uses Alpaca dataset
-            
         Returns:
             List of instruction-following examples in "Question: ...\nAnswer: ..." format
             
@@ -92,14 +89,12 @@ class InstructionFollowing(SimRAGBase):
             "Question: What is machine learning?\nAnswer: Machine learning is a subset of artificial intelligence that enables computers to learn from data."
         ]
     
-    def prepare_instruction_data(self, use_real_datasets: bool = True, 
-                               dataset_names: Optional[List[str]] = None) -> List[str]:
+    def prepare_instruction_data(self, use_real_datasets: bool = True) -> List[str]:
         """
         Prepare instruction-following data for Stage 1
         
         Args:
             use_real_datasets: Whether to use Alpaca dataset (True) or test data (False)
-            dataset_names: Ignored - always uses Alpaca dataset if use_real_datasets=True
             
         Returns:
             List of instruction-following examples
@@ -110,14 +105,12 @@ class InstructionFollowing(SimRAGBase):
             return self._generate_test_instruction_data()
     
     def train_stage_1(self, use_real_datasets: bool = True, 
-                     dataset_names: Optional[List[str]] = None,
                      notes: str = "SimRAG Stage 1 - Instruction Following") -> Optional[Any]:
         """
         Train Stage 1: Instruction-following fine-tuning
         
         Args:
             use_real_datasets: Whether to use real datasets or test data
-            dataset_names: List of dataset names to load
             notes: Training notes for versioning
             
         Returns:

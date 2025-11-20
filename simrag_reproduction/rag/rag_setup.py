@@ -13,7 +13,7 @@ from typing import Optional
 class BasicRAG:
     """RAG system that orchestrates vector storage, retrieval, and generation"""
     
-    def __init__(self, collection_name=None, use_persistent=None, force_provider=None, model_path=None, ollama_model_name=None):
+    def __init__(self, collection_name=None, use_persistent=None, force_provider=None, ollama_model_name=None):
         """
         Initialize RAG system
         
@@ -21,7 +21,6 @@ class BasicRAG:
             collection_name: Name for Qdrant collection (uses config default if None)
             use_persistent: If True, use persistent Qdrant storage (uses config default if None)
             force_provider: Force provider to use ("purdue", "ollama", or "huggingface"). If None, uses config default.
-            model_path: Path to fine-tuned HuggingFace model (legacy fallback, not recommended - use ollama_model_name instead)
             ollama_model_name: Name of Ollama model to use (e.g., "simrag-1b-stage2-v1-0"). If provided, forces Ollama provider.
         """
         self.config = get_rag_config()
@@ -30,16 +29,10 @@ class BasicRAG:
         # Initialize components
         gateway_config = {}
         
-        # Priority: ollama_model_name > model_path > default
+        # Use Ollama with specific fine-tuned model if provided
         if ollama_model_name:
-            # Use Ollama with specific fine-tuned model
             force_provider = "ollama"
             self.ollama_model_name = ollama_model_name
-        elif model_path:
-            # Use HuggingFace with fine-tuned model
-            gateway_config["huggingface"] = {"model_path": model_path}
-            force_provider = "huggingface"
-            self.ollama_model_name = None
         else:
             self.ollama_model_name = None
         

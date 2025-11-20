@@ -152,7 +152,7 @@ TUNING_EPOCHS=3
 TUNING_DEVICE=auto  # auto, cpu, cuda, mps
 
 # QLoRA settings (optional - defaults are optimized)
-USE_QLORA=true  # Enable QLoRA (4-bit + LoRA adapters) for efficient training
+# Note: QLoRA is always enabled (4-bit + LoRA adapters)
 LORA_R=16  # LoRA rank (8-64, higher = more expressive)
 LORA_ALPHA=32  # LoRA scaling (typically 2x lora_r)
 ```
@@ -212,7 +212,7 @@ from simrag_reproduction.rag.rag_setup import BasicRAG
 
 # Initialize and use RAG system
 rag = BasicRAG()
-rag.ingest_documents(["doc1.txt", "doc2.md"])
+rag.add_documents(["doc1.txt", "doc2.md"])
 response = rag.query("What is the main topic?")
 print(response)
 ```
@@ -319,7 +319,7 @@ mypy simrag_reproduction/
 **Model not found (Ollama)**: Only if using Ollama - Run `ollama pull qwen2.5:1.5b` (small) or `ollama pull qwen2.5:7b` (medium)
 
 **CUDA Out of Memory**: 
-- Ensure QLoRA is enabled: `USE_QLORA=true` (default)
+- QLoRA is always enabled (4-bit quantization)
 - Reduce batch size: `TUNING_BATCH_SIZE=1`
 - Try smaller model: `MODEL_SIZE=small`
 - Last resort: `TUNING_DEVICE=cpu` (very slow)

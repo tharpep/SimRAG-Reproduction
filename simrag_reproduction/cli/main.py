@@ -1,7 +1,7 @@
 """SimRAG CLI - Main entry point"""
 import typer
 
-from .commands import test, demo, config, experiment
+from .commands import test, config, experiment
 
 app = typer.Typer(
     name="simrag",
@@ -11,7 +11,6 @@ app = typer.Typer(
 
 # Register subcommands
 app.command(name="test")(test)
-app.command(name="demo")(demo)
 app.command(name="config")(config)
 app.command(name="experiment")(experiment)
 
