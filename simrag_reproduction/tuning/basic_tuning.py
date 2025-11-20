@@ -4,6 +4,8 @@ Simple fine-tuning implementation for language models
 """
 
 import torch
+import random
+import numpy as np
 from transformers import (
     AutoTokenizer, 
     AutoModelForCausalLM, 
@@ -299,6 +301,18 @@ class BasicTuner:
         """
         if not self.trainer:
             raise ValueError("Trainer not setup. Call setup_trainer() first.")
+        
+        # Set random seeds for reproducibility (if config has random_seed)
+        if self.config and hasattr(self.config, 'random_seed'):
+            seed = self.config.random_seed
+            random.seed(seed)
+            np.random.seed(seed)
+            torch.manual_seed(seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed(seed)
+                torch.cuda.manual_seed_all(seed)
+                torch.backends.cudnn.deterministic = True
+                torch.backends.cudnn.benchmark = False
         
         # Create or get version BEFORE training so we can set output_dir correctly
         new_version = None

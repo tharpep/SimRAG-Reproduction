@@ -11,6 +11,8 @@ from typing import Dict, Any, Optional
 from ...simrag.domain_adaptation import DomainAdaptation
 from ...config import get_tuning_config
 from ...logging_config import setup_logging, get_logger
+from ..utils import validate_experiment_config
+import math
 
 # Setup logging
 setup_logging()
@@ -61,6 +63,30 @@ def compare_results(
     logger.info(f"Loading SimRAG results from {simrag_file}...")
     simrag_results = load_results_file(simrag_file)
     
+    # Validate experiment configuration
+    baseline_questions = baseline_results.get("questions", [])
+    simrag_questions = simrag_results.get("testing", {}).get("questions", [])
+    if not simrag_questions:
+        simrag_questions = simrag_results.get("questions", [])
+    
+    baseline_docs_count = baseline_results.get("dataset", {}).get("num_documents", 0)
+    simrag_docs_count = simrag_results.get("dataset", {}).get("num_documents", 0)
+    
+    validation = validate_experiment_config(
+        baseline_questions=baseline_questions,
+        simrag_questions=simrag_questions,
+        baseline_docs_count=baseline_docs_count,
+        simrag_docs_count=simrag_docs_count
+    )
+    
+    if not validation["is_valid"]:
+        logger.warning("⚠️  Experiment configuration validation failed:")
+        for issue in validation["issues"]:
+            logger.warning(f"  - {issue}")
+        logger.warning("  Results may not be directly comparable!")
+    else:
+        logger.info("✓ Experiment configuration validated: same questions and documents used")
+    
     # Extract performance metrics
     # Baseline structure: summary.avg_context_score or context_scores list
     baseline_scores = baseline_results.get("context_scores", [])
@@ -80,6 +106,42 @@ def compare_results(
     # Calculate improvement
     improvement_percent = ((simrag_avg - baseline_avg) / baseline_avg * 100) if baseline_avg > 0 else 0.0
     
+    # Calculate statistical measures (standard deviation, confidence intervals)
+    def calculate_stats(scores_list):
+        """Calculate mean, std, and 95% confidence interval"""
+        all_scores = []
+        for scores in scores_list:
+            if isinstance(scores, list):
+                all_scores.extend(scores)
+            elif isinstance(scores, (int, float)):
+                all_scores.append(scores)
+        
+        if not all_scores:
+            return {"mean": 0.0, "std": 0.0, "ci_lower": 0.0, "ci_upper": 0.0, "n": 0}
+        
+        n = len(all_scores)
+        mean = sum(all_scores) / n
+        variance = sum((x - mean) ** 2 for x in all_scores) / (n - 1) if n > 1 else 0.0
+        std = math.sqrt(variance)
+        
+        # 95% confidence interval (using t-distribution approximation for n>30, z for n<=30)
+        # For simplicity, using z-score (1.96 for 95% CI)
+        se = std / math.sqrt(n) if n > 0 else 0.0
+        margin = 1.96 * se  # 95% confidence interval
+        ci_lower = mean - margin
+        ci_upper = mean + margin
+        
+        return {
+            "mean": mean,
+            "std": std,
+            "ci_lower": ci_lower,
+            "ci_upper": ci_upper,
+            "n": n
+        }
+    
+    baseline_stats = calculate_stats(baseline_scores)
+    simrag_stats = calculate_stats(simrag_scores)
+    
     # Response times
     baseline_time = baseline_results.get("summary", {}).get("avg_response_time", 0.0)
     simrag_time = simrag_testing.get("avg_response_time", 0.0)
@@ -87,25 +149,38 @@ def compare_results(
     # Create comparison
     comparison = {
         "comparison_type": "baseline_vs_simrag",
+        "validation": validation,
         "baseline": {
             "avg_context_score": baseline_avg,
+            "context_score_stats": baseline_stats,
             "avg_response_time": baseline_time,
             "num_questions": len(baseline_results.get("questions", [])),
-            "source_file": baseline_file
+            "source_file": baseline_file,
+            "random_seed": baseline_results.get("reproducibility", {}).get("random_seed", "N/A"),
+            "system_metadata": baseline_results.get("reproducibility", {}).get("system_metadata", {})
         },
         "simrag": {
             "avg_context_score": simrag_avg,
+            "context_score_stats": simrag_stats,
             "avg_response_time": simrag_time,
-            "num_questions": len(simrag_results.get("questions", [])),
+            "num_questions": len(simrag_questions),
             "source_file": simrag_file,
             "stage1_version": simrag_results.get("stage1", {}).get("version", "N/A"),
-            "stage2_version": simrag_results.get("stage2", {}).get("version", "N/A")
+            "stage2_version": simrag_results.get("stage2", {}).get("version", "N/A"),
+            "random_seed": simrag_results.get("reproducibility", {}).get("random_seed", "N/A"),
+            "system_metadata": simrag_results.get("reproducibility", {}).get("system_metadata", {})
         },
         "improvement": {
             "context_score_improvement": simrag_avg - baseline_avg,
             "context_score_improvement_percent": improvement_percent,
             "response_time_change": simrag_time - baseline_time,
-            "response_time_change_percent": ((simrag_time - baseline_time) / baseline_time * 100) if baseline_time > 0 else 0.0
+            "response_time_change_percent": ((simrag_time - baseline_time) / baseline_time * 100) if baseline_time > 0 else 0.0,
+            "statistical_significance": {
+                "baseline_ci": f"[{baseline_stats['ci_lower']:.3f}, {baseline_stats['ci_upper']:.3f}]",
+                "simrag_ci": f"[{simrag_stats['ci_lower']:.3f}, {simrag_stats['ci_upper']:.3f}]",
+                "overlap": not (baseline_stats['ci_upper'] < simrag_stats['ci_lower'] or simrag_stats['ci_upper'] < baseline_stats['ci_lower']),
+                "note": "If CIs don't overlap, difference is statistically significant at p<0.05"
+            }
         }
     }
     
@@ -122,6 +197,11 @@ def compare_results(
     logger.info(f"\nImprovement:")
     logger.info(f"  Context score: {improvement_percent:+.1f}%")
     logger.info(f"  Response time: {comparison['improvement']['response_time_change_percent']:+.1f}%")
+    logger.info(f"\nStatistical Analysis:")
+    logger.info(f"  Baseline: {baseline_avg:.3f} ± {baseline_stats['std']:.3f} (95% CI: {baseline_stats['ci_lower']:.3f}-{baseline_stats['ci_upper']:.3f})")
+    logger.info(f"  SimRAG:   {simrag_avg:.3f} ± {simrag_stats['std']:.3f} (95% CI: {simrag_stats['ci_lower']:.3f}-{simrag_stats['ci_upper']:.3f})")
+    sig_note = "Statistically significant" if not comparison['improvement']['statistical_significance']['overlap'] else "Not statistically significant (CIs overlap)"
+    logger.info(f"  {sig_note}")
     
     # Save comparison
     if output_file:

@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 
 from ..logging_config import setup_logging, get_logger
+from ..config import get_tuning_config
+from .utils import set_random_seeds, get_system_metadata
 
 # Import experiment modules
 from .baseline.run_baseline import run_baseline_test
@@ -40,6 +42,12 @@ def run_complete_experiment(
     logger.info("="*60)
     logger.info("COMPLETE EXPERIMENT PIPELINE")
     logger.info("="*60)
+    
+    # Set random seeds for reproducibility
+    config = get_tuning_config()
+    seed = config.random_seed
+    logger.info(f"Setting random seed: {seed} (for reproducibility)")
+    set_random_seeds(seed)
     
     results_dir = Path(__file__).parent
     

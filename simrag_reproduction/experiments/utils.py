@@ -4,9 +4,17 @@ Helper functions for document loading, HTML extraction, etc.
 """
 
 from pathlib import Path
-from typing import List
+from typing import List, Dict, Any
 import re
+import random
+import numpy as np
 from html.parser import HTMLParser
+
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
 
 
 class HTMLTextExtractor(HTMLParser):
@@ -235,4 +243,107 @@ def evaluate_answer_quality(question: str, answer: str, context: str) -> dict:
     scores['overall_score'] = sum(metric_values) / len(metric_values)
     
     return scores
+
+
+def set_random_seeds(seed: int = 42) -> None:
+    """
+    Set random seeds for reproducibility
+    
+    Sets seeds for Python random, NumPy, and PyTorch (if available).
+    This ensures reproducible results across experiment runs.
+    
+    Args:
+        seed: Random seed value (default: 42)
+    """
+    random.seed(seed)
+    np.random.seed(seed)
+    
+    if TORCH_AVAILABLE:
+        torch.manual_seed(seed)
+        # For CUDA reproducibility
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(seed)
+            torch.cuda.manual_seed_all(seed)
+            # Additional settings for full reproducibility
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+
+
+def validate_experiment_config(
+    baseline_questions: List[str],
+    simrag_questions: List[str],
+    baseline_docs_count: int,
+    simrag_docs_count: int
+) -> Dict[str, Any]:
+    """
+    Validate that baseline and SimRAG experiments use the same configuration
+    
+    Ensures fair comparison by checking:
+    - Same test questions
+    - Same number of documents
+    
+    Args:
+        baseline_questions: Questions used in baseline experiment
+        simrag_questions: Questions used in SimRAG experiment
+        baseline_docs_count: Number of documents in baseline
+        simrag_docs_count: Number of documents in SimRAG
+        
+    Returns:
+        Dictionary with validation results:
+        - is_valid: True if configuration matches
+        - issues: List of validation issues found
+    """
+    issues = []
+    
+    # Check questions match
+    if len(baseline_questions) != len(simrag_questions):
+        issues.append(f"Question count mismatch: baseline={len(baseline_questions)}, simrag={len(simrag_questions)}")
+    else:
+        # Check question content
+        baseline_set = set(q.strip().lower() for q in baseline_questions)
+        simrag_set = set(q.strip().lower() for q in simrag_questions)
+        if baseline_set != simrag_set:
+            issues.append("Question content mismatch: different questions used")
+    
+    # Check document count
+    if baseline_docs_count != simrag_docs_count:
+        issues.append(f"Document count mismatch: baseline={baseline_docs_count}, simrag={simrag_docs_count}")
+    
+    return {
+        "is_valid": len(issues) == 0,
+        "issues": issues
+    }
+
+
+def get_system_metadata() -> Dict[str, Any]:
+    """
+    Get system metadata for experiment reproducibility
+    
+    Returns:
+        Dictionary with system information:
+        - python_version: Python version string
+        - cuda_version: CUDA version if available
+        - device_info: GPU/CPU information
+    """
+    import sys
+    import platform
+    
+    metadata = {
+        "python_version": sys.version,
+        "platform": platform.platform(),
+        "cpu_count": platform.processor() if platform.system() != "Windows" else "N/A"
+    }
+    
+    # CUDA version
+    if TORCH_AVAILABLE and torch.cuda.is_available():
+        metadata["cuda_version"] = torch.version.cuda
+        metadata["cudnn_version"] = torch.backends.cudnn.version() if torch.backends.cudnn.is_available() else None
+        metadata["gpu_name"] = torch.cuda.get_device_name(0) if torch.cuda.device_count() > 0 else None
+        metadata["gpu_count"] = torch.cuda.device_count()
+    else:
+        metadata["cuda_version"] = None
+        metadata["gpu_name"] = None
+        metadata["gpu_count"] = 0
+    
+    return metadata
 

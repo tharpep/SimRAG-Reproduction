@@ -159,6 +159,9 @@ LORA_ALPHA=32  # LoRA scaling (typically 2x lora_r)
 
 # Self-improvement settings (optional)
 SIMRAG_IMPROVEMENT_ROUNDS=1  # Number of Stage 2 rounds (1=no self-improvement, 2+=iterative refinement)
+
+# Reproducibility (optional)
+RANDOM_SEED=42  # Random seed for reproducible results (default: 42)
 ```
 
 **Note**: Never commit `.env` files or API keys.
@@ -288,6 +291,22 @@ mypy simrag_reproduction/
 | Qwen 2.5 7B | ~8-10GB | ~4-5GB | ~400MB |
 
 **Note**: Without QLoRA, memory requirements are 3-5x higher and may not fit on consumer GPUs.
+
+### Software Environment
+
+**Python**: 3.12 (required for PyTorch CUDA support)
+
+**CUDA**: 12.1+ (if using GPU)
+- PyTorch is configured to use CUDA 12.1 via Poetry
+- Verify CUDA: `python -c "import torch; print(torch.cuda.is_available())"`
+
+**Expected Runtimes** (RTX 3080, 10GB VRAM, Qwen 2.5 1.5B):
+- Baseline test: ~2-3 minutes
+- Stage 1 training: ~3-4 hours (1 epoch, 52K examples)
+- Stage 2 training: ~3-4 hours (1 round, ~18-36 synthetic QA pairs)
+- Full pipeline: ~6-8 hours (baseline + Stage 1 + Stage 2 + testing)
+
+**Note**: Runtimes scale with model size. 7B model takes ~2-3x longer.
 
 ## Troubleshooting
 

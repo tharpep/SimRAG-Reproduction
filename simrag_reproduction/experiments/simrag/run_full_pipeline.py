@@ -12,7 +12,7 @@ from ...simrag.instruction_following import InstructionFollowing
 from ...simrag.domain_adaptation import DomainAdaptation
 from ...rag.rag_setup import BasicRAG
 from ...config import get_tuning_config, get_rag_config
-from ..utils import load_documents_from_folder, get_test_questions, evaluate_answer_quality
+from ..utils import load_documents_from_folder, get_test_questions, evaluate_answer_quality, get_system_metadata
 from ...logging_config import setup_logging, get_logger
 
 # Setup logging
@@ -52,10 +52,22 @@ def run_full_pipeline(
     # Generate experiment run ID to link Stage 1 and Stage 2 versions
     experiment_run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     
+    # Get metadata for reproducibility
+    system_metadata = get_system_metadata()
+    
     results = {
         "experiment_type": "simrag_full_pipeline",
         "timestamp": datetime.now().isoformat(),
         "experiment_run_id": experiment_run_id,
+        "reproducibility": {
+            "random_seed": tuning_config.random_seed,
+            "system_metadata": system_metadata
+        },
+        "dataset": {
+            "documents_folder": documents_folder,
+            "num_documents": 0,  # Will be updated after loading
+            "test_questions": test_questions  # Store questions for validation
+        },
         "stage1": {},
         "stage2": {},
         "testing": {}
@@ -96,6 +108,9 @@ def run_full_pipeline(
     logger.info(f"Loading documents from: {documents_folder_resolved}")
     documents = load_documents_from_folder(documents_folder_resolved, include_html=True)
     logger.info(f"Loaded {len(documents)} documents for Stage 2")
+    
+    # Update dataset info in results
+    results["dataset"]["num_documents"] = len(documents)
     
     stage2 = DomainAdaptation(
         model_name=tuning_config.model_name,

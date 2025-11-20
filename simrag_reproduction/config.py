@@ -74,6 +74,9 @@ class TuningConfig:
     simrag_questions_per_doc: int = 2  # Questions to generate per document
     simrag_min_context_score: float = 0.7  # Minimum context similarity threshold
     
+    # Reproducibility settings
+    random_seed: int = 42  # Random seed for reproducibility (set via RANDOM_SEED env var)
+    
     @property
     def optimized_batch_size(self) -> int:
         """Get batch size optimized for model size and GPU memory"""
@@ -289,5 +292,14 @@ def get_tuning_config() -> TuningConfig:
                 print(f"Warning: SIMRAG_IMPROVEMENT_ROUNDS {improvement_rounds} out of range (1-10), using default")
         except ValueError:
             print(f"Warning: Invalid SIMRAG_IMPROVEMENT_ROUNDS '{simrag_improvement_rounds_env}', using default")
+    
+    # Random seed for reproducibility
+    random_seed_env = os.getenv("RANDOM_SEED")
+    if random_seed_env:
+        try:
+            random_seed = int(random_seed_env)
+            config.random_seed = random_seed
+        except ValueError:
+            print(f"Warning: Invalid RANDOM_SEED '{random_seed_env}', using default")
     
     return config

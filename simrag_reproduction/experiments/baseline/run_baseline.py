@@ -10,8 +10,8 @@ from pathlib import Path
 from datetime import datetime
 
 from ...rag.rag_setup import BasicRAG
-from ...config import get_rag_config
-from ..utils import load_documents_from_folder, get_test_questions, evaluate_answer_quality
+from ...config import get_rag_config, get_tuning_config
+from ..utils import load_documents_from_folder, get_test_questions, evaluate_answer_quality, get_system_metadata
 from ...logging_config import setup_logging, get_logger
 
 # Setup logging
@@ -82,21 +82,31 @@ def run_baseline_test(
     stats = rag.get_stats()
     logger.info(f"Collection stats: {stats.get('document_count', 0)} points")
     
+    # Get metadata for reproducibility
+    tuning_config = get_tuning_config()
+    system_metadata = get_system_metadata()
+    
     # Run test questions
     logger.info(f"Testing on {len(test_questions)} questions...")
     results = {
         "experiment_type": "baseline",
         "timestamp": datetime.now().isoformat(),
+        "reproducibility": {
+            "random_seed": tuning_config.random_seed,
+            "system_metadata": system_metadata
+        },
         "config": {
             "model_name": rag_config.model_name,
             "use_ollama": rag_config.use_ollama,
             "top_k": rag_config.top_k,
-            "similarity_threshold": rag_config.similarity_threshold
+            "similarity_threshold": rag_config.similarity_threshold,
+            "baseline_provider": rag_config.baseline_provider
         },
         "dataset": {
             "documents_folder": documents_folder,
             "num_documents": len(documents),
-            "num_chunks_indexed": num_added
+            "num_chunks_indexed": num_added,
+            "test_questions": test_questions  # Store questions for validation
         },
         "questions": test_questions,
         "answers": [],
