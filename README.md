@@ -1,7 +1,7 @@
 # SimRAG Reproduction
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
 
 A simplified, educational implementation of **SimRAG: Self-improving Retrieval-Augmented Generation** for learning RAG and fine-tuning concepts. This project reproduces the core methodology from the [SimRAG paper](https://arxiv.org/abs/2501.12345) (Cheng et al., NAACL 2025) on consumer hardware.
 
@@ -28,7 +28,7 @@ SimRAG introduces a self-improving framework that fine-tunes RAG systems through
 
 ### Prerequisites
 
-- Python 3.9+
+- Python 3.12 (required for PyTorch CUDA support)
 - [Poetry](https://python-poetry.org/docs/#installation) (recommended) or pip
 - [Ollama](https://ollama.ai/) (optional, for local inference):
   ```bash
@@ -43,15 +43,17 @@ SimRAG introduces a self-improving framework that fine-tunes RAG systems through
 git clone <repository-url>
 cd SimRAG-Reproduction
 
-# Install with Poetry
-poetry install
+# Install with Poetry (uses Python 3.12 automatically)
+poetry env use python3.12  # Ensure using Python 3.12
+poetry install  # Installs PyTorch with CUDA support automatically
 poetry shell
 
 # Or with pip
-python -m venv venv
+python3.12 -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 pip install -e .
+# For GPU support: pip install torch --index-url https://download.pytorch.org/whl/cu121
 ```
 
 ## Configuration

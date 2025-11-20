@@ -32,7 +32,7 @@ class SimRAGBase:
         self.experiment_run_id = None  # Will be set before training to link versions
         try:
             self.config = config or get_tuning_config()
-            self.tuner = BasicTuner(model_name, config=self.config)
+            self.tuner = BasicTuner(model_name, device=self.config.device, config=self.config)
             self.registry = get_model_registry(self.config)
             logger.info(f"SimRAG base initialized with model: {model_name}")
         except Exception as e:

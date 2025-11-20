@@ -91,8 +91,10 @@ def run_full_pipeline(
     logger.info("STAGE 2: Domain Adaptation Training")
     logger.info("="*60)
     
-    # Load documents
-    documents = load_documents_from_folder(documents_folder, include_html=True)
+    # Load documents - ensure path is resolved
+    documents_folder_resolved = str(Path(documents_folder).resolve())
+    logger.info(f"Loading documents from: {documents_folder_resolved}")
+    documents = load_documents_from_folder(documents_folder_resolved, include_html=True)
     logger.info(f"Loaded {len(documents)} documents for Stage 2")
     
     stage2 = DomainAdaptation(
@@ -137,12 +139,13 @@ def run_full_pipeline(
     logger.info(f"Using fine-tuned Stage 2 model: {stage2_model_path}")
     
     # Initialize RAG with documents - use fine-tuned model for testing
+    # Reuse documents already loaded for Stage 2 (no need to reload)
     rag = BasicRAG(
         collection_name="simrag_test", 
         use_persistent=False, 
         model_path=stage2_model_path  # Use fine-tuned model
     )
-    rag.add_documents(documents)
+    rag.add_documents(documents)  # Use documents already loaded above
     
     # Test performance
     test_results = stage2.test_stage_2_performance(rag, test_questions)

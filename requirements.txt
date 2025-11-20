@@ -1,4 +1,8 @@
 # Essential ML/AI Libraries
+# Note: Requires Python 3.12
+# For GPU support, install PyTorch with CUDA:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu121
+# For CPU-only: pip install torch>=2.0.0
 torch>=2.0.0
 transformers>=4.30.0
 datasets>=2.12.0

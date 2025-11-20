@@ -77,9 +77,10 @@ def load_documents_from_folder(folder_path: str, include_html: bool = True) -> L
     Returns:
         List of document texts
     """
-    folder = Path(folder_path)
+    # Resolve to absolute path to handle relative paths correctly
+    folder = Path(folder_path).resolve()
     if not folder.exists():
-        raise ValueError(f"Folder not found: {folder_path}")
+        raise ValueError(f"Folder not found: {folder_path} (resolved to: {folder})")
     
     documents = []
     

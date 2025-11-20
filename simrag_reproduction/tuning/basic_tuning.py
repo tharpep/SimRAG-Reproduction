@@ -83,14 +83,16 @@ class BasicTuner:
             if self.tokenizer.pad_token is None:
                 self.tokenizer.pad_token = self.tokenizer.eos_token
             
+            # Load model in float32 - Trainer's fp16 mode will handle mixed precision
+            # Loading in float16 + fp16 training causes gradient scaling conflicts
             self.model = AutoModelForCausalLM.from_pretrained(
                 model_path,
-                torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
-                device_map=self.device if self.device == "cuda" else None
+                torch_dtype=torch.float32,
             )
             
-            if self.device != "cuda" and self.device != "mps":
-                self.model = self.model.to(self.device)
+            # Move model to device and ensure it's in training mode
+            self.model = self.model.to(self.device)
+            self.model.train()  # Ensure model is in training mode
             
             print(f"Fine-tuned model loaded on {self.device}")
         else:
@@ -121,15 +123,16 @@ class BasicTuner:
             print("Loading model...")
             
             # Use the same base model mapping for consistency
+            # Load model in float32 - Trainer's fp16 mode will handle mixed precision
+            # Loading in float16 + fp16 training causes gradient scaling conflicts
             self.model = AutoModelForCausalLM.from_pretrained(
                 base_model,
-                torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
-                device_map=self.device if self.device == "cuda" else None
+                torch_dtype=torch.float32,
             )
             
-            # Move to device if not using device_map
-            if self.device != "cuda":
-                self.model = self.model.to(self.device)
+            # Move model to device and ensure it's in training mode
+            self.model = self.model.to(self.device)
+            self.model.train()  # Ensure model is in training mode
             
             print(f"Model loaded on {self.device}")
     
@@ -158,7 +161,12 @@ class BasicTuner:
         
         # Create dataset
         dataset = Dataset.from_dict({"text": texts})
-        tokenized_dataset = dataset.map(tokenize_function, batched=True)
+        # Tokenize and remove the original "text" field - DataCollator only needs tokenized fields
+        tokenized_dataset = dataset.map(
+            tokenize_function, 
+            batched=True,
+            remove_columns=["text"]  # Remove original text field after tokenization
+        )
         
         return tokenized_dataset
     
@@ -196,8 +204,12 @@ class BasicTuner:
             save_steps=500,
             save_total_limit=2,
             prediction_loss_only=True,
-            remove_unused_columns=False,
-            dataloader_pin_memory=False,
+            remove_unused_columns=True,  # Remove "text" field after tokenization - DataCollator only needs tokenized fields
+            # Speed optimizations
+            fp16=True,  # Mixed precision training (2x faster on GPU, uses less memory)
+            dataloader_num_workers=4,  # Parallel data loading (faster data preparation)
+            gradient_accumulation_steps=4,  # Simulate larger batch size (effective batch = batch_size * 4)
+            dataloader_pin_memory=True,  # Faster GPU transfer (only useful with GPU)
         )
         
         # Data collator

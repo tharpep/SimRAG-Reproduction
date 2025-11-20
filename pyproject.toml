@@ -7,10 +7,16 @@ readme = "README.md"
 # Package configuration: simrag_reproduction/ is the package root
 packages = [{include = "simrag_reproduction"}]
 
+[[tool.poetry.source]]
+name = "pytorch-cu121"
+url = "https://download.pytorch.org/whl/cu121"
+priority = "explicit"
+
 [tool.poetry.dependencies]
-python = ">=3.9"
+python = ">=3.12,<3.13"
 # Essential ML/AI Libraries
-torch = ">=2.0.0"
+# Note: torch is installed from PyTorch's CUDA index (cu121 for CUDA 12.1+)
+torch = {version = ">=2.0.0", source = "pytorch-cu121"}
 transformers = ">=4.30.0"
 datasets = ">=2.12.0"
 accelerate = ">=0.26.0"
@@ -41,7 +47,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py312"
 line-length = 120
 select = [
     "A", "ARG", "B", "C", "DTZ", "E", "EM", "F", "FBT", "I", "ICN", "ISC", "N",
@@ -52,12 +58,12 @@ ignore = [
 ]
 
 [tool.black]
-target-version = ["py39"]
+target-version = ["py312"]
 line-length = 120
 skip-string-normalization = true
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
