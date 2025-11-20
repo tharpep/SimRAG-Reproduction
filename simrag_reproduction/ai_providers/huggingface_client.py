@@ -7,7 +7,18 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from typing import Optional, Dict, Any
 import logging
+import os
+from dotenv import load_dotenv
 from .base_client import BaseLLMClient
+
+# Load environment variables (for HF_TOKEN)
+load_dotenv()
+
+# Set HuggingFace token from environment if available
+# Transformers library automatically uses HF_TOKEN or HUGGINGFACE_HUB_TOKEN
+hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_HUB_TOKEN")
+if hf_token and not os.getenv("HF_TOKEN"):
+    os.environ["HF_TOKEN"] = hf_token
 
 logger = logging.getLogger(__name__)
 

@@ -12,7 +12,7 @@ class RAGConfig:
     """Simple configuration for RAG system"""
     
     # Model size settings
-    model_size: str = "small"  # "small" for llama3.2:1b, "medium" for llama3:8b
+    model_size: str = "small"  # "small" for qwen2.5:1.5b (non-gated, non-thinking), "medium" for qwen2.5:7b (non-gated, non-thinking)
     
     # AI Provider settings
     use_ollama: bool = True  # True for Ollama (local), False for Purdue API
@@ -33,7 +33,8 @@ class RAGConfig:
     @property
     def model_name(self) -> str:
         """Get model name based on model size configuration"""
-        return "llama3.2:1b" if self.model_size == "small" else "llama3:8b"
+        # Default to Qwen 2.5 Instruct (non-gated, non-thinking) - no HuggingFace authentication required
+        return "qwen2.5:1.5b" if self.model_size == "small" else "qwen2.5:7b"
 
 
 @dataclass
@@ -41,7 +42,7 @@ class TuningConfig:
     """Simple configuration for model fine-tuning"""
     
     # Model size settings
-    model_size: str = "small"  # "small" for llama3.2:1b, "medium" for llama3:8b
+    model_size: str = "small"  # "small" for qwen2.5:1.5b (non-gated, non-thinking), "medium" for qwen2.5:7b (non-gated, non-thinking)
     
     # Model settings
     device: str = "auto"  # Options: "auto", "cpu", "cuda", "mps" (for Apple Silicon)
@@ -76,13 +77,15 @@ class TuningConfig:
     @property
     def model_name(self) -> str:
         """Get model name based on model size configuration"""
-        return "llama3.2:1b" if self.model_size == "small" else "llama3:8b"
+        # Default to Qwen 2.5 Instruct (non-gated, non-thinking) - no HuggingFace authentication required
+        return "qwen2.5:1.5b" if self.model_size == "small" else "qwen2.5:7b"
     
     @property
     def output_dir(self) -> str:
         """Get output directory based on model size configuration"""
+        # Use generic naming that works for any model
         model_suffix = "1b" if self.model_size == "small" else "8b"
-        base_dir = f"./tuned_models/llama_{model_suffix}"
+        base_dir = f"./tuned_models/model_{model_suffix}"
         
         if self.create_version_dir:
             return f"{base_dir}/{self.version}"
@@ -92,7 +95,7 @@ class TuningConfig:
     def model_registry_path(self) -> str:
         """Get path to model registry metadata file"""
         model_suffix = "1b" if self.model_size == "small" else "8b"
-        return f"./tuned_models/llama_{model_suffix}/model_registry.json"
+        return f"./tuned_models/model_{model_suffix}/model_registry.json"
     
     def get_stage_output_dir(self, stage: str) -> str:
         """
@@ -105,7 +108,7 @@ class TuningConfig:
             Path to stage-specific output directory
         """
         model_suffix = "1b" if self.model_size == "small" else "8b"
-        base_dir = f"./tuned_models/llama_{model_suffix}"
+        base_dir = f"./tuned_models/model_{model_suffix}"
         return f"{base_dir}/{stage}"
 
 
@@ -153,7 +156,7 @@ def get_tuning_config() -> TuningConfig:
     """Get tuning configuration with environment variable overrides
     
     Environment variables that can be set:
-        - MODEL_SIZE: "small" or "medium" (small=llama3.2:1b, medium=llama3:8b)
+        - MODEL_SIZE: "small" or "medium" (small=qwen2.5:1.5b, medium=qwen2.5:7b - both non-gated, non-thinking)
     - TUNING_BATCH_SIZE: batch size as integer (1-16)
     - TUNING_EPOCHS: number of epochs as integer (1-10)
     - TUNING_DEVICE: device like "auto", "cpu", "cuda", "mps"

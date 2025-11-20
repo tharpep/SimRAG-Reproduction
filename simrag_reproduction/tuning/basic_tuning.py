@@ -15,7 +15,17 @@ from datasets import Dataset
 from typing import List, Dict, Any, Optional
 import os
 import time
+from dotenv import load_dotenv
 from .model_registry import ModelRegistry, ModelVersion, get_model_registry
+
+# Load environment variables (for HF_TOKEN)
+load_dotenv()
+
+# Set HuggingFace token from environment if available
+# Transformers library automatically uses HF_TOKEN or HUGGINGFACE_HUB_TOKEN
+hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_HUB_TOKEN")
+if hf_token and not os.getenv("HF_TOKEN"):
+    os.environ["HF_TOKEN"] = hf_token
 
 
 class BasicTuner:
@@ -92,10 +102,12 @@ class BasicTuner:
             elif "llama3:8b" in self.model_name.lower() or "llama3.1:8b" in self.model_name.lower():
                 # Support both llama3:8b and llama3.1:8b formats
                 base_model = "meta-llama/Llama-3.1-8B"
-            elif "qwen3:1.7b" in self.model_name.lower():
-                base_model = "Qwen/Qwen2.5-1.5B"
-            elif "qwen3:8b" in self.model_name.lower():
-                base_model = "Qwen/Qwen2.5-7B"
+            elif "qwen2.5:1.5b" in self.model_name.lower():
+                # Use Instruct variant (non-thinking, standard generation)
+                base_model = "Qwen/Qwen2.5-1.5B-Instruct"
+            elif "qwen2.5:7b" in self.model_name.lower():
+                # Use Instruct variant (non-thinking, standard generation)
+                base_model = "Qwen/Qwen2.5-7B-Instruct"
             else:
                 # Try to use the model name directly (for other HF models)
                 base_model = self.model_name

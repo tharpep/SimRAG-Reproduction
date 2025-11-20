@@ -32,8 +32,8 @@ SimRAG introduces a self-improving framework that fine-tunes RAG systems through
 - [Poetry](https://python-poetry.org/docs/#installation) (recommended) or pip
 - [Ollama](https://ollama.ai/) (optional, for local inference):
   ```bash
-  ollama pull llama3.2:1b  # Small model
-  ollama pull llama3:8b    # Medium model
+  ollama pull qwen2.5:1.5b  # Small model (non-thinking, standard generation)
+  ollama pull qwen2.5:7b    # Medium model (non-thinking, standard generation)
   ```
 
 ### Setup
@@ -60,11 +60,14 @@ Create a `.env` file in the project root:
 
 ```bash
 # Model size configuration
-MODEL_SIZE=small  # "small" for llama3.2:1b, "medium" for llama3:8b
+MODEL_SIZE=small  # "small" for qwen2.5:1.5b (non-gated, non-thinking), "medium" for qwen2.5:7b (non-gated, non-thinking)
 
 # AI Provider
 USE_OLLAMA=true  # true for Ollama (local), false for Purdue API
 PURDUE_API_KEY=your-api-key-here  # Required if USE_OLLAMA=false
+
+# HuggingFace (optional - only needed if using Llama models)
+HF_TOKEN=your-huggingface-token-here  # Optional: Only needed for gated Llama models. Get from https://huggingface.co/settings/tokens
 
 # Vector store
 USE_PERSISTENT=true
@@ -77,6 +80,10 @@ TUNING_DEVICE=auto  # auto, cpu, cuda, mps
 ```
 
 **Note**: Never commit `.env` files or API keys.
+
+**Model Selection**:
+- **Default (Qwen 2.5 Instruct)**: No authentication needed - works out of the box! Uses standard generation (non-thinking mode) ✅
+- **Llama models**: If you prefer Llama, set `HF_TOKEN` in `.env` and accept license at https://huggingface.co/meta-llama/Llama-3.2-1B
 
 ## Quick Start
 
@@ -150,7 +157,7 @@ mypy simrag_reproduction/
 
 **No providers available**: Set `USE_OLLAMA=true` in `.env` or provide `PURDUE_API_KEY`
 
-**Model not found (Ollama)**: Run `ollama pull llama3.2:1b` or `ollama pull qwen2.5:7b`
+**Model not found (Ollama)**: Run `ollama pull qwen2.5:1.5b` (small) or `ollama pull qwen2.5:7b` (medium)
 
 **Out of memory**: Reduce `TUNING_BATCH_SIZE=1` or set `TUNING_DEVICE=cpu` in `.env`
 
