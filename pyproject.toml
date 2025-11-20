@@ -2,7 +2,7 @@
 name = "simrag"
 version = "0.1.0"
 description = "SimRAG paper reproduction - RAG and fine-tuning implementation"
-authors = ["Pryce Tharpe"]
+authors = ["SimRAG Reproduction Contributors"]
 readme = "README.md"
 # Package configuration: simrag_reproduction/ is the package root
 packages = [{include = "simrag_reproduction"}]

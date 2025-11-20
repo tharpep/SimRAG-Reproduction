@@ -222,7 +222,7 @@ If you use this code, please cite the original SimRAG paper:
 
 ## License
 
-MIT License - Copyright © 2025 Pryce Tharpe
+MIT License - Copyright © 2025 SimRAG Reproduction Project
 
 ---
 
