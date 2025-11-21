@@ -62,7 +62,7 @@ Answer:"""
         return answer
     
     @classmethod
-    def query_baseline(
+    def _query_model(
         cls,
         question: str,
         model: Any,
@@ -73,11 +73,11 @@ Answer:"""
         max_tokens: int
     ) -> Tuple[str, List[str], List[float]]:
         """
-        Query RAG system with baseline model
+        Internal method to query RAG system with any model (baseline or fine-tuned)
         
         Args:
             question: Question to answer
-            model: Baseline model
+            model: Model to use (baseline or fine-tuned)
             tokenizer: Tokenizer
             vector_store: ChromaDBStore instance
             top_k: Number of documents to retrieve
@@ -129,6 +129,45 @@ Answer:"""
         return answer, context_docs, context_scores
     
     @classmethod
+    def query_baseline(
+        cls,
+        question: str,
+        model: Any,
+        tokenizer: Any,
+        vector_store: Any,
+        top_k: int,
+        temperature: float,
+        max_tokens: int
+    ) -> Tuple[str, List[str], List[float]]:
+        """
+        Query RAG system with baseline model
+        
+        Args:
+            question: Question to answer
+            model: Baseline model
+            tokenizer: Tokenizer
+            vector_store: ChromaDBStore instance
+            top_k: Number of documents to retrieve
+            temperature: Generation temperature
+            max_tokens: Maximum new tokens to generate
+            
+        Returns:
+            Tuple of (answer, context_docs, context_scores)
+            
+        Raises:
+            ValueError: If inputs are invalid
+        """
+        return cls._query_model(
+            question=question,
+            model=model,
+            tokenizer=tokenizer,
+            vector_store=vector_store,
+            top_k=top_k,
+            temperature=temperature,
+            max_tokens=max_tokens
+        )
+    
+    @classmethod
     def query_finetuned(
         cls,
         question: str,
@@ -157,41 +196,13 @@ Answer:"""
         Raises:
             ValueError: If inputs are invalid
         """
-        if not question or not isinstance(question, str) or not question.strip():
-            raise ValueError("question must be a non-empty string")
-        if model is None:
-            raise ValueError("model cannot be None")
-        if tokenizer is None:
-            raise ValueError("tokenizer cannot be None")
-        if vector_store is None:
-            raise ValueError("vector_store cannot be None")
-        if not isinstance(top_k, int) or top_k <= 0:
-            raise ValueError(f"top_k must be a positive integer, got: {top_k}")
-        if not isinstance(max_tokens, int) or max_tokens <= 0:
-            raise ValueError(f"max_tokens must be a positive integer, got: {max_tokens}")
-        
-        context_docs, context_scores = vector_store.query(question, top_k=top_k)
-        context_text = "\n\n".join(context_docs)
-        prompt = cls.build_prompt(context_text, question)
-        
-        import torch
-        inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=MAX_TOKENIZER_LENGTH).to(model.device)
-        
-        with torch.no_grad():
-            outputs = model.generate(
-                **inputs,
-                max_new_tokens=max_tokens,
-                temperature=temperature,
-                top_p=0.9,
-                do_sample=True,
-                pad_token_id=tokenizer.pad_token_id
-            )
-        
-        if not outputs or len(outputs) == 0:
-            raise ValueError("Model generation returned empty output")
-        
-        answer = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        answer = cls.extract_answer(answer, prompt)
-        
-        return answer, context_docs, context_scores
+        return cls._query_model(
+            question=question,
+            model=model,
+            tokenizer=tokenizer,
+            vector_store=vector_store,
+            top_k=top_k,
+            temperature=temperature,
+            max_tokens=max_tokens
+        )
 
