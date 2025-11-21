@@ -120,7 +120,8 @@ Answer:"""
                 pad_token_id=tokenizer.pad_token_id
             )
         
-        if not outputs or len(outputs) == 0:
+        # Check if outputs is valid (can't use 'not outputs' on Tensor)
+        if outputs is None or (isinstance(outputs, torch.Tensor) and outputs.numel() == 0):
             raise ValueError("Model generation returned empty output")
         
         answer = tokenizer.decode(outputs[0], skip_special_tokens=True)
