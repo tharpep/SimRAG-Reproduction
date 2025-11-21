@@ -126,7 +126,7 @@ def _run_stage2_only(documents: Optional[str], stage1_model: Optional[str]) -> N
     """Run Stage 2 training only"""
     try:
         from ...experiments.simrag.run_stage2 import run_stage2_training
-        from ...experiments.test_model import list_available_models
+        from ...experiments.model_utils import list_available_models
         from ...config import get_tuning_config
         from ...logging_config import setup_logging
 
@@ -333,7 +333,7 @@ def _run_compare(baseline_file: Optional[str], simrag_file: Optional[str]) -> No
 def _run_export_model() -> None:
     """Export a model to ZIP file for Colab"""
     try:
-        from ...experiments.test_model import list_available_models, export_model
+        from ...experiments.model_utils import list_available_models, export_model
         from ...config import get_tuning_config
         from ...logging_config import setup_logging
         from pathlib import Path
