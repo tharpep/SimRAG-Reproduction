@@ -72,7 +72,7 @@ class AIGateway:
             ValueError: If message is empty or invalid
             RuntimeError: If no providers are available or provider call fails
         """
-        if not message or not isinstance(message, str) or not message.strip():
+        if not message or not isinstance(message, str):
             raise ValueError("message must be a non-empty string")
         # Auto-select provider based on config if not specified
         if provider is None:
@@ -101,18 +101,16 @@ class AIGateway:
         provider_client = self.providers[provider]
         
         # Handle different provider types
-        try:
-            if provider == "huggingface":
-                # HuggingFace client ignores model parameter (uses loaded model)
-                # Pass through kwargs (max_tokens, temperature, etc.)
-                return provider_client.chat(message, **kwargs)
-            else:
-                # Purdue API uses its own default model ("llama3.1:latest") if not specified
-                # Don't use config.model_name here since Purdue has different model names
-                # Purdue is used for intermediate steps (QA generation), not model testing
-                return provider_client.chat(message, model)
-        except Exception as e:
-            raise RuntimeError(f"Error calling provider '{provider}': {e}")
+        # Don't wrap exceptions - let original exceptions propagate for better debugging
+        if provider == "huggingface":
+            # HuggingFace client ignores model parameter (uses loaded model)
+            # Pass through kwargs (max_tokens, temperature, etc.)
+            return provider_client.chat(message, **kwargs)
+        else:
+            # Purdue API uses its own default model ("llama3.1:latest") if not specified
+            # Don't use config.model_name here since Purdue has different model names
+            # Purdue is used for intermediate steps (QA generation), not model testing
+            return provider_client.chat(message, model)
     
     def get_available_providers(self) -> List[str]:
         """Get list of available providers"""

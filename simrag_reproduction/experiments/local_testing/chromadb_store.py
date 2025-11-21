@@ -93,8 +93,9 @@ class ChromaDBStore:
             context_docs = results.get('documents', [[]])[0] if results.get('documents') else []
             context_scores = results.get('distances', [[]])[0] if results.get('distances') else []
         except Exception as e:
+            # Log the error but don't silently fail - re-raise to let caller handle
             logger.error(f"Error querying ChromaDB: {e}")
-            return [], []
+            raise
         
         # Convert distances to similarity scores (1 - distance)
         context_scores = [max(0.0, 1.0 - d) for d in context_scores]

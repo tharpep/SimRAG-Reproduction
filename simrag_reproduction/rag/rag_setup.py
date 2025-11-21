@@ -104,7 +104,7 @@ class BasicRAG:
         Raises:
             ValueError: If query is empty or invalid
         """
-        if not query or not isinstance(query, str) or not query.strip():
+        if not query or not isinstance(query, str):
             raise ValueError("query must be a non-empty string")
         # Use config default if limit not specified
         if limit is None:
@@ -130,7 +130,7 @@ class BasicRAG:
         Raises:
             ValueError: If question is empty or invalid
         """
-        if not question or not isinstance(question, str) or not question.strip():
+        if not question or not isinstance(question, str):
             raise ValueError("question must be a non-empty string")
         # Use config default if context_limit not specified
         if context_limit is None:

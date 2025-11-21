@@ -256,12 +256,12 @@ class HuggingFaceClient(BaseLLMClient):
             # Decode output (skip input tokens)
             if not outputs or len(outputs) == 0:
                 raise ValueError("Model generation returned empty output")
-            if "input_ids" not in inputs or inputs["input_ids"].shape[0] == 0:
-                raise ValueError("Invalid input_ids shape")
             
             input_length = inputs["input_ids"].shape[1]
-            if len(outputs[0]) <= input_length:
-                raise ValueError(f"Generated output length ({len(outputs[0])}) is not greater than input length ({input_length})")
+            # Only validate if output is actually shorter than input (which shouldn't happen)
+            # Allow equal length as edge case (model might generate exactly input length)
+            if len(outputs[0]) < input_length:
+                raise ValueError(f"Generated output length ({len(outputs[0])}) is less than input length ({input_length})")
             
             generated_tokens = outputs[0][input_length:]
             generated_text = self.tokenizer.decode(generated_tokens, skip_special_tokens=True)

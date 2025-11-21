@@ -72,7 +72,7 @@ class DocumentRetriever:
             ValueError: If query is empty or invalid
             Exception: If encoding fails
         """
-        if not query or not isinstance(query, str) or not query.strip():
+        if not query or not isinstance(query, str):
             raise ValueError("query must be a non-empty string")
         
         try:

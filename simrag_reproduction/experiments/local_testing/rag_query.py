@@ -90,7 +90,7 @@ Answer:"""
         Raises:
             ValueError: If inputs are invalid
         """
-        if not question or not isinstance(question, str) or not question.strip():
+        if not question or not isinstance(question, str):
             raise ValueError("question must be a non-empty string")
         if model is None:
             raise ValueError("model cannot be None")
