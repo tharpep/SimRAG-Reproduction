@@ -22,9 +22,9 @@ SimRAG introduces a self-improving framework that fine-tunes RAG systems through
 - **QLoRA Fine-Tuning**: Memory-efficient training using 4-bit quantization and LoRA adapters
 - **Two-Stage Training**: Instruction following (Stage 1) and domain adaptation with integrated self-improvement (Stage 2)
 - **Self-Improvement Loop**: Stage 2 can run multiple rounds, each using the improved model to generate better synthetic QA
-- **Ollama Integration**: Automatic conversion of fine-tuned models for fast, reliable inference
+- **Multiple AI Providers**: Unified interface for Purdue GenAI API and HuggingFace
 - **Synthetic QA Generation**: Self-improving data generation from domain documents
-- **Multiple AI Providers**: Unified interface for Ollama (local), Purdue GenAI, and HuggingFace
+- **Multiple AI Providers**: Unified interface for Purdue GenAI API and HuggingFace
 - **Hardware-Efficient**: Runs on consumer GPUs (10GB VRAM) with 4-bit quantization
 
 ## Installation
@@ -48,15 +48,10 @@ poetry --version
 # (Most modern Poetry versions include shell support by default)
 ```
 
-**Ollama** (recommended for 10x faster baseline testing):
-- Download from [ollama.ai](https://ollama.ai/)
-- Install and start Ollama service
-- Pull required models:
-  ```bash
-  ollama pull qwen2.5:1.5b  # For small model (1.5B)
-  ollama pull qwen2.5:7b    # For large model (7B) - optional
-  ```
-  **Note**: Ollama is recommended but not required. The baseline will fall back to HuggingFace if Ollama is unavailable (slower).
+**Purdue GenAI API** (optional, for synthetic QA generation):
+- Get API key from your Purdue GenAI account
+- Add to `.env` file: `PURDUE_API_KEY=your-api-key-here`
+- **Note**: If not provided, the system will use HuggingFace for QA generation (slower but works offline)
 
 ### Step 2: Clone Repository
 
@@ -133,9 +128,8 @@ Create a `.env` file in the project root (optional):
 # Model size configuration
 MODEL_SIZE=small  # "small" for Qwen/Qwen2.5-1.5B-Instruct, "medium" for Qwen/Qwen2.5-7B-Instruct (both non-gated)
 
-# AI Provider
-USE_OLLAMA=true  # true for Ollama (local), false for Purdue API
-PURDUE_API_KEY=your-api-key-here  # Required if USE_OLLAMA=false
+# AI Provider (for synthetic QA generation during training)
+PURDUE_API_KEY=your-api-key-here  # Optional - for faster QA generation. If not set, uses HuggingFace
 
 # HuggingFace (optional - only needed if using Llama models)
 HF_TOKEN=your-huggingface-token-here  # Optional: Only needed for gated Llama models. Get from https://huggingface.co/settings/tokens
@@ -144,8 +138,12 @@ HF_TOKEN=your-huggingface-token-here  # Optional: Only needed for gated Llama mo
 USE_PERSISTENT=true
 COLLECTION_NAME=simrag_docs
 
-# Baseline provider (optional)
-BASELINE_PROVIDER=ollama  # "ollama" (default, 10x faster) or "huggingface" (fallback)
+
+# Local testing settings (optional)
+REUSE_BASELINE=true  # Reuse compatible baseline if available (saves ~5-10 min, default: true)
+BASELINE_MAX_AGE_DAYS=7  # Maximum age in days for reusable baseline (default: 7)
+EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2  # Embedding model for vector store
+LOCAL_TESTING_MAX_TOKENS=512  # Max tokens for local testing (default: 512)
 
 # Fine-tuning (optional)
 TUNING_BATCH_SIZE=4
@@ -190,8 +188,11 @@ simrag test --all
 simrag experiment run
 
 # Or run stages individually
-simrag experiment baseline     # Baseline RAG only (~2-3 minutes)
+simrag experiment stage1       # Stage 1 training only (~3-4 hours)
+simrag experiment stage2       # Stage 2 training only (~3-4 hours)
+simrag experiment baseline     # Baseline RAG only (HuggingFace-based, ~2-3 minutes)
 simrag experiment simrag       # SimRAG pipeline only (~6-8 hours for 1.5B)
+simrag experiment test   # Local HuggingFace testing (matches Colab)
 simrag experiment compare      # Compare results
 ```
 
@@ -208,9 +209,14 @@ simrag test                    # Interactive test selection
 simrag test --all              # Run all tests
 simrag config                  # View configuration
 simrag experiment run          # Full pipeline
-simrag experiment baseline     # Baseline RAG
+simrag experiment stage1       # Stage 1 training only
+simrag experiment stage2       # Stage 2 training only
+simrag experiment baseline     # Baseline RAG (Ollama-based)
 simrag experiment simrag       # SimRAG pipeline
 simrag experiment compare      # Compare results
+simrag experiment export       # Export model for Colab
+simrag experiment results      # View comparison results
+simrag experiment test   # Local HuggingFace testing (matches Colab)
 ```
 
 ### Programmatic Usage
@@ -229,14 +235,16 @@ print(response)
 
 ```
 simrag_reproduction/
-├── ai_providers/      # LLM clients (Ollama, Purdue, HuggingFace)
+├── ai_providers/      # LLM clients (Purdue API, HuggingFace)
 ├── rag/              # RAG system (ingestion, retrieval, generation)
 ├── simrag/           # SimRAG pipeline (Stage 1 & 2 fine-tuning)
 ├── tuning/            # Model fine-tuning utilities
 ├── experiments/       # Experiment orchestration
-│   ├── baseline/     # Baseline RAG experiments
+│   ├── baseline/     # Baseline RAG experiments (HuggingFace-based)
 │   ├── simrag/       # SimRAG training experiments
-│   └── comparison/   # Result comparison utilities
+│   ├── comparison/   # Result comparison utilities
+│   ├── local_testing/ # Local HuggingFace testing (matches Colab)
+│   └── model_utils.py # Model discovery and export utilities
 └── cli/               # Command-line interface
 ```
 
@@ -253,12 +261,34 @@ This runs: baseline test (~2-3 min) → Stage 1 training (~3-4 hrs) → Stage 2 
 
 **Individual Commands**:
 ```bash
-simrag experiment baseline     # Baseline only
-simrag experiment simrag       # SimRAG pipeline only  
+simrag experiment stage1       # Stage 1 training only (~3-4 hours)
+simrag experiment stage2       # Stage 2 training only (~3-4 hours)
+simrag experiment baseline     # Baseline RAG only (Ollama-based, ~2-3 min)
+simrag experiment simrag       # SimRAG pipeline only (~6-8 hours)
 simrag experiment compare      # Compare existing results
+simrag experiment test        # Local HuggingFace testing (matches Colab notebook)
 ```
 
-**Results**: Saved as timestamped JSON files in `experiments/*/results/` with metrics, Q&A pairs, and model info.
+**Local Testing** (`test`):
+The `test` command provides local HuggingFace model testing that exactly matches the Colab notebook workflow:
+- Uses ChromaDB for vector storage (same as Colab)
+- Uses 4-bit quantization with PEFT adapters (same as Colab)
+- Tests baseline model → fine-tuned model → comparison
+- Automatically reuses compatible baseline results (saves ~5-10 minutes)
+- Results saved to `comparison_results/` in project root
+
+```bash
+# Interactive: Select stage and model
+simrag experiment test
+
+# Direct: Specify model and adapter
+simrag experiment test \
+  --base-model "Qwen/Qwen2.5-1.5B-Instruct" \
+  --adapter-path "tuned_models/model_1b/stage_1/v1.0/checkpoint-1000" \
+  --stage stage_1
+```
+
+**Results**: Saved as timestamped JSON files in `experiments/*/results/` and `comparison_results/` with metrics, Q&A pairs, and model info.
 
 ## Development
 
@@ -331,16 +361,9 @@ mypy simrag_reproduction/
 - Try: `pip install --upgrade poetry`
 - Or use official installer: `curl -sSL https://install.python-poetry.org | python3 -`
 
-**Ollama not found**:
-- Install from [ollama.ai](https://ollama.ai/)
-- Verify it's running: `ollama list` (should show available models)
-- On Windows, ensure Ollama service is running
-
 ### Runtime Issues
 
-**No providers available**: Ollama is the default provider. Ensure Ollama is installed and running, or set `BASELINE_PROVIDER=huggingface` in `.env` as fallback
-
-**Model not found (Ollama)**: Only if using Ollama - Run `ollama pull qwen2.5:1.5b` (small) or `ollama pull qwen2.5:7b` (medium)
+**No providers available**: The system uses HuggingFace by default. For faster QA generation during training, set `PURDUE_API_KEY` in `.env`. The `test` command always uses HuggingFace directly.
 
 **CUDA Out of Memory**: 
 - QLoRA is always enabled (4-bit quantization)
@@ -360,7 +383,11 @@ Trained models are stored in `tuned_models/` as LoRA adapters (~100MB for 1.5B, 
 - `model_1b/` and `model_8b/` contain `stage_1/` and `stage_2/` subdirectories
 - Each version (v1.0, v1.1, etc.) contains adapter files and metadata
 - `model_registry.json` tracks all versions, training parameters, and metrics
-- Models are automatically registered with Ollama after training for fast inference
+- Models can be tested locally using the `test` command or exported for Colab testing
+
+**Testing Models**:
+- **Local Testing** (`simrag experiment test`): Uses HuggingFace with 4-bit quantization, matches Colab notebook exactly. Automatically reuses compatible baseline results to save time.
+- **Export for Colab** (`simrag experiment export`): Create cross-platform ZIP files for Google Colab testing
 
 ## Logging
 

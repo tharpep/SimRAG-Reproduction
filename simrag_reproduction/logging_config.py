@@ -137,7 +137,7 @@ def log_rag_result(
         answer: The answer generated
         response_time: Total response time in seconds
         model_name: Model used for generation
-        provider: Provider used (ollama, purdue, etc.)
+        provider: Provider used (purdue, huggingface, etc.)
         context_docs: List of retrieved document texts
         context_scores: List of relevance scores for retrieved documents
         retrieval_time: Time spent on retrieval

@@ -14,18 +14,15 @@ class TestAIGateway:
     def test_init_with_config(self):
         """Test gateway initialization with config"""
         config = {
-            "purdue": {"api_key": "test-key"},
-            "ollama": {"base_url": "http://localhost:11434", "default_model": "test-model"}
+            "purdue": {"api_key": "test-key"}
         }
         
-        with patch('simrag_reproduction.ai_providers.gateway.PurdueGenAI') as mock_purdue, \
-             patch('simrag_reproduction.ai_providers.gateway.OllamaClient') as mock_ollama:
+        with patch('simrag_reproduction.ai_providers.gateway.PurdueGenAI') as mock_purdue:
             
             gateway = AIGateway(config)
             
-            # Should initialize both providers
+            # Should initialize Purdue provider
             mock_purdue.assert_called_once_with("test-key")
-            mock_ollama.assert_called_once()
     
     def test_init_from_env_vars(self):
         """Test gateway initialization from environment variables"""
@@ -39,13 +36,6 @@ class TestAIGateway:
             # Purdue should also be initialized if API key is present
             mock_purdue.assert_called_once()
     
-    def test_init_with_ollama_env(self):
-        """Test gateway initialization with Ollama environment variable"""
-        with patch.dict(os.environ, {'USE_OLLAMA': 'true', 'MODEL_SIZE': 'small'}), \
-             patch('simrag_reproduction.ai_providers.gateway.OllamaClient') as mock_ollama:
-            
-            gateway = AIGateway()
-            mock_ollama.assert_called_once()
     
     def test_get_available_providers(self):
         """Test getting available providers"""
@@ -63,8 +53,7 @@ class TestAIGateway:
         with patch('simrag_reproduction.ai_providers.gateway.PurdueGenAI') as mock_purdue, \
              patch('simrag_reproduction.ai_providers.gateway.HuggingFaceClient') as mock_hf, \
              patch('simrag_reproduction.ai_providers.gateway.get_rag_config') as mock_config:
-            # Mock config - HuggingFace is default
-            mock_config.return_value.use_ollama = False
+            # Mock config
             mock_config.return_value.model_name = "Qwen/Qwen2.5-1.5B-Instruct"
             
             mock_hf_client = MagicMock()
@@ -99,7 +88,6 @@ class TestAIGateway:
              patch('simrag_reproduction.ai_providers.gateway.HuggingFaceClient') as mock_hf, \
              patch.dict('os.environ', {}, clear=True):  # Clear environment variables
             # Mock config
-            mock_config.return_value.use_ollama = False
             mock_config.return_value.model_name = "Qwen/Qwen2.5-1.5B-Instruct"
             
             # Make HuggingFace client fail to initialize

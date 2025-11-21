@@ -22,7 +22,7 @@ class TestRAGSystem:
     def setup_method(self):
         """Setup for each test method"""
         self.config = RAGConfig(
-            use_ollama=False,  # HuggingFace is default
+            force_provider="huggingface"
             use_persistent=False,  # Use in-memory storage for tests to avoid lock conflicts
             model_size="small"  # Use small model (Qwen/Qwen2.5-1.5B-Instruct)
         )

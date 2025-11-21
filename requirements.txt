@@ -19,7 +19,7 @@ numpy>=1.24.0
 # Note: pandas is used by datasets library and may be needed for data processing
 pandas>=2.0.0
 
-# HTTP client for Ollama
+# HTTP client for API requests
 httpx>=0.24.0
 
 # Quantization and Parameter-Efficient Fine-Tuning

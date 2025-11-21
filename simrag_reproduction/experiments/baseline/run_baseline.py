@@ -42,26 +42,19 @@ def run_baseline_test(
     if test_questions is None:
         test_questions = get_test_questions()
     
-    # Initialize RAG system - use Ollama for baseline testing (fast and reliable)
-    # Note: Ollama is ~10x faster than HuggingFace for inference
-    # SimRAG testing also uses Ollama (with merged fine-tuned models)
-    logger.info("Initializing RAG system...")
-    rag_config = get_rag_config()
-    
-    # Use provider from config (default: Ollama, can be set via BASELINE_PROVIDER env var)
-    baseline_provider = rag_config.baseline_provider
-    logger.info(f"Initializing RAG system with {baseline_provider}...")
+    # Initialize RAG system - use HuggingFace for baseline testing
+    logger.info("Initializing RAG system with HuggingFace...")
     
     try:
         rag = BasicRAG(
             collection_name="baseline_experiment",
             use_persistent=False,  # Use in-memory for experiments
-            force_provider=baseline_provider
+            force_provider="huggingface"
         )
-        logger.info(f"✓ Using {baseline_provider} for baseline")
+        logger.info("✓ Using HuggingFace for baseline")
     except Exception as e:
-        logger.error(f"{baseline_provider} not available: {e}")
-        logger.error("Baseline testing requires Ollama. Please ensure Ollama is installed and running.")
+        logger.error(f"HuggingFace not available: {e}")
+        logger.error("Baseline testing requires HuggingFace. Please ensure transformers is installed.")
         raise
     
     # Load documents
@@ -97,10 +90,9 @@ def run_baseline_test(
         },
         "config": {
             "model_name": rag_config.model_name,
-            "use_ollama": rag_config.use_ollama,
+            "provider": "huggingface",
             "top_k": rag_config.top_k,
             "similarity_threshold": rag_config.similarity_threshold,
-            "baseline_provider": rag_config.baseline_provider
         },
         "dataset": {
             "documents_folder": documents_folder,

@@ -176,7 +176,7 @@ class DomainAdaptation(SimRAGBase):
             
             # Update QA generator to use current model (for rounds > 1)
             # Note: We reuse the existing QA generator to avoid Qdrant lock issues.
-            # The model path is only stored for reference; generation uses the gateway (Purdue API/Ollama).
+            # The model path is only stored for reference; generation uses the gateway (Purdue API/HuggingFace).
             if round_num > 1 and current_model_path:
                 logger.info(f"Updating QA generator to use improved model from Round {round_num - 1}")
                 # Just update the stored model path - no need to recreate the QA generator

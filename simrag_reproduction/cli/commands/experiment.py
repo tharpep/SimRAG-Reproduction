@@ -8,7 +8,7 @@ from ..utils import check_venv
 
 
 def experiment(
-    command: str = typer.Argument(..., help="Experiment command: run, stage1, stage2, baseline, simrag, compare, export, results, or test-local"),
+    command: str = typer.Argument(..., help="Experiment command: run, stage1, stage2, baseline, simrag, compare, export, results, or test"),
     documents: Optional[str] = typer.Option(None, "--documents", "-d", help="Path to documents folder"),
     test_data: bool = typer.Option(False, "--test-data", help="Use test data for Stage 1 instead of Alpaca"),
     baseline_file: Optional[str] = typer.Option(None, "--baseline-file", help="Path to existing baseline results"),
@@ -38,13 +38,13 @@ def experiment(
         _run_export_model()
     elif command == "results":
         _run_display_results()
-    elif command == "test-local":
+    elif command == "test":
         _run_local_testing(documents, base_model, adapter_path, stage)
     else:
         typer.echo(f"Unknown experiment command: {command}", err=True)
-        typer.echo("Available commands: run, stage1, stage2, baseline, simrag, compare, export, results, test-local", err=True)
+        typer.echo("Available commands: run, stage1, stage2, baseline, simrag, compare, export, results, test", err=True)
         typer.echo("\nNote: 'run' trains both stages. Use 'stage1' or 'stage2' to run individually.", err=True)
-        typer.echo("Use 'test-local' for local HuggingFace model testing (matches Colab notebook).", err=True)
+        typer.echo("Use 'test' for local HuggingFace model testing (matches Colab notebook).", err=True)
         raise typer.Exit(1)
 
 

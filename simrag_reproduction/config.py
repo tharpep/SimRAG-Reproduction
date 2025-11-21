@@ -14,9 +14,8 @@ class RAGConfig:
     # Model size settings
     model_size: str = "small"  # "small" for Qwen/Qwen2.5-1.5B-Instruct, "medium" for Qwen/Qwen2.5-7B-Instruct (both non-gated)
     
-    # AI Provider settings
-    use_ollama: bool = False  # True for Ollama (intermediate steps), False for Purdue API (default: False for synthetic QA)
-    baseline_provider: str = "ollama"  # Default to Ollama for old baseline command (experiments/baseline/run_baseline.py)
+    # AI Provider settings (for synthetic QA generation during training)
+    # Note: Purdue API is preferred for QA generation, HuggingFace is fallback
     
     # Vector store settings
     use_persistent: bool = True  # True for persistent storage, False for in-memory only
@@ -145,8 +144,6 @@ def get_rag_config() -> RAGConfig:
     
     Environment variables that can be set:
         - MODEL_SIZE: "small" or "medium" (small=Qwen/Qwen2.5-1.5B-Instruct, medium=Qwen/Qwen2.5-7B-Instruct)
-    - USE_OLLAMA: "true" or "false" (use Ollama vs Purdue API for Stage 2 QA generation)
-    - BASELINE_PROVIDER: "ollama" or "huggingface" (provider for old baseline command, default: "ollama")
     - USE_PERSISTENT: "true" or "false" (persistent vs in-memory storage)
     - COLLECTION_NAME: name for Qdrant collection
     - MAX_TOKENS: maximum tokens in response (default: 100)
@@ -167,21 +164,6 @@ def get_rag_config() -> RAGConfig:
         else:
             print(f"Warning: Invalid MODEL_SIZE '{model_size_env}', must be 'small' or 'medium'. Using default.")
     
-    use_ollama_env = os.getenv("USE_OLLAMA")
-    if use_ollama_env:
-        config.use_ollama = use_ollama_env.lower() == "true"
-    
-    baseline_provider_env = os.getenv("BASELINE_PROVIDER")
-    if baseline_provider_env:
-        baseline_provider_lower = baseline_provider_env.lower()
-        if baseline_provider_lower in ["ollama", "huggingface"]:
-            config.baseline_provider = baseline_provider_lower
-        else:
-            print(f"Warning: Invalid BASELINE_PROVIDER '{baseline_provider_env}', must be 'ollama' or 'huggingface'. Using default.")
-    # BASELINE_PROVIDER is independent of USE_OLLAMA
-    # USE_OLLAMA controls Stage 2 QA generation (synthetic QA), not baseline testing
-    # BASELINE_PROVIDER only affects the old baseline command (simrag experiment baseline)
-    # The new test-local command uses HuggingFace directly and ignores this setting
     
     use_persistent_env = os.getenv("USE_PERSISTENT")
     if use_persistent_env:

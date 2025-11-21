@@ -11,7 +11,7 @@ from pathlib import Path
 from ..logging_config import get_logger
 from ..tuning.basic_tuning import BasicTuner
 from ..tuning.model_registry import get_model_registry
-# Ollama integration removed - testing is done in Colab, not locally with Ollama
+# Testing is done locally with HuggingFace (test command) or in Colab
 from ..config import get_tuning_config
 from ..rag.rag_setup import BasicRAG
 
@@ -177,7 +177,7 @@ class SimRAGBase:
             logger.error(f"Training failed: {e}")
             raise
     
-    # Ollama registration removed - testing is done in Colab, not locally with Ollama
+    # Testing is done locally with HuggingFace (test command) or in Colab
     
     def get_model_from_registry(self, version: Optional[str] = None, stage: Optional[str] = None) -> Optional[str]:
         """

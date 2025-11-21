@@ -273,7 +273,7 @@ class LocalRAGTester:
                     continue
                 
                 # Check config parameters (top_k, temperature, max_tokens, embedding_model)
-                # Note: Old baseline results (Ollama-based) won't have max_tokens/embedding_model,
+                # Note: Old baseline results may not have max_tokens/embedding_model,
                 # so they'll be skipped automatically. Only new HuggingFace baselines will match.
                 if (baseline_config.get("top_k") != self.config.top_k or
                     baseline_config.get("temperature") != self.config.temperature):

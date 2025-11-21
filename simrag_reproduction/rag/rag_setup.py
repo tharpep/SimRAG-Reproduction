@@ -14,15 +14,14 @@ from typing import Optional
 class BasicRAG:
     """RAG system that orchestrates vector storage, retrieval, and generation"""
     
-    def __init__(self, collection_name=None, use_persistent=None, force_provider=None, ollama_model_name=None):
+    def __init__(self, collection_name=None, use_persistent=None, force_provider=None):
         """
         Initialize RAG system
         
         Args:
             collection_name: Name for Qdrant collection (uses config default if None)
             use_persistent: If True, use persistent Qdrant storage (uses config default if None)
-            force_provider: Force provider to use ("purdue", "ollama", or "huggingface"). If None, uses config default.
-            ollama_model_name: Name of Ollama model to use (e.g., "simrag-1b-stage2-v1-0"). If provided, forces Ollama provider.
+            force_provider: Force provider to use ("purdue" or "huggingface"). If None, uses config default.
         """
         self.config = get_rag_config()
         self.collection_name = collection_name or self.config.collection_name
@@ -30,20 +29,9 @@ class BasicRAG:
         # Initialize components
         gateway_config = {}
         
-        # Use Ollama with specific fine-tuned model if provided
-        if ollama_model_name:
-            force_provider = "ollama"
-            self.ollama_model_name = ollama_model_name
-        else:
-            self.ollama_model_name = None
-        
         # If forcing a provider, explicitly add it to gateway config
         if force_provider:
-            if force_provider == "ollama":
-                gateway_config["ollama"] = {
-                    "default_model": self.ollama_model_name or os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b")
-                }
-            elif force_provider == "purdue":
+            if force_provider == "purdue":
                 gateway_config["purdue"] = {}
             elif force_provider == "huggingface":
                 gateway_config["huggingface"] = {}
@@ -55,9 +43,6 @@ class BasicRAG:
         if force_provider:
             original_chat = self.gateway.chat
             def forced_chat(message: str, provider: Optional[str] = None, model: Optional[str] = None, **kwargs):
-                # Use Ollama model name if provided
-                if force_provider == "ollama" and self.ollama_model_name:
-                    model = self.ollama_model_name
                 return original_chat(message, provider=force_provider, model=model, force_provider=True, **kwargs)
             self.gateway.chat = forced_chat
         

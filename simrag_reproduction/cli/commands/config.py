@@ -33,7 +33,7 @@ def config() -> None:
         typer.echo("")
 
         typer.echo("RAG Configuration:")
-        typer.echo(f"  AI Provider: {'Ollama' if rag_config.use_ollama else 'Purdue API'}")
+        typer.echo(f"  AI Provider: Purdue API (fallback to HuggingFace)")
         typer.echo(f"  Storage: {'Persistent' if rag_config.use_persistent else 'In-memory'}")
         typer.echo(f"  Collection: {rag_config.collection_name}")
         typer.echo(f"  Top-K: {rag_config.top_k}")
@@ -47,7 +47,7 @@ def config() -> None:
         typer.echo("")
 
         typer.echo("Note: You can override these settings by editing config.py")
-        typer.echo("or setting environment variables (MODEL_SIZE, USE_OLLAMA, etc.)")
+        typer.echo("or setting environment variables (MODEL_SIZE, PURDUE_API_KEY, etc.)")
 
     except Exception as e:
         typer.echo(f"Error: Could not load configuration: {e}", err=True)

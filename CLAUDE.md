@@ -67,9 +67,9 @@ mypy simrag_reproduction/          # Type checking
 
 **1. AI Providers Gateway** ([simrag_reproduction/ai_providers/](simrag_reproduction/ai_providers/))
 - Multi-provider abstraction for LLM access
-- `AIGateway` routes requests to available providers (Ollama, Purdue API, HuggingFace)
-- Ollama is default for baseline testing (10x faster than HuggingFace)
-- Purdue API used for synthetic QA generation during training
+- `AIGateway` routes requests to available providers (Purdue API, HuggingFace)
+- Purdue API is preferred for synthetic QA generation during training (faster)
+- HuggingFace is used for baseline testing and local model testing
 
 **2. RAG System** ([simrag_reproduction/rag/](simrag_reproduction/rag/))
 - `BasicRAG`: Main orchestrator for document indexing and querying
@@ -86,7 +86,7 @@ mypy simrag_reproduction/          # Type checking
 **4. Model Tuning** ([simrag_reproduction/tuning/](simrag_reproduction/tuning/))
 - `BasicTuner`: QLoRA training orchestrator (4-bit quantization, LoRA adapters)
 - `ModelRegistry`: Tracks all model versions with metadata linking stages via `experiment_run_id`
-- `ollama_integration`: Auto-registers fine-tuned models with Ollama for fast inference
+- Models can be tested locally using the `test` command or exported for Colab
 
 **5. Experiments** ([simrag_reproduction/experiments/](simrag_reproduction/experiments/))
 - `run_experiment.py`: Main orchestrator for complete pipeline
@@ -105,8 +105,7 @@ Configuration uses dataclasses with environment variable overrides ([simrag_repr
 Key environment variables (all optional - project has sensible defaults):
 ```bash
 MODEL_SIZE=small|medium           # small=Qwen2.5-1.5B, medium=Qwen2.5-7B
-USE_OLLAMA=true|false             # Use Ollama for intermediate steps
-BASELINE_PROVIDER=ollama|huggingface  # Provider for baseline (default: ollama)
+PURDUE_API_KEY=your-key           # Optional - for faster QA generation (fallback to HuggingFace)
 TUNING_BATCH_SIZE=1-16            # Training batch size
 TUNING_EPOCHS=1-10                # Training epochs
 LORA_R=8-64                       # LoRA rank (default: 16)
@@ -129,11 +128,11 @@ Documents → DocumentIngester → VectorStore (Qdrant)
 **SimRAG Training:**
 ```
 Stage 1: Alpaca dataset → BasicTuner (QLoRA) → Stage 1 model → ModelRegistry
-         → ollama_integration (auto-register)
+         → ModelRegistry (version tracking)
 
 Stage 2: Domain documents → SyntheticQAGeneration (via AIGateway)
          → QA pairs → BasicTuner (QLoRA) → Stage 2 model → ModelRegistry
-         → ollama_integration (auto-register)
+         → ModelRegistry (version tracking)
 
 Self-improvement: Repeat Stage 2 using previous round's model for QA generation
 ```
@@ -143,7 +142,7 @@ Self-improvement: Repeat Stage 2 using previous round's model for QA generation
 Models stored in `tuned_models/model_{1b,8b}/{stage_1,stage_2}/v{X.Y}/`:
 - LoRA adapters (~100MB for 1.5B, ~400MB for 7B)
 - Metadata tracked in `model_registry.json` with `experiment_run_id` linking stages
-- Auto-registered with Ollama via Modelfile with adapter directives
+- Tested locally using `simrag experiment test` or exported for Colab
 
 ## Important Implementation Details
 
@@ -154,13 +153,12 @@ Models stored in `tuned_models/model_{1b,8b}/{stage_1,stage_2}/v{X.Y}/`:
 
 ### Performance Optimizations
 - **Gradient checkpointing** enabled to reduce memory usage during training
-- **Ollama for baseline** provides 10x speedup vs HuggingFace for inference
+- **HuggingFace** is used for all local testing and inference
 - **QLoRA (4-bit quantization)** reduces VRAM to ~3-4GB for 1.5B model training
 
 ### Provider Selection
-- `USE_OLLAMA`: Controls intermediate steps (synthetic QA generation)
-- `BASELINE_PROVIDER`: Independent control for baseline testing (default: "ollama" for 10x speedup)
-- Ollama must be installed and running (`ollama list` to verify)
+- `PURDUE_API_KEY`: Optional - for faster QA generation during training (fallback to HuggingFace)
+- All testing uses HuggingFace directly (no external services required)
 
 ### Self-Improvement Loop
 - Controlled by `SIMRAG_IMPROVEMENT_ROUNDS` (default: 1 = no self-improvement)
@@ -212,12 +210,12 @@ simrag experiment test  # Interactive prompts for stage/model selection
 
 ## Debugging Tips
 
-- **Ollama not found**: Install from ollama.ai, verify with `ollama list`
+- **Purdue API issues**: If `PURDUE_API_KEY` is not set, the system will use HuggingFace (slower but works offline)
 - **CUDA OOM**: Reduce `TUNING_BATCH_SIZE`, switch to smaller model
 - **Model not loading**: Check `HF_TOKEN` for gated models (Llama), verify internet connection
 - **Vector store issues**: Delete `data/qdrant_db/` or set `USE_PERSISTENT=false` for in-memory mode
 - **Poetry environment**: Always run `poetry shell` before commands, or use `poetry run simrag`
-- **Model running on CPU instead of GPU**: The test script now uses LoRA adapters directly (ADAPTER directive) instead of merged models for better memory efficiency. Models should load with `num_gpu -1` to force full GPU usage. Check `ollama ps` to verify GPU allocation.
+- **Model running on CPU instead of GPU**: The test command uses HuggingFace with 4-bit quantization. Ensure CUDA is available: `python -c "import torch; print(torch.cuda.is_available())"`
 
 ## File Locations for Common Tasks
 
@@ -237,6 +235,6 @@ simrag experiment test  # Interactive prompts for stage/model selection
 - **Python**: 3.12 (required for PyTorch CUDA 12.1 support)
 - **PyTorch**: >=2.0.0 from CUDA 12.1 index
 - **Key libraries**: transformers, datasets, sentence-transformers, qdrant-client, bitsandbytes, peft, accelerate
-- **Optional external services**: Ollama (recommended for 10x speedup), Purdue GenAI API
+- **Optional external services**: Purdue GenAI API (for faster QA generation, fallback to HuggingFace)
 
 See [pyproject.toml](pyproject.toml) for complete dependency list.
