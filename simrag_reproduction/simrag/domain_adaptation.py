@@ -185,7 +185,9 @@ class DomainAdaptation(SimRAGBase):
             
             # Train single round
             try:
-                round_notes = f"{notes} - Round {round_num}/{improvement_rounds}"
+                # Always include round information in notes
+                base_notes = notes if notes else "SimRAG Stage 2 - Domain Adaptation"
+                round_notes = f"{base_notes} - Round {round_num}/{improvement_rounds}"
                 version = self._train_single_round(
                     documents=documents,
                     current_model_path=current_model_path,
@@ -227,16 +229,24 @@ class DomainAdaptation(SimRAGBase):
                     break
         
         if final_version:
-            # Update final version's notes to include total rounds information
+            # Ensure final version's notes include round information
             # This makes it easy to identify how many rounds a model was trained with
             if final_round_num > 1:
-                # Append rounds info to notes if not already there
-                if f"({final_round_num} rounds)" not in (final_version.notes or ""):
-                    original_notes = final_version.notes or ""
-                    final_version.notes = f"{original_notes} ({final_round_num} rounds total)".strip()
-                    # Update registry with round information
-                    if self.registry:
-                        self.registry.register_version(final_version)
+                # Check if round info is already in notes
+                current_notes = final_version.notes or ""
+                has_round_info = "Round" in current_notes or f"({final_round_num} rounds" in current_notes
+                
+                if not has_round_info:
+                    # Add round info if missing (shouldn't happen, but safety check)
+                    base_notes = current_notes.strip() if current_notes else "SimRAG Stage 2 - Domain Adaptation"
+                    final_version.notes = f"{base_notes} - Round {final_round_num}/{improvement_rounds} ({final_round_num} rounds total)".strip()
+                elif f"({final_round_num} rounds total)" not in current_notes:
+                    # Append total rounds info if not already there
+                    final_version.notes = f"{current_notes} ({final_round_num} rounds total)".strip()
+                
+                # Update registry with round information
+                if self.registry:
+                    self.registry.register_version(final_version)
             
             logger.info(f"\n{'='*60}")
             logger.info(f"Stage 2 Training Complete!")

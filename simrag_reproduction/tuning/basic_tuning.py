@@ -445,9 +445,14 @@ class BasicTuner:
                 model_size_mb = total_params * 4 / (1024 * 1024)  # Assuming float32
             
             # Update version with training results
+            # IMPORTANT: Preserve notes (they contain round information for Stage 2)
+            original_notes = new_version.notes
             new_version.training_time_seconds = training_time
             new_version.final_loss = final_loss
             new_version.model_size_mb = model_size_mb
+            # Ensure notes are preserved (they should already be set, but safety check)
+            if original_notes:
+                new_version.notes = original_notes
             
             # Re-register with updated metrics
             self.registry.register_version(new_version)
