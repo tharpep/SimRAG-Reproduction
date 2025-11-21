@@ -31,6 +31,12 @@ class RAGConfig:
     max_tokens: int = 100  # Maximum tokens in response (50-500 recommended, 100 is sufficient for most answers)
     temperature: float = 0.7  # Creativity level (0.0-1.0, lower = more focused)
     
+    # Local testing settings (matches Colab notebook exactly)
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"  # Embedding model for vector store (384 dimensions)
+    local_testing_max_tokens: int = 512  # Max tokens for local testing (matches Colab, more generous for complete answers)
+    reuse_baseline: bool = True  # Reuse most recent compatible baseline if available (saves ~5-10 min)
+    baseline_max_age_days: int = 7  # Maximum age in days for reusable baseline (default: 7 days)
+    
     @property
     def model_name(self) -> str:
         """Get HuggingFace model ID based on model size configuration"""
@@ -145,6 +151,10 @@ def get_rag_config() -> RAGConfig:
     - COLLECTION_NAME: name for Qdrant collection
     - MAX_TOKENS: maximum tokens in response (default: 100)
     - TEMPERATURE: creativity level 0.0-1.0 (default: 0.7)
+    - EMBEDDING_MODEL: embedding model for vector store (default: "sentence-transformers/all-MiniLM-L6-v2")
+    - LOCAL_TESTING_MAX_TOKENS: max tokens for local testing (default: 512)
+    - REUSE_BASELINE: "true" or "false" (reuse compatible baseline if available, default: "true")
+    - BASELINE_MAX_AGE_DAYS: maximum age in days for reusable baseline (default: 7)
     """
     config = RAGConfig()
     
@@ -193,6 +203,28 @@ def get_rag_config() -> RAGConfig:
             config.temperature = float(temperature_env)
         except ValueError:
             print(f"Warning: Invalid TEMPERATURE '{temperature_env}', must be a float. Using default.")
+    
+    embedding_model_env = os.getenv("EMBEDDING_MODEL")
+    if embedding_model_env:
+        config.embedding_model = embedding_model_env
+    
+    local_testing_max_tokens_env = os.getenv("LOCAL_TESTING_MAX_TOKENS")
+    if local_testing_max_tokens_env:
+        try:
+            config.local_testing_max_tokens = int(local_testing_max_tokens_env)
+        except ValueError:
+            print(f"Warning: Invalid LOCAL_TESTING_MAX_TOKENS '{local_testing_max_tokens_env}', must be an integer. Using default.")
+    
+    reuse_baseline_env = os.getenv("REUSE_BASELINE")
+    if reuse_baseline_env:
+        config.reuse_baseline = reuse_baseline_env.lower() == "true"
+    
+    baseline_max_age_days_env = os.getenv("BASELINE_MAX_AGE_DAYS")
+    if baseline_max_age_days_env:
+        try:
+            config.baseline_max_age_days = int(baseline_max_age_days_env)
+        except ValueError:
+            print(f"Warning: Invalid BASELINE_MAX_AGE_DAYS '{baseline_max_age_days_env}', must be an integer. Using default.")
     
     return config
 

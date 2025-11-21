@@ -18,7 +18,11 @@ finetuned_model/
 my_finetuned_model/
 .cache/
 
+# Tuned models directory (too large for repo - model exports are generated files)
+tuned_models/
+
 # QLoRA adapter files (keep adapter_config.json for metadata, but ignore weights)
+# Note: Above line ignores entire tuned_models/ directory, so these are redundant but kept for clarity
 tuned_models/**/adapter_model.safetensors
 tuned_models/**/adapter_model.bin
 

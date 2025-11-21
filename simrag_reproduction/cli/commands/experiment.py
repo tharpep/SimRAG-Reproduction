@@ -8,12 +8,15 @@ from ..utils import check_venv
 
 
 def experiment(
-    command: str = typer.Argument(..., help="Experiment command: run, stage1, stage2, baseline, simrag, compare, export, or results"),
+    command: str = typer.Argument(..., help="Experiment command: run, stage1, stage2, baseline, simrag, compare, export, results, or test-local"),
     documents: Optional[str] = typer.Option(None, "--documents", "-d", help="Path to documents folder"),
     test_data: bool = typer.Option(False, "--test-data", help="Use test data for Stage 1 instead of Alpaca"),
     baseline_file: Optional[str] = typer.Option(None, "--baseline-file", help="Path to existing baseline results"),
     simrag_file: Optional[str] = typer.Option(None, "--simrag-file", help="Path to existing SimRAG results"),
     stage1_model: Optional[str] = typer.Option(None, "--stage1-model", help="Path to Stage 1 model (for Stage 2 only)"),
+    base_model: Optional[str] = typer.Option(None, "--base-model", help="Base model name for local testing (e.g., Qwen/Qwen2.5-1.5B-Instruct)"),
+    adapter_path: Optional[str] = typer.Option(None, "--adapter-path", help="Path to fine-tuned adapter for local testing"),
+    stage: Optional[str] = typer.Option(None, "--stage", help="Stage name (stage_1 or stage_2) for local testing"),
 ) -> None:
     """Run SimRAG experiments"""
     if not check_venv():
@@ -35,11 +38,13 @@ def experiment(
         _run_export_model()
     elif command == "results":
         _run_display_results()
+    elif command == "test-local":
+        _run_local_testing(documents, base_model, adapter_path, stage)
     else:
         typer.echo(f"Unknown experiment command: {command}", err=True)
-        typer.echo("Available commands: run, stage1, stage2, baseline, simrag, compare, export, results", err=True)
+        typer.echo("Available commands: run, stage1, stage2, baseline, simrag, compare, export, results, test-local", err=True)
         typer.echo("\nNote: 'run' trains both stages. Use 'stage1' or 'stage2' to run individually.", err=True)
-        typer.echo("Testing/comparison done in Colab notebook.", err=True)
+        typer.echo("Use 'test-local' for local HuggingFace model testing (matches Colab notebook).", err=True)
         raise typer.Exit(1)
 
 
@@ -517,6 +522,198 @@ def _run_display_results() -> None:
         raise
     except Exception as e:
         typer.echo(f"Failed to display results: {e}", err=True)
+        import traceback
+        traceback.print_exc()
+        raise typer.Exit(1)
+
+
+def _run_local_testing(
+    documents: Optional[str],
+    base_model: Optional[str],
+    adapter_path: Optional[str],
+    stage: Optional[str],
+) -> None:
+    """Run local RAG testing with HuggingFace models (matches Colab notebook)"""
+    try:
+        from ...experiments.local_testing import LocalRAGTester
+        from ...experiments.model_utils import list_available_models
+        from ...config import get_rag_config, get_tuning_config
+        from ...logging_config import setup_logging
+        from pathlib import Path
+
+        setup_logging()
+
+        # Resolve documents path
+        if documents:
+            documents_folder = documents
+        else:
+            cli_file = Path(__file__)
+            project_root = cli_file.parent.parent.parent.parent
+            documents_folder = str(project_root / "data" / "documents")
+
+        typer.echo("=== Local RAG Testing (HuggingFace) ===")
+        typer.echo("")
+        typer.echo("This command tests models locally using HuggingFace transformers")
+        typer.echo("with 4-bit quantization, matching the Colab notebook exactly.")
+        typer.echo("")
+
+        # Get base model if not provided
+        if not base_model:
+            config = get_tuning_config()
+            base_model = config.model_name
+            typer.echo(f"Using default base model: {base_model}")
+        else:
+            typer.echo(f"Using base model: {base_model}")
+
+        # Initialize tester
+        rag_config = get_rag_config()
+        tester = LocalRAGTester(
+            documents_folder=documents_folder,
+            config=rag_config
+        )
+
+        # Check if adapter_path provided - if so, run full test (baseline + fine-tuned)
+        if adapter_path:
+            if not stage:
+                typer.echo("Error: --stage is required when using --adapter-path", err=True)
+                typer.echo("  Use: --stage stage_1 or --stage stage_2", err=True)
+                raise typer.Exit(1)
+
+            typer.echo(f"\nRunning full test flow (baseline → fine-tuned → compare)...")
+            typer.echo(f"  Base model: {base_model}")
+            typer.echo(f"  Adapter: {adapter_path}")
+            typer.echo(f"  Stage: {stage}")
+            
+            # Check if baseline reuse is enabled
+            rag_config = get_rag_config()
+            if rag_config.reuse_baseline:
+                typer.echo(f"  Baseline: Will reuse if compatible (max age: {rag_config.baseline_max_age_days} days)")
+            else:
+                typer.echo(f"  Baseline: Will run new tests (reuse disabled)")
+            typer.echo("")
+
+            results = tester.run_full_test(
+                base_model_name=base_model,
+                adapter_path=adapter_path,
+                stage=stage,
+                model_version="v1.0",
+                checkpoint_name=None,
+                baseline_output="baseline_results.json",
+                finetuned_output="simrag_results.json",
+                comparison_output="comparison_results.json",
+                use_timestamp=True
+            )
+
+            typer.echo("\n✓ Full test complete!")
+            baseline_info = results['baseline'].get('_saved_filename', 'N/A')
+            if results['baseline'].get('_reused'):
+                baseline_info = f"✓ Reused (from {results['baseline'].get('timestamp', 'unknown')})"
+            typer.echo(f"  Baseline results: {baseline_info}")
+            typer.echo(f"  Fine-tuned results: {results['finetuned'].get('_saved_filename', 'N/A')}")
+            typer.echo(f"  Comparison results: {results['comparison'].get('_saved_filename', 'N/A')}")
+
+        else:
+            # Interactive mode: choose stage → choose model → run full test
+            config = get_tuning_config()
+            
+            typer.echo("\nSelect stage:")
+            typer.echo("  1. Stage 1 (Instruction Following)")
+            typer.echo("  2. Stage 2 (Domain Adaptation)")
+            typer.echo("  0. Exit")
+            typer.echo("")
+
+            try:
+                stage_choice = typer.prompt("Enter stage number", default="0").strip()
+                if stage_choice == "0":
+                    typer.echo("Exiting...")
+                    raise typer.Exit(0)
+
+                stage_num = int(stage_choice)
+                if stage_num == 1:
+                    selected_stage = "stage_1"
+                elif stage_num == 2:
+                    selected_stage = "stage_2"
+                else:
+                    typer.echo(f"Invalid choice: {stage_num}", err=True)
+                    raise typer.Exit(1)
+
+                # List available models
+                models = list_available_models(selected_stage, config.model_size)
+                if not models:
+                    typer.echo(f"No models found for {selected_stage}!", err=True)
+                    typer.echo(f"Expected models in: tuned_models/model_{'1b' if config.model_size == 'small' else '8b'}/{selected_stage}/", err=True)
+                    raise typer.Exit(1)
+
+                typer.echo(f"\nAvailable {selected_stage} models ({len(models)}):")
+                for i, model in enumerate(models, 1):
+                    display_name = model.get('display_name', model['version'])
+                    loss_str = f", Loss: {model['final_loss']:.4f}" if model.get('final_loss') else ""
+                    time_str = f", Time: {model['training_time']:.1f}s" if model.get('training_time') else ""
+                    notes_str = f" - {model['notes']}" if model.get('notes') else ""
+                    typer.echo(f"  {i}. {display_name}{loss_str}{time_str}{notes_str}")
+                typer.echo("  0. Exit")
+                typer.echo("")
+
+                model_choice = typer.prompt("Enter model number", default="0").strip()
+                if model_choice == "0":
+                    raise typer.Exit(0)
+
+                model_num = int(model_choice)
+                if 1 <= model_num <= len(models):
+                    selected_model = models[model_num - 1]
+                    adapter_path = selected_model["path"]
+                    version = selected_model["version"]
+                    checkpoint = selected_model.get("checkpoint")
+
+                    typer.echo(f"\nRunning full test flow (baseline → fine-tuned → compare)...")
+                    typer.echo(f"  Base model: {base_model}")
+                    typer.echo(f"  Model: {version} ({selected_stage})")
+                    if checkpoint:
+                        typer.echo(f"  Checkpoint: {checkpoint}")
+                    
+                    # Check if baseline reuse is enabled
+                    rag_config = get_rag_config()
+                    if rag_config.reuse_baseline:
+                        typer.echo(f"  Baseline: Will reuse if compatible (max age: {rag_config.baseline_max_age_days} days)")
+                    else:
+                        typer.echo(f"  Baseline: Will run new tests (reuse disabled)")
+                    typer.echo("")
+
+                    results = tester.run_full_test(
+                        base_model_name=base_model,
+                        adapter_path=adapter_path,
+                        stage=selected_stage,
+                        model_version=version,
+                        checkpoint_name=checkpoint,
+                        baseline_output="baseline_results.json",
+                        finetuned_output="simrag_results.json",
+                        comparison_output="comparison_results.json",
+                        use_timestamp=True
+                    )
+
+                    typer.echo("\n✓ Full test complete!")
+                    baseline_info = results['baseline'].get('_saved_filename', 'N/A')
+                    if results['baseline'].get('_reused'):
+                        baseline_info = f"✓ Reused (from {results['baseline'].get('timestamp', 'unknown')})"
+                    typer.echo(f"  Baseline results: {baseline_info}")
+                    typer.echo(f"  Fine-tuned results: {results['finetuned'].get('_saved_filename', 'N/A')}")
+                    typer.echo(f"  Comparison results: {results['comparison'].get('_saved_filename', 'N/A')}")
+                else:
+                    typer.echo(f"Invalid choice: {model_num}", err=True)
+                    raise typer.Exit(1)
+
+            except ValueError:
+                typer.echo("Invalid input. Please enter a number.", err=True)
+                raise typer.Exit(1)
+
+        raise typer.Exit(0)
+    except KeyboardInterrupt:
+        typer.echo("\nOperation cancelled.")
+        raise typer.Exit(1)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        typer.echo(f"Local testing failed: {e}", err=True)
         import traceback
         traceback.print_exc()
         raise typer.Exit(1)
