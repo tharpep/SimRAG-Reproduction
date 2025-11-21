@@ -68,7 +68,15 @@ class VectorStore:
             
         Returns:
             Number of points added
+            
+        Raises:
+            ValueError: If points list is empty or invalid
         """
+        if not points:
+            raise ValueError("points list cannot be empty")
+        if not isinstance(points, list):
+            raise ValueError(f"points must be a list, got: {type(points)}")
+        
         try:
             self.client.upsert(collection_name=collection_name, points=points)
             return len(points)
@@ -87,7 +95,17 @@ class VectorStore:
             
         Returns:
             List of (text, score) tuples
+            
+        Raises:
+            ValueError: If query_vector is empty or invalid
         """
+        if not query_vector:
+            raise ValueError("query_vector cannot be empty")
+        if not isinstance(query_vector, list):
+            raise ValueError(f"query_vector must be a list, got: {type(query_vector)}")
+        if not all(isinstance(x, (int, float)) for x in query_vector):
+            raise ValueError("query_vector must contain only numbers")
+        
         try:
             search_results = self.client.query_points(
                 collection_name=collection_name,
@@ -98,11 +116,12 @@ class VectorStore:
             # Validate payload structure and extract text
             results = []
             for hit in search_results:
-                if "text" in hit.payload:
+                if hasattr(hit, 'payload') and isinstance(hit.payload, dict) and "text" in hit.payload:
                     results.append((hit.payload["text"], hit.score))
                 else:
                     # Log warning if payload structure is unexpected
-                    print(f"Warning: Search result missing 'text' in payload: {hit.payload.keys()}")
+                    payload_keys = hit.payload.keys() if hasattr(hit, 'payload') and isinstance(hit.payload, dict) else "unknown"
+                    print(f"Warning: Search result missing 'text' in payload: {payload_keys}")
             return results
         except Exception as e:
             print(f"Error searching: {e}")

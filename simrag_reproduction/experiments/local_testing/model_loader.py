@@ -6,6 +6,9 @@ Handles loading baseline and fine-tuned models with 4-bit quantization
 import gc
 from typing import Tuple, Any
 
+# Initialize IMPORT_ERROR at module level to avoid undefined variable errors
+IMPORT_ERROR = ""
+
 try:
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig

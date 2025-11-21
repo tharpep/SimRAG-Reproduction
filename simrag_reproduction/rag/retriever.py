@@ -18,10 +18,20 @@ class DocumentRetriever:
         
         Args:
             model_name: Name of the sentence transformer model
+            
+        Raises:
+            ValueError: If model_name is invalid
+            Exception: If model loading fails
         """
-        self.model_name = model_name
-        self.retriever = SentenceTransformer(model_name)
-        self.embedding_dim = self.retriever.get_sentence_embedding_dimension()
+        if not model_name or not isinstance(model_name, str) or not model_name.strip():
+            raise ValueError(f"model_name must be a non-empty string, got: {model_name}")
+        
+        try:
+            self.model_name = model_name
+            self.retriever = SentenceTransformer(model_name)
+            self.embedding_dim = self.retriever.get_sentence_embedding_dimension()
+        except Exception as e:
+            raise RuntimeError(f"Failed to load embedding model {model_name}: {e}")
     
     def encode_documents(self, documents: List[str]) -> List[List[float]]:
         """
@@ -32,9 +42,21 @@ class DocumentRetriever:
             
         Returns:
             List of embedding vectors
+            
+        Raises:
+            ValueError: If documents list is empty or invalid
+            Exception: If encoding fails
         """
-        embeddings = self.retriever.encode(documents)
-        return [embedding.tolist() for embedding in embeddings]
+        if not documents:
+            raise ValueError("documents list cannot be empty")
+        if not isinstance(documents, list):
+            raise ValueError(f"documents must be a list, got: {type(documents)}")
+        
+        try:
+            embeddings = self.retriever.encode(documents)
+            return [embedding.tolist() for embedding in embeddings]
+        except Exception as e:
+            raise RuntimeError(f"Failed to encode documents: {e}")
     
     def encode_query(self, query: str) -> List[float]:
         """
@@ -45,9 +67,19 @@ class DocumentRetriever:
             
         Returns:
             Query embedding vector
+            
+        Raises:
+            ValueError: If query is empty or invalid
+            Exception: If encoding fails
         """
-        embedding = self.retriever.encode(query)
-        return embedding.tolist()
+        if not query or not isinstance(query, str) or not query.strip():
+            raise ValueError("query must be a non-empty string")
+        
+        try:
+            embedding = self.retriever.encode(query)
+            return embedding.tolist()
+        except Exception as e:
+            raise RuntimeError(f"Failed to encode query: {e}")
     
     def create_points(self, documents: List[str], embeddings: List[List[float]], 
                      start_doc_id: int = 0) -> List[PointStruct]:
@@ -61,7 +93,17 @@ class DocumentRetriever:
             
         Returns:
             List of Qdrant PointStruct objects
+            
+        Raises:
+            ValueError: If documents and embeddings lists don't match or are empty
         """
+        if not documents:
+            raise ValueError("documents list cannot be empty")
+        if not embeddings:
+            raise ValueError("embeddings list cannot be empty")
+        if len(documents) != len(embeddings):
+            raise ValueError(f"documents ({len(documents)}) and embeddings ({len(embeddings)}) lists must have the same length")
+        
         points = []
         for idx, (doc, embedding) in enumerate(zip(documents, embeddings)):
             point = PointStruct(

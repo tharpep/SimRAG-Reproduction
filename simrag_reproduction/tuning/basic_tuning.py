@@ -98,9 +98,16 @@ class BasicTuner:
                 
                 # Load adapter config to get base model info
                 import json
-                with open(adapter_config_path, 'r') as f:
-                    adapter_config = json.load(f)
-                base_model_name = adapter_config.get("base_model_name_or_path", self.model_name)
+                try:
+                    with open(adapter_config_path, 'r', encoding='utf-8') as f:
+                        adapter_config = json.load(f)
+                    base_model_name = adapter_config.get("base_model_name_or_path", self.model_name)
+                    if not base_model_name:
+                        raise ValueError(f"Missing 'base_model_name_or_path' in adapter config: {adapter_config_path}")
+                except (OSError, IOError) as e:
+                    raise IOError(f"Failed to read adapter config file {adapter_config_path}: {e}")
+                except json.JSONDecodeError as e:
+                    raise ValueError(f"Invalid JSON in adapter config file {adapter_config_path}: {e}")
                 
                 # Load tokenizer from adapter path (it's saved there)
                 self.tokenizer = AutoTokenizer.from_pretrained(model_path)

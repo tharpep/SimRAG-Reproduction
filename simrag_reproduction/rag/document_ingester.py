@@ -9,6 +9,11 @@ from pathlib import Path
 from typing import List, Dict, Any, Union
 from .rag_setup import BasicRAG
 
+# Constants for magic numbers
+DEFAULT_MAX_CHUNK_SIZE = 1000
+DEFAULT_CHUNK_OVERLAP = 100
+SENTENCE_BOUNDARY_SEARCH_RANGE = 200
+
 
 class DocumentIngester:
     """Handles document ingestion and preprocessing"""
@@ -43,14 +48,19 @@ class DocumentIngester:
         
         try:
             # Read file content
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+            except (OSError, IOError) as e:
+                return {"error": f"Failed to read file {file_path}: {e}"}
+            except UnicodeDecodeError as e:
+                return {"error": f"Failed to decode file {file_path} (encoding issue): {e}"}
             
             # Basic preprocessing
             processed_content = self._preprocess_text(content)
             
             # Chunk long documents
-            chunks = self._chunk_text(processed_content, max_chunk_size=1000)
+            chunks = self._chunk_text(processed_content, max_chunk_size=DEFAULT_MAX_CHUNK_SIZE)
             
             # Index chunks
             count = self.rag.add_documents(chunks)
@@ -139,6 +149,16 @@ class DocumentIngester:
         Returns:
             List of text chunks
         """
+        if not text or not isinstance(text, str):
+            return []
+        
+        if max_chunk_size <= 0:
+            raise ValueError("max_chunk_size must be positive")
+        if overlap < 0:
+            raise ValueError("overlap must be non-negative")
+        if overlap >= max_chunk_size:
+            raise ValueError("overlap must be less than max_chunk_size")
+        
         if len(text) <= max_chunk_size:
             return [text]
         
@@ -151,7 +171,8 @@ class DocumentIngester:
             # Try to break at sentence boundary
             if end < len(text):
                 # Look for sentence endings
-                for i in range(end, max(start + max_chunk_size // 2, end - 200), -1):
+                search_start = max(start + max_chunk_size // 2, end - SENTENCE_BOUNDARY_SEARCH_RANGE)
+                for i in range(end, search_start, -1):
                     if text[i] in '.!?':
                         end = i + 1
                         break

@@ -68,7 +68,14 @@ class BasicRAG:
             
         Returns:
             Number of documents added
+            
+        Raises:
+            ValueError: If documents list is empty or invalid
         """
+        if not documents:
+            raise ValueError("documents list cannot be empty")
+        if not isinstance(documents, list):
+            raise ValueError(f"documents must be a list, got: {type(documents)}")
         # Clear collection first if configured to do so
         if self.config.clear_on_ingest:
             embedding_dim = self.retriever.get_embedding_dimension()
@@ -93,7 +100,12 @@ class BasicRAG:
             
         Returns:
             List of (text, score) tuples
+            
+        Raises:
+            ValueError: If query is empty or invalid
         """
+        if not query or not isinstance(query, str) or not query.strip():
+            raise ValueError("query must be a non-empty string")
         # Use config default if limit not specified
         if limit is None:
             limit = self.config.top_k
@@ -113,8 +125,13 @@ class BasicRAG:
             context_limit: Number of documents to retrieve for context (uses config default if None)
             
         Returns:
-            Answer string
+            Tuple of (answer, context_docs, context_scores)
+            
+        Raises:
+            ValueError: If question is empty or invalid
         """
+        if not question or not isinstance(question, str) or not question.strip():
+            raise ValueError("question must be a non-empty string")
         # Use config default if context_limit not specified
         if context_limit is None:
             context_limit = self.config.top_k

@@ -18,6 +18,11 @@ from .base_client import BaseLLMClient
 # Load environment variables (for HF_TOKEN)
 load_dotenv()
 
+# Constants for magic numbers
+DEFAULT_MAX_TOKENS = 200
+TIMEOUT_SECONDS_PER_100_TOKENS = 30
+MIN_TIMEOUT_SECONDS = 60
+
 # Set HuggingFace token from environment if available
 # Transformers library automatically uses HF_TOKEN or HUGGINGFACE_HUB_TOKEN
 hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_HUB_TOKEN")
@@ -43,7 +48,13 @@ class HuggingFaceClient(BaseLLMClient):
         Args:
             model_path: HuggingFace Hub model ID or local path to model directory
             device: Device to use ("auto", "cuda", "cpu")
+            
+        Raises:
+            ValueError: If model_path is invalid
         """
+        if not model_path or not isinstance(model_path, str) or not model_path.strip():
+            raise ValueError(f"model_path must be a non-empty string, got: {model_path}")
+        
         self.model_path = model_path
         self.device = self._get_device(device)
         self.tokenizer = None
@@ -106,9 +117,16 @@ class HuggingFaceClient(BaseLLMClient):
             if is_lora_adapter:
                 # Load LoRA adapter model
                 # 1. Load adapter config to get base model info
-                with open(adapter_config_path, 'r') as f:
-                    adapter_config = json.load(f)
-                base_model_name = adapter_config.get("base_model_name_or_path")
+                try:
+                    with open(adapter_config_path, 'r', encoding='utf-8') as f:
+                        adapter_config = json.load(f)
+                    base_model_name = adapter_config.get("base_model_name_or_path")
+                    if not base_model_name:
+                        raise ValueError(f"Missing 'base_model_name_or_path' in adapter config: {adapter_config_path}")
+                except (OSError, IOError) as e:
+                    raise IOError(f"Failed to read adapter config file {adapter_config_path}: {e}")
+                except json.JSONDecodeError as e:
+                    raise ValueError(f"Invalid JSON in adapter config file {adapter_config_path}: {e}")
                 
                 logger.debug(f"Loading base model: {base_model_name}")
                 
@@ -197,7 +215,7 @@ class HuggingFaceClient(BaseLLMClient):
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
         
         # Generation parameters
-        max_new_tokens = kwargs.get("max_tokens", kwargs.get("max_new_tokens", 200))
+        max_new_tokens = kwargs.get("max_tokens", kwargs.get("max_new_tokens", DEFAULT_MAX_TOKENS))
         temperature = kwargs.get("temperature", 0.7)
         do_sample = temperature > 0
         
@@ -208,8 +226,8 @@ class HuggingFaceClient(BaseLLMClient):
             torch.cuda.synchronize()  # Wait for all operations to complete
             torch.cuda.empty_cache()  # Clear unused cache
         
-        # Calculate timeout: 30 seconds per 100 tokens (reasonable for GPU)
-        timeout_seconds = max(60, (max_new_tokens / 100) * 30)
+        # Calculate timeout: N seconds per 100 tokens (reasonable for GPU)
+        timeout_seconds = max(MIN_TIMEOUT_SECONDS, (max_new_tokens / 100) * TIMEOUT_SECONDS_PER_100_TOKENS)
         start_time = time.time()
         
         # Generate
@@ -236,7 +254,15 @@ class HuggingFaceClient(BaseLLMClient):
                     logger.warning(f"Generation took {elapsed:.1f}s (timeout: {timeout_seconds}s)")
             
             # Decode output (skip input tokens)
+            if not outputs or len(outputs) == 0:
+                raise ValueError("Model generation returned empty output")
+            if "input_ids" not in inputs or inputs["input_ids"].shape[0] == 0:
+                raise ValueError("Invalid input_ids shape")
+            
             input_length = inputs["input_ids"].shape[1]
+            if len(outputs[0]) <= input_length:
+                raise ValueError(f"Generated output length ({len(outputs[0])}) is not greater than input length ({input_length})")
+            
             generated_tokens = outputs[0][input_length:]
             generated_text = self.tokenizer.decode(generated_tokens, skip_special_tokens=True)
             

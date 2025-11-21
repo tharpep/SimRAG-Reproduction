@@ -8,7 +8,10 @@ import json
 import time
 from pathlib import Path
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Callable, Tuple
+
+# Initialize IMPORT_ERROR at module level to avoid undefined variable errors
+IMPORT_ERROR = ""
 
 try:
     import torch
@@ -16,6 +19,13 @@ try:
 except ImportError as e:
     DEPS_AVAILABLE = False
     IMPORT_ERROR = str(e)
+
+# Constants for magic numbers
+PREVIEW_QUESTION_LENGTH = 60
+PREVIEW_ANSWER_LENGTH = 80
+MAX_TOKENIZER_LENGTH = 2048
+VALID_STAGES = {"stage_1", "stage_2"}
+ERROR_PREFIX = "ERROR:"
 
 from ...config import get_rag_config, get_tuning_config, RAGConfig
 from ...logging_config import setup_logging, get_logger
@@ -57,13 +67,35 @@ class LocalRAGTester:
             documents_folder: Path to folder containing documents
             test_questions: List of test questions (uses default if None)
             config: RAGConfig instance (uses default if None)
+            
+        Raises:
+            ImportError: If required dependencies are not available
+            ValueError: If documents_folder is invalid or test_questions is empty
         """
         if not DEPS_AVAILABLE:
             raise ImportError(f"Required dependencies not available: {IMPORT_ERROR}")
         
+        # Input validation
+        if not documents_folder or not isinstance(documents_folder, str):
+            raise ValueError(f"documents_folder must be a non-empty string, got: {type(documents_folder)}")
+        
+        documents_folder_path = Path(documents_folder)
+        if not documents_folder_path.exists():
+            raise ValueError(f"documents_folder does not exist: {documents_folder}")
+        if not documents_folder_path.is_dir():
+            raise ValueError(f"documents_folder must be a directory: {documents_folder}")
+        
         self.config = config or get_rag_config()
         self.documents_folder = documents_folder
         self.test_questions = test_questions or get_test_questions()
+        
+        # Validate test_questions
+        if not self.test_questions:
+            raise ValueError("test_questions cannot be empty. Provide questions or ensure defaults are available.")
+        if not isinstance(self.test_questions, list):
+            raise ValueError(f"test_questions must be a list, got: {type(self.test_questions)}")
+        if not all(isinstance(q, str) and q.strip() for q in self.test_questions):
+            raise ValueError("test_questions must be a list of non-empty strings")
         
         self.vector_store = ChromaDBStore(
             collection_name="model_test",
@@ -97,7 +129,7 @@ class LocalRAGTester:
         results: Dict[str, Any],
         model: Any,
         tokenizer: Any,
-        query_func,
+        query_func: Callable[[str, Any, Any, Any, int, float, int], Tuple[str, List[str], List[float]]],
         show_preview: bool = False,
         show_traceback: bool = False
     ) -> None:
@@ -113,7 +145,8 @@ class LocalRAGTester:
             show_traceback: Whether to show full traceback on errors
         """
         for i, question in enumerate(self.test_questions, 1):
-            logger.info(f"[{i}/{len(self.test_questions)}] {question[:60]}...")
+            question_preview = question[:PREVIEW_QUESTION_LENGTH] + "..." if len(question) > PREVIEW_QUESTION_LENGTH else question
+            logger.info(f"[{i}/{len(self.test_questions)}] {question_preview}")
             
             start_time = time.time()
             try:
@@ -141,7 +174,8 @@ class LocalRAGTester:
                     f"Quality: {quality_scores['overall_score']:.3f}, Time: {elapsed:.1f}s"
                 )
                 if show_preview:
-                    logger.info(f"    Preview: {answer[:80]}...")
+                    answer_preview = answer[:PREVIEW_ANSWER_LENGTH] + "..." if len(answer) > PREVIEW_ANSWER_LENGTH else answer
+                    logger.info(f"    Preview: {answer_preview}")
                 
             except Exception as e:
                 logger.error(f"  ✗ Error: {e}")
@@ -150,7 +184,7 @@ class LocalRAGTester:
                     traceback.print_exc()
                 
                 results["questions"].append(question)
-                results["answers"].append(f"ERROR: {str(e)}")
+                results["answers"].append(f"{ERROR_PREFIX} {str(e)}")
                 results["response_times"].append(0.0)
                 results["context_scores"].append([])
                 results["context_docs"].append([])
@@ -181,11 +215,21 @@ class LocalRAGTester:
                 values = [q[key] for q in results["answer_quality_scores"] if isinstance(q, dict)]
                 quality_metrics[f"avg_{key}"] = sum(values) / len(values) if values else 0.0
         
+        # Validate results structure before calculating summary
+        if not results.get("response_times"):
+            logger.warning("No response times found in results, using default values")
+        
+        # Improved error detection: check for ERROR_PREFIX or empty answers
+        successful_queries = sum(
+            1 for a in results.get("answers", [])
+            if isinstance(a, str) and not a.startswith(ERROR_PREFIX) and a.strip()
+        )
+        
         return {
             "avg_context_score": sum(all_scores) / len(all_scores) if all_scores else 0.0,
             "avg_response_time": sum(results["response_times"]) / len(results["response_times"]) if results["response_times"] else 0.0,
             "total_questions": len(self.test_questions),
-            "successful_queries": len([a for a in results["answers"] if not a.startswith("ERROR")]),
+            "successful_queries": successful_queries,
             **quality_metrics
         }
     
@@ -238,13 +282,34 @@ class LocalRAGTester:
                     continue
                 
                 # Load and validate baseline
-                with open(baseline_file, 'r') as f:
-                    baseline = json.load(f)
+                try:
+                    with open(baseline_file, 'r', encoding='utf-8') as f:
+                        baseline = json.load(f)
+                except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                    logger.warning(f"Error parsing JSON in baseline {baseline_file.name}: {e}, skipping")
+                    continue
+                except OSError as e:
+                    logger.warning(f"Error reading baseline file {baseline_file.name}: {e}, skipping")
+                    continue
+                
+                # Validate baseline structure
+                if not isinstance(baseline, dict):
+                    logger.debug(f"Baseline {baseline_file.name} is not a valid dictionary, skipping")
+                    continue
                 
                 # Validate compatibility
                 baseline_config = baseline.get("config", {})
                 baseline_dataset = baseline.get("dataset", {})
                 baseline_questions = baseline.get("questions", [])
+                
+                # Validate baseline has required structure
+                if not isinstance(baseline_config, dict) or not isinstance(baseline_dataset, dict):
+                    logger.debug(f"Baseline {baseline_file.name} has invalid structure, skipping")
+                    continue
+                
+                if not isinstance(baseline_questions, list):
+                    logger.debug(f"Baseline {baseline_file.name} has invalid questions format, skipping")
+                    continue
                 
                 # Check model name
                 if baseline_config.get("model_name") != base_model_name:
@@ -252,8 +317,12 @@ class LocalRAGTester:
                     continue
                 
                 # Check documents (normalize paths for comparison)
-                baseline_docs_folder = str(Path(baseline_dataset.get("documents_folder", "")).resolve())
-                current_docs_folder = str(Path(documents_folder).resolve())
+                try:
+                    baseline_docs_folder = str(Path(baseline_dataset.get("documents_folder", "")).resolve())
+                    current_docs_folder = str(Path(documents_folder).resolve())
+                except (OSError, ValueError) as e:
+                    logger.debug(f"Error resolving paths for baseline {baseline_file.name}: {e}, skipping")
+                    continue
                 if baseline_docs_folder != current_docs_folder:
                     logger.debug(f"Baseline {baseline_file.name} has different documents folder, skipping")
                     continue
@@ -313,12 +382,21 @@ class LocalRAGTester:
             output_file = get_timestamped_filename(base_name, "json")
         
         output_path = Path(__file__).parent.parent / output_subdir / "results" / output_file
-        output_path.parent.mkdir(parents=True, exist_ok=True)
         
-        with open(output_path, 'w') as f:
-            json.dump(results, f, indent=2)
-        logger.info(f"\n✓ Results saved to {output_path}")
-        results["_saved_filename"] = str(output_path)
+        try:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            raise IOError(f"Failed to create output directory {output_path.parent}: {e}")
+        
+        try:
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(results, f, indent=2, ensure_ascii=False)
+            logger.info(f"\n✓ Results saved to {output_path}")
+            results["_saved_filename"] = str(output_path)
+        except (OSError, IOError) as e:
+            raise IOError(f"Failed to write results to {output_path}: {e}")
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"Failed to serialize results to JSON: {e}")
     
     def test_baseline_model(
         self,
@@ -336,7 +414,14 @@ class LocalRAGTester:
             
         Returns:
             Dictionary with baseline test results
+            
+        Raises:
+            ValueError: If base_model_name is invalid
         """
+        # Input validation
+        if not base_model_name or not isinstance(base_model_name, str) or not base_model_name.strip():
+            raise ValueError(f"base_model_name must be a non-empty string, got: {base_model_name}")
+        
         logger.info("=" * 60)
         logger.info("BASELINE TESTS (Base Model)")
         logger.info("=" * 60)
@@ -376,6 +461,12 @@ class LocalRAGTester:
             show_preview=False,
             show_traceback=False
         )
+        
+        # Validate results before calculating summary
+        if not results.get("response_times"):
+            logger.warning("No response times recorded in baseline test results")
+        if not results.get("answers"):
+            logger.warning("No answers recorded in baseline test results")
         
         # Calculate summary using helper method
         results["summary"] = self._calculate_summary(results)
@@ -423,14 +514,38 @@ class LocalRAGTester:
         logger.info("=" * 60)
         logger.info("Testing fine-tuned model with identical conditions as baseline...")
         
+        # Input validation
+        if not adapter_path or not isinstance(adapter_path, str) or not adapter_path.strip():
+            raise ValueError(f"adapter_path must be a non-empty string, got: {adapter_path}")
+        
+        if not base_model_name or not isinstance(base_model_name, str) or not base_model_name.strip():
+            raise ValueError(f"base_model_name must be a non-empty string, got: {base_model_name}")
+        
+        if not stage or not isinstance(stage, str) or stage not in VALID_STAGES:
+            raise ValueError(f"stage must be one of {VALID_STAGES}, got: {stage}")
+        
         adapter_path_obj = Path(adapter_path).resolve()
+        
+        if not adapter_path_obj.exists():
+            raise FileNotFoundError(f"Adapter path does not exist: {adapter_path}")
+        if not adapter_path_obj.is_dir():
+            raise ValueError(f"adapter_path must be a directory: {adapter_path}")
+        
         adapter_config_file = adapter_path_obj / "adapter_config.json"
         
         if not adapter_config_file.exists():
             raise FileNotFoundError(f"Adapter config not found: {adapter_config_file}")
         
-        with open(adapter_config_file, 'r') as f:
-            adapter_config = json.load(f)
+        try:
+            with open(adapter_config_file, 'r', encoding='utf-8') as f:
+                adapter_config = json.load(f)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in adapter config file {adapter_config_file}: {e}")
+        except OSError as e:
+            raise IOError(f"Failed to read adapter config file {adapter_config_file}: {e}")
+        
+        if not isinstance(adapter_config, dict):
+            raise ValueError(f"Adapter config must be a dictionary, got: {type(adapter_config)}")
         
         model, tokenizer = ModelLoader.load_finetuned_model(adapter_path, base_model_name)
         
@@ -478,6 +593,12 @@ class LocalRAGTester:
             show_traceback=True
         )
         
+        # Validate results before calculating summary
+        if not results.get("response_times"):
+            logger.warning("No response times recorded in fine-tuned test results")
+        if not results.get("answers"):
+            logger.warning("No answers recorded in fine-tuned test results")
+        
         # Calculate summary using helper method
         results["summary"] = self._calculate_summary(results)
         
@@ -511,7 +632,39 @@ class LocalRAGTester:
             
         Returns:
             Dictionary with comparison results
+            
+        Raises:
+            ValueError: If results structures are invalid or incompatible
         """
+        # Validate input structures
+        if not isinstance(baseline_results, dict):
+            raise ValueError(f"baseline_results must be a dictionary, got: {type(baseline_results)}")
+        if not isinstance(finetuned_results, dict):
+            raise ValueError(f"finetuned_results must be a dictionary, got: {type(finetuned_results)}")
+        
+        # Validate required keys exist
+        required_keys = ["questions", "summary", "context_scores"]
+        for key in required_keys:
+            if key not in baseline_results:
+                raise ValueError(f"baseline_results missing required key: {key}")
+            if key not in finetuned_results:
+                raise ValueError(f"finetuned_results missing required key: {key}")
+        
+        # Validate question counts match
+        baseline_q_count = len(baseline_results.get("questions", []))
+        finetuned_q_count = len(finetuned_results.get("questions", []))
+        if baseline_q_count != finetuned_q_count:
+            logger.warning(
+                f"Question count mismatch: baseline has {baseline_q_count}, "
+                f"fine-tuned has {finetuned_q_count}. Comparison may be inaccurate."
+            )
+        
+        # Validate summary structure
+        if "summary" not in baseline_results or not isinstance(baseline_results["summary"], dict):
+            raise ValueError("baseline_results must have a valid 'summary' dictionary")
+        if "summary" not in finetuned_results or not isinstance(finetuned_results["summary"], dict):
+            raise ValueError("finetuned_results must have a valid 'summary' dictionary")
+        
         return compare_results(baseline_results, finetuned_results, output_file)
     
     def run_full_test(

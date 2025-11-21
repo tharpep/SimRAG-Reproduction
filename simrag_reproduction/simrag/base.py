@@ -17,6 +17,9 @@ from ..rag.rag_setup import BasicRAG
 
 logger = get_logger(__name__)
 
+# Constants for magic numbers
+QUESTION_PREVIEW_LENGTH = 50
+
 
 class SimRAGBase:
     """Base class for all SimRAG stages with common functionality"""
@@ -272,7 +275,8 @@ class SimRAGBase:
         
         for i, question in enumerate(test_questions, 1):
             try:
-                logger.info(f"Testing question {i}/{len(test_questions)}: {question[:50]}...")
+                question_preview = question[:QUESTION_PREVIEW_LENGTH] + "..." if len(question) > QUESTION_PREVIEW_LENGTH else question
+                logger.info(f"Testing question {i}/{len(test_questions)}: {question_preview}")
                 start_time = time.time()
                 
                 # Test with RAG system
@@ -289,10 +293,12 @@ class SimRAGBase:
                 results["answer_quality_scores"].append(quality_scores)
                 
                 avg_score = sum(context_scores) / len(context_scores) if context_scores else 0.0
-                logger.info(f"  Answer length: {len(answer)} chars, Context: {avg_score:.3f}, Quality: {quality_scores['overall_score']:.3f}, Time: {elapsed_time:.2f}s")
+                quality_overall = quality_scores.get('overall_score', 0.0) if isinstance(quality_scores, dict) else 0.0
+                logger.info(f"  Answer length: {len(answer)} chars, Context: {avg_score:.3f}, Quality: {quality_overall:.3f}, Time: {elapsed_time:.2f}s")
                 
             except Exception as e:
-                logger.error(f"Error testing question '{question[:50]}...': {e}")
+                question_preview = question[:QUESTION_PREVIEW_LENGTH] + "..." if len(question) > QUESTION_PREVIEW_LENGTH else question
+                logger.error(f"Error testing question '{question_preview}': {e}")
                 # Continue with other questions
                 results["answers"].append("ERROR")
                 results["context_scores"].append([])
@@ -309,7 +315,7 @@ class SimRAGBase:
         if results["context_scores"]:
             all_scores = [score for scores in results["context_scores"] if scores for score in scores]
             results["avg_context_score"] = sum(all_scores) / len(all_scores) if all_scores else 0.0
-            results["avg_response_time"] = sum(results["response_times"]) / len(results["response_times"])
+            results["avg_response_time"] = sum(results["response_times"]) / len(results["response_times"]) if results["response_times"] else 0.0
         else:
             results["avg_context_score"] = 0.0
             results["avg_response_time"] = 0.0
@@ -339,8 +345,18 @@ class SimRAGBase:
                 "questions_tested": len(baseline_results.get("questions", []))
             }
         
-        baseline_avg = sum(sum(scores) for scores in baseline_scores) / len(baseline_scores)
-        improved_avg = sum(sum(scores) for scores in improved_scores) / len(improved_scores)
+        # Calculate averages with division by zero protection
+        baseline_avg = 0.0
+        if baseline_scores:
+            all_baseline = [score for scores in baseline_scores if scores for score in scores]
+            if all_baseline:
+                baseline_avg = sum(all_baseline) / len(all_baseline)
+        
+        improved_avg = 0.0
+        if improved_scores:
+            all_improved = [score for scores in improved_scores if scores for score in scores]
+            if all_improved:
+                improved_avg = sum(all_improved) / len(all_improved)
         
         # Calculate improvement percentage
         context_improvement = ((improved_avg - baseline_avg) / baseline_avg) * 100 if baseline_avg > 0 else 0

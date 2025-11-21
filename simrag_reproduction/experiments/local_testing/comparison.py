@@ -63,15 +63,21 @@ def compare_results(
     logger.info("COMPARISON")
     logger.info("=" * 60)
     
-    baseline_avg = baseline_results["summary"]["avg_context_score"]
-    simrag_avg = finetuned_results["summary"]["avg_context_score"]
+    # Validate input structure
+    if "summary" not in baseline_results or not isinstance(baseline_results["summary"], dict):
+        raise ValueError("baseline_results must have a valid 'summary' dictionary")
+    if "summary" not in finetuned_results or not isinstance(finetuned_results["summary"], dict):
+        raise ValueError("finetuned_results must have a valid 'summary' dictionary")
+    
+    baseline_avg = baseline_results["summary"].get("avg_context_score", 0.0)
+    simrag_avg = finetuned_results["summary"].get("avg_context_score", 0.0)
     improvement_percent = ((simrag_avg - baseline_avg) / baseline_avg * 100) if baseline_avg > 0 else 0.0
     
-    baseline_stats = calculate_stats(baseline_results["context_scores"])
-    simrag_stats = calculate_stats(finetuned_results["context_scores"])
+    baseline_stats = calculate_stats(baseline_results.get("context_scores", []))
+    simrag_stats = calculate_stats(finetuned_results.get("context_scores", []))
     
-    baseline_time = baseline_results["summary"]["avg_response_time"]
-    simrag_time = finetuned_results["summary"]["avg_response_time"]
+    baseline_time = baseline_results["summary"].get("avg_response_time", 0.0)
+    simrag_time = finetuned_results["summary"].get("avg_response_time", 0.0)
     
     # Create comparison dictionary
     comparison = {
@@ -125,12 +131,21 @@ def compare_results(
         
         project_root = Path(__file__).parent.parent.parent.parent
         output_path = project_root / "comparison_results" / output_file
-        output_path.parent.mkdir(parents=True, exist_ok=True)
         
-        with open(output_path, 'w') as f:
-            json.dump(comparison, f, indent=2)
-        logger.info(f"\n✓ Comparison saved to {output_path}")
-        comparison["_saved_filename"] = str(output_path)
+        try:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            raise IOError(f"Failed to create output directory {output_path.parent}: {e}")
+        
+        try:
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(comparison, f, indent=2, ensure_ascii=False)
+            logger.info(f"\n✓ Comparison saved to {output_path}")
+            comparison["_saved_filename"] = str(output_path)
+        except (OSError, IOError) as e:
+            raise IOError(f"Failed to write comparison results to {output_path}: {e}")
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"Failed to serialize comparison results to JSON: {e}")
     
     logger.info("\n=== Comparison Complete ===")
     logger.info(f"✓ Raw statistics calculated")

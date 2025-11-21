@@ -15,6 +15,12 @@ from ..config import get_rag_config
 
 logger = get_logger(__name__)
 
+# Constants for magic numbers
+DOCUMENT_PREVIEW_LENGTH = 500
+CONTEXT_TRUNCATE_LENGTH = 200
+MIN_QUESTION_LENGTH = 10
+QUESTION_LOG_PREVIEW_LENGTH = 50
+
 
 class SyntheticQAGeneration(SimRAGBase):
     """SimRAG Stage 2: Synthetic QA generation from domain documents"""
@@ -62,10 +68,17 @@ class SyntheticQAGeneration(SimRAGBase):
             
         Returns:
             List of generated questions
+            
+        Raises:
+            ValueError: If document is empty or num_questions is invalid
         """
+        if not document or not isinstance(document, str) or not document.strip():
+            raise ValueError("document must be a non-empty string")
+        if not isinstance(num_questions, int) or num_questions <= 0:
+            raise ValueError(f"num_questions must be a positive integer, got: {num_questions}")
         prompt = f"""Given this document, generate {num_questions} diverse questions that test understanding:
 
-Document: {document[:500]}...
+Document: {document[:DOCUMENT_PREVIEW_LENGTH]}...
 
 Generate questions that cover:
 1. Key concepts and definitions
@@ -96,7 +109,7 @@ Questions:"""
             if line and ('?' in line or line.startswith(('What', 'How', 'Why', 'When', 'Where', 'Explain', 'Describe'))):
                 # Clean up the question
                 question = line.replace('1.', '').replace('2.', '').replace('3.', '').replace('4.', '').strip()
-                if question and len(question) > 10:  # Filter out very short responses
+                if question and len(question) > MIN_QUESTION_LENGTH:  # Filter out very short responses
                     questions.append(question)
         
         return questions
@@ -112,12 +125,19 @@ Questions:"""
             
         Returns:
             List of QA pairs with metadata
+            
+        Raises:
+            ValueError: If documents list is empty or invalid
         """
         logger.info(f"=== Generating Synthetic QA Pairs ===")
         logger.info(f"Processing {len(documents)} documents...")
         
         if not documents:
             raise ValueError("Documents list cannot be empty")
+        if not isinstance(documents, list):
+            raise ValueError(f"documents must be a list, got: {type(documents)}")
+        if not isinstance(questions_per_doc, int) or questions_per_doc <= 0:
+            raise ValueError(f"questions_per_doc must be a positive integer, got: {questions_per_doc}")
         
         qa_pairs = []
         
@@ -140,17 +160,19 @@ Questions:"""
                     qa_pair = {
                         "question": question,
                         "answer": answer,
-                        "context": doc[:200] + "...",  # Truncate for storage
+                        "context": doc[:CONTEXT_TRUNCATE_LENGTH] + "..." if len(doc) > CONTEXT_TRUNCATE_LENGTH else doc,
                         "context_docs": context_docs,
                         "context_scores": context_scores,
                         "source_doc_index": i - 1
                     }
                     
                     qa_pairs.append(qa_pair)
-                    logger.debug(f"  Generated Q: {question[:50]}...")
+                    question_preview = question[:QUESTION_LOG_PREVIEW_LENGTH] + "..." if len(question) > QUESTION_LOG_PREVIEW_LENGTH else question
+                    logger.debug(f"  Generated Q: {question_preview}")
                     
                 except Exception as e:
-                    logger.error(f"  Error processing question '{question[:50]}...': {e}")
+                    question_preview = question[:QUESTION_LOG_PREVIEW_LENGTH] + "..." if len(question) > QUESTION_LOG_PREVIEW_LENGTH else question
+                    logger.error(f"  Error processing question '{question_preview}': {e}")
                     continue
         
         logger.info(f"Generated {len(qa_pairs)} synthetic QA pairs")
@@ -159,6 +181,17 @@ Questions:"""
     def filter_high_quality_qa_pairs(self, qa_pairs: List[Dict[str, Any]], 
                                    min_context_score: float = 0.7,
                                    min_answer_length: int = 20) -> List[Dict[str, Any]]:
+        """
+        Filter QA pairs based on quality criteria
+        
+        Args:
+            qa_pairs: List of QA pairs to filter
+            min_context_score: Minimum context similarity score
+            min_answer_length: Minimum answer length in characters
+            
+        Returns:
+            Filtered list of high-quality QA pairs
+        """
         """
         Filter QA pairs based on quality criteria
         
@@ -182,8 +215,9 @@ Questions:"""
         for qa_pair in qa_pairs:
             try:
                 # Check context scores
-                if qa_pair.get("context_scores"):
-                    avg_score = sum(qa_pair["context_scores"]) / len(qa_pair["context_scores"])
+                context_scores = qa_pair.get("context_scores", [])
+                if context_scores:
+                    avg_score = sum(context_scores) / len(context_scores) if context_scores else 0.0
                     if avg_score < min_context_score:
                         continue
                 
@@ -202,8 +236,8 @@ Questions:"""
                 continue
         
         logger.info(f"Filtered pairs: {len(filtered_pairs)}")
-        if len(qa_pairs) > 0:
-            retention = len(filtered_pairs)/len(qa_pairs)*100
+        if qa_pairs:
+            retention = (len(filtered_pairs) / len(qa_pairs)) * 100 if qa_pairs else 0.0
             logger.info(f"Quality retention: {retention:.1f}%")
         else:
             logger.warning("Quality retention: 0.0% (no pairs to filter)")
@@ -283,8 +317,8 @@ Questions:"""
                 "total_qa_pairs": len(qa_pairs),
                 "high_quality_pairs": len(high_quality_pairs),
                 "training_examples": len(training_data),
-                "quality_retention": len(high_quality_pairs) / len(qa_pairs) * 100 if qa_pairs else 0,
-                "avg_context_score": sum(all_scores) / len(all_scores) if all_scores else 0
+                "quality_retention": (len(high_quality_pairs) / len(qa_pairs) * 100) if qa_pairs else 0.0,
+                "avg_context_score": sum(all_scores) / len(all_scores) if all_scores else 0.0
             }
         except Exception as e:
             logger.error(f"Failed to calculate dataset info: {e}")

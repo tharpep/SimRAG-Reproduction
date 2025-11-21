@@ -9,6 +9,9 @@ from ...logging_config import get_logger
 
 logger = get_logger(__name__)
 
+# Constants for magic numbers
+MAX_TOKENIZER_LENGTH = 2048
+
 
 class RAGQuery:
     """
@@ -47,7 +50,8 @@ Answer:"""
             Extracted answer text
         """
         if prompt in full_output:
-            answer = full_output.replace(prompt, "").strip()
+            # Replace only the first occurrence, not all occurrences
+            answer = full_output.replace(prompt, "", 1).strip()
         else:
             answer_marker = "Answer:"
             if answer_marker in full_output:
@@ -82,13 +86,29 @@ Answer:"""
             
         Returns:
             Tuple of (answer, context_docs, context_scores)
+            
+        Raises:
+            ValueError: If inputs are invalid
         """
+        if not question or not isinstance(question, str) or not question.strip():
+            raise ValueError("question must be a non-empty string")
+        if model is None:
+            raise ValueError("model cannot be None")
+        if tokenizer is None:
+            raise ValueError("tokenizer cannot be None")
+        if vector_store is None:
+            raise ValueError("vector_store cannot be None")
+        if not isinstance(top_k, int) or top_k <= 0:
+            raise ValueError(f"top_k must be a positive integer, got: {top_k}")
+        if not isinstance(max_tokens, int) or max_tokens <= 0:
+            raise ValueError(f"max_tokens must be a positive integer, got: {max_tokens}")
+        
         context_docs, context_scores = vector_store.query(question, top_k=top_k)
         context_text = "\n\n".join(context_docs)
         prompt = cls.build_prompt(context_text, question)
         
         import torch
-        inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=2048).to(model.device)
+        inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=MAX_TOKENIZER_LENGTH).to(model.device)
         
         with torch.no_grad():
             outputs = model.generate(
@@ -99,6 +119,9 @@ Answer:"""
                 do_sample=True,
                 pad_token_id=tokenizer.pad_token_id
             )
+        
+        if not outputs or len(outputs) == 0:
+            raise ValueError("Model generation returned empty output")
         
         answer = tokenizer.decode(outputs[0], skip_special_tokens=True)
         answer = cls.extract_answer(answer, prompt)
@@ -130,13 +153,29 @@ Answer:"""
             
         Returns:
             Tuple of (answer, context_docs, context_scores)
+            
+        Raises:
+            ValueError: If inputs are invalid
         """
+        if not question or not isinstance(question, str) or not question.strip():
+            raise ValueError("question must be a non-empty string")
+        if model is None:
+            raise ValueError("model cannot be None")
+        if tokenizer is None:
+            raise ValueError("tokenizer cannot be None")
+        if vector_store is None:
+            raise ValueError("vector_store cannot be None")
+        if not isinstance(top_k, int) or top_k <= 0:
+            raise ValueError(f"top_k must be a positive integer, got: {top_k}")
+        if not isinstance(max_tokens, int) or max_tokens <= 0:
+            raise ValueError(f"max_tokens must be a positive integer, got: {max_tokens}")
+        
         context_docs, context_scores = vector_store.query(question, top_k=top_k)
         context_text = "\n\n".join(context_docs)
         prompt = cls.build_prompt(context_text, question)
         
         import torch
-        inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=2048).to(model.device)
+        inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=MAX_TOKENIZER_LENGTH).to(model.device)
         
         with torch.no_grad():
             outputs = model.generate(
@@ -147,6 +186,9 @@ Answer:"""
                 do_sample=True,
                 pad_token_id=tokenizer.pad_token_id
             )
+        
+        if not outputs or len(outputs) == 0:
+            raise ValueError("Model generation returned empty output")
         
         answer = tokenizer.decode(outputs[0], skip_special_tokens=True)
         answer = cls.extract_answer(answer, prompt)

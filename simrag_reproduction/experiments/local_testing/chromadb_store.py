@@ -5,7 +5,7 @@ Handles ChromaDB setup and document management
 
 import chromadb
 from chromadb.utils import embedding_functions
-from typing import List
+from typing import List, Tuple
 
 from ...logging_config import get_logger
 
@@ -47,15 +47,27 @@ class ChromaDBStore:
         
         Args:
             documents: List of document texts
+            
+        Raises:
+            ValueError: If documents list is empty
         """
-        doc_ids = [f"doc_{i}" for i in range(len(documents))]
-        self.collection.add(
-            documents=documents,
-            ids=doc_ids
-        )
-        logger.info(f"✓ Documents indexed in ChromaDB")
+        if not documents:
+            raise ValueError("documents list cannot be empty")
+        if not isinstance(documents, list):
+            raise ValueError(f"documents must be a list, got: {type(documents)}")
+        
+        try:
+            doc_ids = [f"doc_{i}" for i in range(len(documents))]
+            self.collection.add(
+                documents=documents,
+                ids=doc_ids
+            )
+            logger.info(f"✓ Documents indexed in ChromaDB")
+        except Exception as e:
+            logger.error(f"Error adding documents to ChromaDB: {e}")
+            raise
     
-    def query(self, question: str, top_k: int = 5) -> tuple[List[str], List[float]]:
+    def query(self, question: str, top_k: int = 5) -> Tuple[List[str], List[float]]:
         """
         Query the collection for similar documents
         
@@ -67,13 +79,22 @@ class ChromaDBStore:
             Tuple of (context_docs, context_scores)
             context_scores are converted from distances to similarity (1 - distance)
         """
-        results = self.collection.query(
-            query_texts=[question],
-            n_results=top_k
-        )
-        
-        context_docs = results['documents'][0] if results['documents'] else []
-        context_scores = results['distances'][0] if results['distances'] else []
+        try:
+            results = self.collection.query(
+                query_texts=[question],
+                n_results=top_k
+            )
+            
+            # Validate results structure before accessing
+            if not isinstance(results, dict):
+                logger.warning("Unexpected query results format")
+                return [], []
+            
+            context_docs = results.get('documents', [[]])[0] if results.get('documents') else []
+            context_scores = results.get('distances', [[]])[0] if results.get('distances') else []
+        except Exception as e:
+            logger.error(f"Error querying ChromaDB: {e}")
+            return [], []
         
         # Convert distances to similarity scores (1 - distance)
         context_scores = [max(0.0, 1.0 - d) for d in context_scores]

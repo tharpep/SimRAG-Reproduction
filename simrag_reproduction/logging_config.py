@@ -11,6 +11,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+# Constants for magic numbers
+QUESTION_PREVIEW_LENGTH = 100
+DOC_PREVIEW_LENGTH = 100
+TEXT_WRAP_WIDTH = 80
+
 
 def setup_logging(
     log_level: str = "INFO",
@@ -147,21 +152,22 @@ def log_rag_result(
     
     # Simple log format with wrapped answers
     import textwrap
-    wrapped_answer = textwrap.fill(answer, width=80, initial_indent="    ", subsequent_indent="    ")
-    rag_logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | {model_name} | {response_time:.2f}s | Q: {question[:100]}...")
+    wrapped_answer = textwrap.fill(answer, width=TEXT_WRAP_WIDTH, initial_indent="    ", subsequent_indent="    ")
+    question_preview = question[:QUESTION_PREVIEW_LENGTH] + "..." if len(question) > QUESTION_PREVIEW_LENGTH else question
+    rag_logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | {model_name} | {response_time:.2f}s | Q: {question_preview}")
     rag_logger.info(f"A: {wrapped_answer}")
     
     # Log retrieved context details (show what was found, not full content)
     if context_docs and context_scores:
         rag_logger.info(f"CONTEXT: Retrieved {len(context_docs)} documents")
         for i, (doc, score) in enumerate(zip(context_docs, context_scores)):
-            # Show first 100 chars to see what type of content was retrieved
-            doc_preview = doc[:100] + "..." if len(doc) > 100 else doc
+            # Show first N chars to see what type of content was retrieved
+            doc_preview = doc[:DOC_PREVIEW_LENGTH] + "..." if len(doc) > DOC_PREVIEW_LENGTH else doc
             rag_logger.info(f"  Doc {i+1} (score: {score:.3f}): {doc_preview}")
     elif context_docs:
         rag_logger.info(f"CONTEXT: Retrieved {len(context_docs)} documents (no scores)")
         for i, doc in enumerate(context_docs):
-            doc_preview = doc[:100] + "..." if len(doc) > 100 else doc
+            doc_preview = doc[:DOC_PREVIEW_LENGTH] + "..." if len(doc) > DOC_PREVIEW_LENGTH else doc
             rag_logger.info(f"  Doc {i+1}: {doc_preview}")
 
 

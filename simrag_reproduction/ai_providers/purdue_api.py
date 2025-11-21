@@ -15,12 +15,16 @@ def load_env_file():
     """Load environment variables from .env file"""
     env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
     if os.path.exists(env_path):
-        with open(env_path, 'r') as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#') and '=' in line:
-                    key, value = line.split('=', 1)
-                    os.environ[key.strip()] = value.strip()
+        try:
+            with open(env_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, value = line.split('=', 1)
+                        os.environ[key.strip()] = value.strip()
+        except (OSError, IOError) as e:
+            # Silently fail - environment variables may be set elsewhere
+            pass
 
 load_env_file()
 
@@ -34,9 +38,12 @@ class PurdueGenAI(BaseLLMClient):
         
         Args:
             api_key: API key for Purdue GenAI Studio. If None, will try to load from PURDUE_API_KEY environment variable
+            
+        Raises:
+            ValueError: If API key is not provided or found
         """
         self.api_key = api_key or os.getenv('PURDUE_API_KEY')
-        if not self.api_key:
+        if not self.api_key or not isinstance(self.api_key, str) or not self.api_key.strip():
             raise ValueError("API key is required. Provide it directly or set PURDUE_API_KEY environment variable.")
         self.base_url = "https://genai.rcac.purdue.edu/api/chat/completions"
     
@@ -50,7 +57,13 @@ class PurdueGenAI(BaseLLMClient):
             
         Returns:
             str: AI response
+            
+        Raises:
+            ValueError: If messages is invalid or response parsing fails
+            Exception: If API call fails
         """
+        if not messages:
+            raise ValueError("messages cannot be empty")
         # Use default model if none specified
         if model is None:
             model = "llama4:latest"
@@ -81,8 +94,15 @@ class PurdueGenAI(BaseLLMClient):
             
             with urllib.request.urlopen(req) as response:
                 if response.status == 200:
-                    response_data = json.loads(response.read().decode('utf-8'))
-                    return response_data["choices"][0]["message"]["content"]
+                    try:
+                        response_data = json.loads(response.read().decode('utf-8'))
+                        if "choices" not in response_data or not response_data["choices"]:
+                            raise ValueError("Invalid response structure: missing 'choices'")
+                        if "message" not in response_data["choices"][0] or "content" not in response_data["choices"][0]["message"]:
+                            raise ValueError("Invalid response structure: missing 'message.content'")
+                        return response_data["choices"][0]["message"]["content"]
+                    except (json.JSONDecodeError, KeyError, IndexError) as e:
+                        raise ValueError(f"Failed to parse API response: {e}")
                 else:
                     error_text = response.read().decode('utf-8')
                     raise Exception(f"API Error {response.status}: {error_text}")
