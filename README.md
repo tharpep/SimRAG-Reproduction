@@ -26,106 +26,12 @@ SimRAG introduces a self-improving framework that fine-tunes RAG systems through
 - **Synthetic QA Generation**: Self-improving data generation from domain documents
 - **Hardware-Efficient**: Runs on consumer GPUs (10GB VRAM) with 4-bit quantization
 
+
 ## Installation
 
-### Step 1: Install Prerequisites
+### 🐳 Recommended: Docker Installation (Best for Reproducibility)
 
-**Python 3.12** (required for PyTorch CUDA support):
-- Download from [python.org](https://www.python.org/downloads/)
-- Ensure Python 3.12 is in your PATH
-
-**Poetry** (dependency management):
-```bash
-# Install Poetry using pip
-pip install poetry
-
-# Verify Poetry is installed
-poetry --version
-
-# Note: If 'poetry shell' doesn't work, install the shell plugin:
-# poetry self add poetry-plugin-shell
-# (Most modern Poetry versions include shell support by default)
-```
-
-**AI Provider for QA Generation** (optional, choose one):
-- **Claude API**: Get API key from https://console.anthropic.com/ - Add to `.env`: `CLAUDE_API_KEY=your-key-here`
-- **Purdue GenAI API**: Get API key from your Purdue GenAI account - Add to `.env`: `PURDUE_API_KEY=your-key-here` (free for Purdue users)
-- **HuggingFace**: Works offline but slower - No API key needed
-- Set `QA_PROVIDER=claude` (or `purdue` or `huggingface`) in `.env` to choose your preferred provider
-- **Note**: If not provided, the system will use HuggingFace for QA generation (slower but works offline)
-
-### Step 2: Clone Repository
-
-```bash
-git clone <repository-url>
-cd SimRAG-Reproduction
-```
-
-### Step 3: Setup Python Environment
-
-```bash
-# Ensure Poetry uses Python 3.12
-poetry env use python3.12
-
-# Install all dependencies (includes PyTorch with CUDA support)
-poetry install
-
-# Activate the Poetry virtual environment
-poetry shell
-```
-
-**Important**: 
-- After running `poetry shell`, you should see your prompt change to indicate you're in the virtual environment (e.g., `(simrag-py3.12)`).
-- You **must** run `poetry shell` before using any `simrag` commands.
-- If you open a new terminal, run `poetry shell` again to reactivate the environment.
-- The `poetry install` step may take 5-10 minutes on first run (downloads PyTorch and dependencies).
-
-### Step 4: Verify Installation
-
-```bash
-# Check that simrag command is available
-simrag --help
-
-# View current configuration
-simrag config
-
-# (Optional) Run tests to verify everything works
-simrag test --all
-```
-
-If `simrag --help` works, you're ready to run experiments!
-
-### Alternative: pip Installation (Not Recommended)
-
-If you prefer pip over Poetry:
-
-```bash
-# Create virtual environment
-python3.12 -m venv venv
-
-# Activate virtual environment
-# Windows:
-venv\Scripts\activate
-# Linux/Mac:
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-pip install -e .
-
-# For GPU support (if not using Poetry):
-pip install torch --index-url https://download.pytorch.org/whl/cu121
-```
-
-**Note**: Poetry is recommended as it handles PyTorch CUDA installation automatically and ensures consistent environments.
-
-### Alternative: Docker Installation (Recommended for Reproducibility)
-
-Docker provides the most reproducible environment and is ideal for:
-- Consistent results across different machines
-- Easy setup for graders/reviewers
-- Avoiding dependency conflicts
-- GPU support with automatic CUDA setup
+**Docker is the easiest and most reproducible way to get started.** It handles all dependencies automatically and ensures consistent results across different machines.
 
 **Prerequisites**:
 - Docker Engine 20.10+ and Docker Compose 2.0+
@@ -134,72 +40,85 @@ Docker provides the most reproducible environment and is ideal for:
 **Quick Start with Docker**:
 
 ```bash
-# Clone repository
+# 1. Clone repository
 git clone <repository-url>
 cd SimRAG-Reproduction
 
-# Create .env file (copy from .env.example and add your API keys)
+# 2. (Optional) Create .env file for API keys
 cp .env.example .env
-# Edit .env and add your API keys (CLAUDE_API_KEY, PURDUE_API_KEY, etc.)
+# Edit .env and add your API keys if desired (optional - HuggingFace works without)
 
-# Build and run with GPU support
-docker-compose up --build simrag
-
-# Or build and run CPU-only version
+# 3. Build and run (CPU version - works on any machine)
 docker-compose up --build simrag-cpu
 
-# Run specific command (example: view config)
-docker-compose run --rm simrag poetry run simrag config
-
-# Run full experiment pipeline
-docker-compose run --rm simrag poetry run simrag experiment run
-
-# Run baseline only
-docker-compose run --rm simrag poetry run simrag experiment baseline
+# Or for GPU support (if you have NVIDIA GPU):
+docker-compose up --build simrag
 ```
 
-**Docker Commands**:
+**Run Commands in Docker**:
 
 ```bash
-# Build GPU image
-docker-compose build simrag
+# View configuration
+docker-compose run --rm simrag-cpu poetry run simrag config
 
-# Build CPU image
-docker-compose build simrag-cpu
+# Run the recommended workflow
+docker-compose run --rm simrag-cpu poetry run simrag experiment stage1
+docker-compose run --rm simrag-cpu poetry run simrag experiment stage2
+docker-compose run --rm simrag-cpu poetry run simrag experiment test
 
-# Run interactive shell
-docker-compose run --rm simrag bash
-
-# View logs
-docker-compose logs -f simrag
-
-# Stop containers
-docker-compose down
-
-# Clean up (remove images)
-docker-compose down --rmi all
+# Or use interactive shell
+docker-compose run --rm simrag-cpu bash
+# Then run: simrag experiment stage1, etc.
 ```
 
-**GPU Support**:
-- The default `Dockerfile` includes CUDA 12.1 support
-- Requires NVIDIA Docker runtime (nvidia-docker2)
-- GPU is automatically detected and used when available
-- Set `TUNING_DEVICE=cuda` in `.env` to force GPU usage
+**Docker Benefits**:
+- ✅ No Python/Poetry setup required
+- ✅ Consistent environment across machines
+- ✅ Automatic dependency management
+- ✅ GPU support included (with nvidia-docker2)
+- ✅ Perfect for reproducibility
 
-**CPU-Only**:
-- Use `Dockerfile.cpu` or `docker-compose up simrag-cpu`
-- Automatically installs CPU-only PyTorch
-- Slower but works on any machine
+**Data Persistence**: All data (models, results, logs) is stored in mounted volumes (`./data`, `./tuned_models`, `./logs`, `./comparison_results`) and persists between container runs.
 
-**Data Persistence**:
-- All data (models, results, logs) is stored in mounted volumes
-- Changes persist between container runs
-- Volumes: `./data`, `./tuned_models`, `./logs`, `./comparison_results`
+### Alternative: Poetry Installation (For Development)
 
-**Environment Variables**:
-- Create `.env` file in project root (see `.env.example`)
-- Variables are automatically passed to container
-- Can override in `docker-compose.yml` or via command line
+If you prefer to install directly on your system:
+
+**Prerequisites**:
+- **Python 3.12** (required for PyTorch CUDA support): Download from [python.org](https://www.python.org/downloads/)
+- **Poetry** (dependency management): `pip install poetry`
+
+**Setup**:
+
+```bash
+# 1. Clone repository
+git clone <repository-url>
+cd SimRAG-Reproduction
+
+# 2. Install dependencies
+poetry install
+
+# 3. Install shell plugin (required for 'poetry shell' command)
+poetry self add poetry-plugin-shell
+
+# 4. Activate environment
+poetry shell
+
+# 5. Verify installation
+simrag --help
+```
+
+**Note**: Poetry handles PyTorch CUDA installation automatically. The `poetry install` step may take 5-10 minutes on first run.
+
+**AI Provider for QA Generation** (optional, choose one):
+- **Claude API**: Get API key from https://console.anthropic.com/ - Add to `.env`: `CLAUDE_API_KEY=your-key-here`
+- **Purdue GenAI API**: Get API key from your Purdue GenAI account - Add to `.env`: `PURDUE_API_KEY=your-key-here` (free for Purdue users)
+- **HuggingFace**: Works offline but slower - No API key needed
+- Set `QA_PROVIDER=claude` (or `purdue` or `huggingface`) in `.env` to choose your preferred provider
+- **Note**: If not provided, the system will use HuggingFace for QA generation (slower but works offline)
+
+### Alternative: pip Installation (Not Recommended)
+
 
 ## Configuration
 
@@ -219,8 +138,8 @@ PURDUE_API_KEY=your-purdue-api-key-here  # Optional - for Purdue GenAI API (free
 # HuggingFace (optional - only needed if using Llama models)
 HF_TOKEN=your-huggingface-token-here  # Optional: Only needed for gated Llama models. Get from https://huggingface.co/settings/tokens
 
-# Vector store
-USE_PERSISTENT=true
+# Vector store (optional - defaults to in-memory)
+USE_PERSISTENT=false  # Set to true for persistent Qdrant storage (creates data/qdrant_db/ folder)
 COLLECTION_NAME=simrag_docs
 
 
@@ -256,38 +175,27 @@ RANDOM_SEED=42  # Random seed for reproducible results (default: 42)
 
 ## Quick Start
 
-After completing installation (Steps 1-4 above), you're ready to use SimRAG:
+After installation (see [Installation](#installation) above), run the recommended workflow:
 
 ```bash
-# IMPORTANT: Make sure you're in the Poetry shell
-# If your prompt doesn't show (simrag-py3.12), run:
-poetry shell
+# Using Docker (recommended for new users)
+docker-compose run --rm simrag-cpu poetry run simrag experiment stage1
+docker-compose run --rm simrag-cpu poetry run simrag experiment stage2
+docker-compose run --rm simrag-cpu poetry run simrag experiment test
 
-# Verify installation
-simrag config  # View current configuration
-
-# (Optional) Run tests to verify everything works
-simrag test --all
-
-# Train both stages automatically
-simrag experiment run          # or: simrag experiment simrag (same thing)
-
-# Or run stages individually
-simrag experiment stage1       # Stage 1 training only (~3-4 hours)
-simrag experiment stage2       # Stage 2 training only (~3-4 hours)
-
-# Test and evaluate (automatically displays comparison results)
-simrag experiment test         # Full test: baseline → fine-tuned → comparison
-
-# Other commands
-simrag experiment baseline     # Baseline RAG test only (~2-3 minutes)
-simrag experiment compare      # Compare existing results (if you have JSON files)
-simrag experiment results      # View previously saved comparison results
+# Using Poetry
+poetry shell  # Activate environment first
+simrag experiment stage1
+simrag experiment stage2
+simrag experiment test
 ```
 
-**First Run Notes**: 
-- The first time you run experiments, models will be downloaded from HuggingFace Hub (this may take a few minutes).
-- If you see "command not found: simrag", make sure you've run `poetry shell`.
+**What this does:**
+- **Stage 1** (~3-4 hours): Fine-tunes base model on general instruction-following
+- **Stage 2** (~3-4 hours): Fine-tunes Stage 1 model on domain documents  
+- **Test** (~5-15 min): Evaluates and compares models (automatically displays results)
+
+**First Run**: Models will be downloaded from HuggingFace Hub (may take a few minutes).
 
 ## Usage
 
@@ -374,36 +282,20 @@ simrag experiment results      # View previously saved comparison results
 
 ### Typical Workflow
 
-**Option 1: Automated Training + Manual Testing**
+**Recommended: Stage-by-Stage** (see [Quick Start](#quick-start) above)
 ```bash
-# Train both stages
-simrag experiment run
-
-# Then test and evaluate
-simrag experiment test
-```
-
-**Option 2: Manual Stage-by-Stage**
-```bash
-# Train Stage 1
 simrag experiment stage1
-
-# Train Stage 2 (uses Stage 1 model)
 simrag experiment stage2
-
-# Test and evaluate
 simrag experiment test
 ```
 
-**Local Testing** (`test`):
-The `test` command provides local HuggingFace model testing:
-- Uses ChromaDB for vector storage (same as Colab)
-- Uses 4-bit quantization with PEFT adapters (same as Colab)
-- Tests baseline model → fine-tuned model → comparison
-- **Automatically displays comparison results** (no need to run `experiment results` separately)
-- Automatically reuses compatible baseline results (saves ~5-10 minutes)
-- Results saved to `comparison_results/` in project root
+**Alternative: Automated Training**
+```bash
+simrag experiment run  # Trains both stages automatically
+simrag experiment test
+```
 
+**Advanced Testing Options**:
 ```bash
 # Interactive: Select stage and model
 simrag experiment test
@@ -414,8 +306,6 @@ simrag experiment test \
   --adapter-path "tuned_models/model_1b/stage_1/v1.0/checkpoint-1000" \
   --stage stage_1
 ```
-
-**Results**: Saved as timestamped JSON files in `experiments/*/results/` and `comparison_results/` with metrics, Q&A pairs, and model info.
 
 ## Development
 
@@ -459,12 +349,8 @@ mypy simrag_reproduction/
 - Verify CUDA: `python -c "import torch; print(torch.cuda.is_available())"`
 
 **Expected Runtimes** (RTX 3080, 10GB VRAM, Qwen 2.5 1.5B):
-- Baseline test: ~2-3 minutes
-- Stage 1 training: ~3-4 hours (1 epoch, 52K examples)
-- Stage 2 training: ~3-4 hours (1 round, ~18-36 synthetic QA pairs)
-- Full pipeline: ~6-8 hours (baseline + Stage 1 + Stage 2 + testing)
-
-**Note**: Runtimes scale with model size. 7B model takes ~2-3x longer.
+- Stage 1: ~3-4 hours | Stage 2: ~3-4 hours | Testing: ~5-15 minutes
+- 7B model: ~2-3x longer
 
 ## Troubleshooting
 
@@ -476,7 +362,7 @@ mypy simrag_reproduction/
 - Check Poetry environment: `poetry env info`
 
 **"poetry shell" doesn't work**:
-- Install Poetry shell plugin: `poetry self add poetry-plugin-shell`
+- Install Poetry shell plugin: `poetry self add poetry-plugin-shell` (required - see Installation section)
 - Or use `poetry run simrag` instead of `simrag` (no shell needed)
 
 **"poetry env use python3.12" fails**:
@@ -508,9 +394,9 @@ mypy simrag_reproduction/
 
 **Training loss is 0.0 or NaN**: Restart training - this was a known bug with FP16 conflicts, now fixed
 
-**Qdrant errors**: Delete `data/qdrant_db/` or set `USE_PERSISTENT=false`
+**Qdrant errors**: Delete `data/qdrant_db/` if it exists, or set `USE_PERSISTENT=false` (default is in-memory, so folder shouldn't be created)
 
-**First-time setup**: The vector database (`data/qdrant_db/`) is auto-generated from `data/documents/` on first run.
+**Note**: The system uses in-memory Qdrant by default during training. The `data/qdrant_db/` folder is only created if `USE_PERSISTENT=true` is set in `.env`.
 
 ## Model Management
 
@@ -521,8 +407,8 @@ Trained models are stored in `tuned_models/` as LoRA adapters (~100MB for 1.5B, 
 - Models can be tested locally using the `test` command or exported for Colab testing
 
 **Testing Models**:
-- **Local Testing** (`simrag experiment test`): Uses HuggingFace with 4-bit quantization for efficient inference. Automatically reuses compatible baseline results to save time.
-- **Export for Colab** (`simrag experiment export`): Create cross-platform ZIP files for Google Colab testing
+- **Local Testing** (`simrag experiment test`): Uses HuggingFace with 4-bit quantization. Automatically reuses compatible baseline results.
+- **Export for Colab** (`simrag experiment export`): Create ZIP files for Google Colab testing
 
 ## Logging
 

@@ -19,7 +19,7 @@ class RAGConfig:
     # Default: "purdue" (free for Purdue users), "claude" (if API key provided), "huggingface" (fallback)
     qa_provider: str = "purdue"  # Preferred provider for QA generation
     
-    use_persistent: bool = True  # True for persistent storage, False for in-memory only
+    use_persistent: bool = False  # True for persistent storage, False for in-memory only (default: False to avoid creating qdrant_db folder)
     collection_name: str = "simrag_docs"  # Name for Qdrant collection
     clear_on_ingest: bool = True  # Clear collection before ingesting new documents
     

@@ -62,7 +62,8 @@ class SyntheticQAGeneration(SimRAGBase):
         rag_config = get_rag_config()
         preferred_provider = rag_config.qa_provider if hasattr(rag_config, 'qa_provider') else "purdue"
         # Use preferred provider, but allow fallback if not available
-        return BasicRAG(force_provider=preferred_provider)
+        # Use in-memory storage to avoid creating qdrant_db folder (only needed during training)
+        return BasicRAG(force_provider=preferred_provider, use_persistent=False)
     
     def generate_questions_from_document(self, document: str, num_questions: int = 3) -> List[str]:
         """
