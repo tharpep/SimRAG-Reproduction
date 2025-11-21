@@ -549,11 +549,15 @@ class LocalRAGTester:
         
         model, tokenizer = ModelLoader.load_finetuned_model(adapter_path, base_model_name)
         
+        # Convert absolute path to relative path for anonymization
+        from ..utils import get_relative_path
+        relative_path = get_relative_path(str(adapter_path_obj))
+        
         results = {
             "experiment_type": "model_test",
             "timestamp": datetime.now().isoformat(),
             "model": {
-                "path": str(adapter_path_obj),
+                "path": relative_path,
                 "stage": stage,
                 "version": model_version,
                 "checkpoint": checkpoint_name,

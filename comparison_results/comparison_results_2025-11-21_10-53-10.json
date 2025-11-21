@@ -36,7 +36,7 @@
     "avg_answer_quality": 0.7640973202571879,
     "num_questions": 30,
     "model": {
-      "path": "C:\\Users\\aatha\\Desktop\\Local Git Repositories\\SimRAG-Reproduction\\tuned_models\\model_1b\\stage_2\\v4.9",
+      "path": "tuned_models/model_1b/stage_2/v4.9",
       "stage": "stage_2",
       "version": "v4.9",
       "checkpoint": null,

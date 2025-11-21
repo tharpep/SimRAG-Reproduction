@@ -4,7 +4,7 @@ Helper functions for document loading, HTML extraction, etc.
 """
 
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import re
 import random
 import numpy as np
@@ -446,4 +446,46 @@ def find_most_recent_results_file(
     matching_files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
     
     return str(matching_files[0])
+
+
+def get_relative_path(path: str, base_dir: Optional[Path] = None) -> str:
+    """
+    Convert an absolute path to a relative path (for anonymization in results).
+    
+    Args:
+        path: Absolute or relative path to convert
+        base_dir: Base directory to make path relative to (defaults to project root)
+        
+    Returns:
+        Relative path string, or original path if conversion fails
+    """
+    if not path:
+        return path
+    
+    try:
+        path_obj = Path(path)
+        
+        # If already relative, return as-is
+        if not path_obj.is_absolute():
+            return str(path_obj)
+        
+        # Determine base directory (project root)
+        if base_dir is None:
+            # Get project root (4 levels up from this file: simrag_reproduction/experiments/utils.py)
+            base_dir = Path(__file__).parent.parent.parent.parent
+        
+        base_dir = Path(base_dir).resolve()
+        path_obj = path_obj.resolve()
+        
+        # Try to make relative
+        try:
+            relative = path_obj.relative_to(base_dir)
+            return str(relative).replace('\\', '/')  # Use forward slashes for cross-platform compatibility
+        except ValueError:
+            # Path is not under base_dir, return just the filename or last component
+            return path_obj.name
+        
+    except Exception:
+        # If anything fails, return original path
+        return path
 
