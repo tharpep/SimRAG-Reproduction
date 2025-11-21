@@ -38,7 +38,7 @@ class SyntheticQAGeneration(SimRAGBase):
             logger.info("Synthetic QA Generator initialized")
             logger.info("Using Purdue API for QA generation (fallback to HuggingFace if unavailable)")
             if stage_1_model_path:
-                logger.info(f"Stage 1 model available: {stage_1_model_path} (for future use)")
+                logger.info(f"Stage 1 model available: {stage_1_model_path}")
         except Exception as e:
             logger.error(f"Failed to initialize Synthetic QA Generator: {e}")
             raise

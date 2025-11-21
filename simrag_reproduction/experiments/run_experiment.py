@@ -1,7 +1,6 @@
 """
 Main Experiment Orchestrator
 Run SimRAG training pipeline (Stage 1 -> Stage 2)
-Note: Testing and comparison are done separately in the Colab notebook
 """
 
 import argparse
@@ -12,7 +11,6 @@ from ..logging_config import setup_logging, get_logger
 from ..config import get_tuning_config
 from .utils import set_random_seeds
 
-# Setup logging
 setup_logging()
 logger = get_logger(__name__)
 
@@ -24,9 +22,6 @@ def run_complete_experiment(
     """
     Run SimRAG training pipeline (Stage 1 -> Stage 2)
     
-    Note: This function ONLY trains models. Testing and comparison
-    are done separately in the Colab notebook.
-    
     Args:
         documents_folder: Path to documents folder
         use_real_datasets: Use Alpaca dataset for Stage 1
@@ -34,15 +29,12 @@ def run_complete_experiment(
     logger.info("="*60)
     logger.info("SIMRAG TRAINING PIPELINE")
     logger.info("="*60)
-    logger.info("Note: Testing and comparison are done in Colab notebook")
     
-    # Set random seeds for reproducibility
     config = get_tuning_config()
     seed = config.random_seed
     logger.info(f"Setting random seed: {seed} (for reproducibility)")
     set_random_seeds(seed)
     
-    # Run SimRAG training pipeline (Stage 1 -> Stage 2)
     logger.info("\nRunning SimRAG Training Pipeline...")
     
     from .simrag.run_full_pipeline import run_full_pipeline
@@ -57,8 +49,8 @@ def run_complete_experiment(
     logger.info("TRAINING COMPLETE!")
     logger.info("="*60)
     logger.info(f"✓ Models trained successfully")
-    logger.info(f"✓ Export models using: simrag experiment export")
-    logger.info(f"✓ Test models in Colab notebook: test_model_colab.ipynb")
+    logger.info(f"✓ Test models locally: simrag experiment test")
+    logger.info(f"✓ Export models: simrag experiment export")
 
 
 if __name__ == "__main__":
@@ -73,7 +65,7 @@ Examples:
   # Use test data for Stage 1 (faster)
   python run_experiment.py --test-data
   
-Note: Testing and comparison are done separately in the Colab notebook.
+Testing can be done locally with 'simrag experiment test' or exported for external testing.
         """
     )
     

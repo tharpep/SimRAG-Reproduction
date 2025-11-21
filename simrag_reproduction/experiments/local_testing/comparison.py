@@ -1,7 +1,6 @@
 """
 Comparison Logic
 Statistical comparison of baseline vs fine-tuned results
-Matches Colab notebook exactly
 """
 
 import math
@@ -17,7 +16,7 @@ logger = get_logger(__name__)
 
 def calculate_stats(scores_list):
     """
-    Calculate statistical measures for context scores (matches Colab)
+    Calculate statistical measures for context scores
     
     Returns: mean, std, 95% confidence interval
     Used for determining statistical significance of improvements
@@ -50,7 +49,7 @@ def compare_results(
     output_file: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Compare baseline vs fine-tuned results (matches Colab comparison)
+    Compare baseline vs fine-tuned results
     
     Args:
         baseline_results: Baseline test results
@@ -58,7 +57,7 @@ def compare_results(
         output_file: Optional output filename
         
     Returns:
-        Dictionary with comparison results (matches Colab format)
+        Dictionary with comparison results
     """
     logger.info("\n" + "=" * 60)
     logger.info("COMPARISON")
@@ -74,7 +73,7 @@ def compare_results(
     baseline_time = baseline_results["summary"]["avg_response_time"]
     simrag_time = finetuned_results["summary"]["avg_response_time"]
     
-    # Create comparison dictionary (matches Colab format)
+    # Create comparison dictionary
     comparison = {
         "comparison_type": "baseline_vs_simrag",
         "timestamp": datetime.now().isoformat(),
@@ -117,7 +116,6 @@ def compare_results(
         }
     }
     
-    # Save comparison results
     if output_file:
         import json
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -125,9 +123,6 @@ def compare_results(
             base_name = Path(output_file).stem
             output_file = f"{base_name}_{timestamp}.json"
         
-        # Save to root comparison_results folder (matches Colab notebook location)
-        # Path: __file__ is at simrag_reproduction/experiments/local_testing/comparison.py
-        # Root is 3 levels up: local_testing -> experiments -> simrag_reproduction -> root
         project_root = Path(__file__).parent.parent.parent.parent
         output_path = project_root / "comparison_results" / output_file
         output_path.parent.mkdir(parents=True, exist_ok=True)

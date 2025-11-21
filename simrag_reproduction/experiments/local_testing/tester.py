@@ -1,7 +1,7 @@
 """
 Local RAG Tester
-Main orchestration class that mirrors Colab notebook exactly
-Uses ChromaDB + direct transformers + PEFT with 4-bit quantization
+Main orchestration class for testing fine-tuned models locally
+Uses ChromaDB for vector storage and transformers + PEFT with 4-bit quantization
 """
 
 import json
@@ -38,11 +38,10 @@ logger = get_logger(__name__)
 
 class LocalRAGTester:
     """
-    Local RAG testing class that mirrors Colab notebook exactly
+    Local RAG testing class for evaluating fine-tuned models
     
-    Uses ChromaDB for vector storage and direct transformers + PEFT
-    for model loading (4-bit quantization). Matches Colab workflow
-    for consistent, reproducible testing.
+    Uses ChromaDB for vector storage and transformers + PEFT
+    with 4-bit quantization for efficient model loading and inference.
     """
     
     def __init__(
@@ -66,13 +65,11 @@ class LocalRAGTester:
         self.documents_folder = documents_folder
         self.test_questions = test_questions or get_test_questions()
         
-        # Setup ChromaDB (matches Colab exactly)
         self.vector_store = ChromaDBStore(
             collection_name="model_test",
             embedding_model=self.config.embedding_model
         )
         
-        # Load documents once (reused for baseline and fine-tuned tests)
         self._load_documents()
         
         logger.info(f"✓ LocalRAGTester initialized")
@@ -93,7 +90,6 @@ class LocalRAGTester:
         
         logger.info(f"✓ Loaded {len(self.documents)} documents")
         
-        # Add to ChromaDB
         self.vector_store.add_documents(self.documents)
     
     def _run_test_loop(
@@ -331,7 +327,7 @@ class LocalRAGTester:
         use_timestamp: bool = True
     ) -> Dict[str, Any]:
         """
-        Test baseline model (matches Colab baseline tests)
+        Test baseline model
         
         Args:
             base_model_name: HuggingFace model name
@@ -339,16 +335,14 @@ class LocalRAGTester:
             use_timestamp: Add timestamp to filename
             
         Returns:
-            Dictionary with baseline test results (matches Colab format)
+            Dictionary with baseline test results
         """
         logger.info("=" * 60)
         logger.info("BASELINE TESTS (Base Model)")
         logger.info("=" * 60)
         
-        # Load baseline model ONCE (optimization - don't reload for each question)
         model, tokenizer = ModelLoader.load_baseline_model(base_model_name)
         
-        # Initialize results structure (matches Colab format)
         results = {
             "experiment_type": "baseline",
             "timestamp": datetime.now().isoformat(),
@@ -394,7 +388,6 @@ class LocalRAGTester:
         # Clean up baseline model to free VRAM
         ModelLoader.cleanup_model(model, tokenizer)
         
-        # Save results if requested
         if output_file:
             self._save_results(results, output_file, "baseline", use_timestamp)
         
@@ -411,7 +404,7 @@ class LocalRAGTester:
         use_timestamp: bool = True
     ) -> Dict[str, Any]:
         """
-        Test fine-tuned model (matches Colab fine-tuned tests)
+        Test fine-tuned model
         
         Args:
             adapter_path: Path to LoRA adapter directory
@@ -423,14 +416,13 @@ class LocalRAGTester:
             use_timestamp: Add timestamp to filename
             
         Returns:
-            Dictionary with fine-tuned test results (matches Colab format)
+            Dictionary with fine-tuned test results
         """
         logger.info("\n" + "=" * 60)
         logger.info("FINE-TUNED MODEL TESTS")
         logger.info("=" * 60)
         logger.info("Testing fine-tuned model with identical conditions as baseline...")
         
-        # Load adapter config to get metadata
         adapter_path_obj = Path(adapter_path).resolve()
         adapter_config_file = adapter_path_obj / "adapter_config.json"
         
@@ -440,10 +432,8 @@ class LocalRAGTester:
         with open(adapter_config_file, 'r') as f:
             adapter_config = json.load(f)
         
-        # Load fine-tuned model
         model, tokenizer = ModelLoader.load_finetuned_model(adapter_path, base_model_name)
         
-        # Initialize results structure (matches Colab format)
         results = {
             "experiment_type": "model_test",
             "timestamp": datetime.now().isoformat(),
@@ -500,7 +490,6 @@ class LocalRAGTester:
         # Clean up fine-tuned model
         ModelLoader.cleanup_model(model, tokenizer)
         
-        # Save results if requested
         if output_file:
             self._save_results(results, output_file, "simrag", use_timestamp)
         
@@ -513,7 +502,7 @@ class LocalRAGTester:
         output_file: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Compare baseline vs fine-tuned results (matches Colab comparison)
+        Compare baseline vs fine-tuned results
         
         Args:
             baseline_results: Baseline test results
@@ -521,7 +510,7 @@ class LocalRAGTester:
             output_file: Optional output filename
             
         Returns:
-            Dictionary with comparison results (matches Colab format)
+            Dictionary with comparison results
         """
         return compare_results(baseline_results, finetuned_results, output_file)
     
@@ -538,7 +527,7 @@ class LocalRAGTester:
         use_timestamp: bool = True
     ) -> Dict[str, Any]:
         """
-        Run full test flow: baseline → fine-tuned → compare (matches Colab workflow)
+        Run full test flow: baseline → fine-tuned → compare
         
         Args:
             base_model_name: HuggingFace model name

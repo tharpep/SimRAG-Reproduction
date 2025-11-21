@@ -12,7 +12,7 @@ def create_cross_platform_zip(source_dir: str, output_name: Optional[str] = None
     Create a cross-platform compatible ZIP file
 
     Fixes Windows backslash issue by forcing forward slashes in ZIP archive paths.
-    This ensures the ZIP can be extracted properly on Linux/macOS (e.g., Google Colab).
+    This ensures the ZIP can be extracted properly on Linux/macOS.
 
     Args:
         source_dir: Path to directory to ZIP

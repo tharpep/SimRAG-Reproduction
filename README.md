@@ -192,7 +192,7 @@ simrag experiment stage1       # Stage 1 training only (~3-4 hours)
 simrag experiment stage2       # Stage 2 training only (~3-4 hours)
 simrag experiment baseline     # Baseline RAG only (HuggingFace-based, ~2-3 minutes)
 simrag experiment simrag       # SimRAG pipeline only (~6-8 hours for 1.5B)
-simrag experiment test   # Local HuggingFace testing (matches Colab)
+simrag experiment test   # Local HuggingFace testing
 simrag experiment compare      # Compare results
 ```
 
@@ -216,7 +216,7 @@ simrag experiment simrag       # SimRAG pipeline
 simrag experiment compare      # Compare results
 simrag experiment export       # Export model for Colab
 simrag experiment results      # View comparison results
-simrag experiment test   # Local HuggingFace testing (matches Colab)
+simrag experiment test   # Local HuggingFace testing
 ```
 
 ### Programmatic Usage
@@ -243,7 +243,7 @@ simrag_reproduction/
 │   ├── baseline/     # Baseline RAG experiments (HuggingFace-based)
 │   ├── simrag/       # SimRAG training experiments
 │   ├── comparison/   # Result comparison utilities
-│   ├── local_testing/ # Local HuggingFace testing (matches Colab)
+│   ├── local_testing/ # Local HuggingFace testing
 │   └── model_utils.py # Model discovery and export utilities
 └── cli/               # Command-line interface
 ```
@@ -266,11 +266,11 @@ simrag experiment stage2       # Stage 2 training only (~3-4 hours)
 simrag experiment baseline     # Baseline RAG only (Ollama-based, ~2-3 min)
 simrag experiment simrag       # SimRAG pipeline only (~6-8 hours)
 simrag experiment compare      # Compare existing results
-simrag experiment test        # Local HuggingFace testing (matches Colab notebook)
+simrag experiment test        # Local HuggingFace testing
 ```
 
 **Local Testing** (`test`):
-The `test` command provides local HuggingFace model testing that exactly matches the Colab notebook workflow:
+The `test` command provides local HuggingFace model testing:
 - Uses ChromaDB for vector storage (same as Colab)
 - Uses 4-bit quantization with PEFT adapters (same as Colab)
 - Tests baseline model → fine-tuned model → comparison
@@ -386,7 +386,7 @@ Trained models are stored in `tuned_models/` as LoRA adapters (~100MB for 1.5B, 
 - Models can be tested locally using the `test` command or exported for Colab testing
 
 **Testing Models**:
-- **Local Testing** (`simrag experiment test`): Uses HuggingFace with 4-bit quantization, matches Colab notebook exactly. Automatically reuses compatible baseline results to save time.
+- **Local Testing** (`simrag experiment test`): Uses HuggingFace with 4-bit quantization for efficient inference. Automatically reuses compatible baseline results to save time.
 - **Export for Colab** (`simrag experiment export`): Create cross-platform ZIP files for Google Colab testing
 
 ## Logging

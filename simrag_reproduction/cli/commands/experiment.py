@@ -44,7 +44,7 @@ def experiment(
         typer.echo(f"Unknown experiment command: {command}", err=True)
         typer.echo("Available commands: run, stage1, stage2, baseline, simrag, compare, export, results, test", err=True)
         typer.echo("\nNote: 'run' trains both stages. Use 'stage1' or 'stage2' to run individually.", err=True)
-        typer.echo("Use 'test' for local HuggingFace model testing (matches Colab notebook).", err=True)
+        typer.echo("Use 'test' for local HuggingFace model testing.", err=True)
         raise typer.Exit(1)
 
 
@@ -208,7 +208,7 @@ def _run_stage2_only(documents: Optional[str], stage1_model: Optional[str]) -> N
         if 'total_rounds' in results['training']:
             typer.echo(f"  Rounds: {results['training']['total_rounds']}")
         typer.echo(f"  Model path: {results['training']['model_path']}")
-        typer.echo(f"\nNext: Export and test in Colab notebook")
+        typer.echo(f"\nNext: Test locally with 'simrag experiment test' or export with 'simrag experiment export'")
         typer.echo(f"  simrag experiment export")
         
         raise typer.Exit(0)
@@ -331,7 +331,7 @@ def _run_compare(baseline_file: Optional[str], simrag_file: Optional[str]) -> No
 
 
 def _run_export_model() -> None:
-    """Export a model to ZIP file for Colab"""
+    """Export a model to ZIP file for external use"""
     try:
         from ...experiments.model_utils import list_available_models, export_model
         from ...config import get_tuning_config
@@ -422,7 +422,7 @@ def _run_export_model() -> None:
         
         typer.echo("\n=== Export Complete ===")
         typer.echo(f"✓ ZIP file created: {zip_path}")
-        typer.echo(f"\nUpload this file to Google Colab for testing.")
+        typer.echo(f"\nThis ZIP file can be used for external testing or sharing.")
         
         raise typer.Exit(0)
     except KeyboardInterrupt:
@@ -462,7 +462,7 @@ def _run_display_results() -> None:
         if not result_files:
             typer.echo("No comparison results found!", err=True)
             typer.echo(f"Expected results in: {results_dir}", err=True)
-            typer.echo("\nRun the Colab notebook to generate comparison results.", err=True)
+            typer.echo("\nRun 'simrag experiment test' to generate comparison results.", err=True)
             raise typer.Exit(1)
         
         # Display menu
@@ -533,7 +533,7 @@ def _run_local_testing(
     adapter_path: Optional[str],
     stage: Optional[str],
 ) -> None:
-    """Run local RAG testing with HuggingFace models (matches Colab notebook)"""
+    """Run local RAG testing with HuggingFace models"""
     try:
         from ...experiments.local_testing import LocalRAGTester
         from ...experiments.model_utils import list_available_models
@@ -554,7 +554,7 @@ def _run_local_testing(
         typer.echo("=== Local RAG Testing (HuggingFace) ===")
         typer.echo("")
         typer.echo("This command tests models locally using HuggingFace transformers")
-        typer.echo("with 4-bit quantization, matching the Colab notebook exactly.")
+        typer.echo("with 4-bit quantization for efficient inference.")
         typer.echo("")
 
         # Get base model if not provided

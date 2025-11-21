@@ -119,7 +119,7 @@ def export_model(
     output_name: Optional[str] = None
 ) -> str:
     """
-    Export a model to a cross-platform ZIP file for Colab
+    Export a model to a cross-platform ZIP file
     
     Args:
         model_path: Path to the model directory (checkpoint directory)
@@ -143,7 +143,7 @@ def export_model(
     
     # Generate output name if not provided
     if output_name is None:
-        # Use checkpoint name with "-fixed" suffix (matching Colab workflow)
+        # Use checkpoint name with "-fixed" suffix
         output_name = f"{model_path_abs.name}-fixed.zip"
     
     # Create ZIP in the model's parent directory (same directory as checkpoint)

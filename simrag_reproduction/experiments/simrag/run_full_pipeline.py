@@ -1,7 +1,6 @@
 """
 Run Full SimRAG Pipeline
-Orchestrates Stage 1 -> Stage 2 (training only, no testing)
-Testing is done separately in the Colab notebook
+Orchestrates Stage 1 -> Stage 2 training
 """
 
 import json
@@ -27,30 +26,23 @@ def run_full_pipeline(
     use_timestamp: bool = True
 ) -> dict:
     """
-    Run full SimRAG pipeline: Stage 1 -> Stage 2 (training only)
-    
-    Note: Testing is done separately in the Colab notebook.
-    This function only trains the models.
+    Run full SimRAG pipeline: Stage 1 -> Stage 2
     
     Args:
         documents_folder: Path to folder containing domain documents
         use_real_datasets: Use Alpaca dataset for Stage 1 (True) or test data (False)
         output_file: Path to save results JSON (optional)
+        use_timestamp: Add timestamp to output filename
         
     Returns:
-        Dictionary with training results (no testing)
+        Dictionary with training results
     """
-    logger.info("=== Full SimRAG Pipeline (Training Only) ===")
-    logger.info("Note: Testing is done separately in the Colab notebook")
+    logger.info("=== Full SimRAG Pipeline ===")
     
-    # Get configs
     tuning_config = get_tuning_config()
     rag_config = get_rag_config()
     
-    # Generate experiment run ID to link Stage 1 and Stage 2 versions
     experiment_run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
-    # Get metadata for reproducibility
     system_metadata = get_system_metadata()
     
     results = {
@@ -81,7 +73,6 @@ def run_full_pipeline(
     if not version1:
         raise Exception("Stage 1 training failed")
     
-    # Get Stage 1 model path with explicit stage specification
     stage1_model_path = stage1.get_model_from_registry(version1.version, stage="stage_1")
     if not stage1_model_path:
         raise Exception(f"Could not find Stage 1 model path for version {version1.version}")
@@ -99,13 +90,11 @@ def run_full_pipeline(
     logger.info("STAGE 2: Domain Adaptation Training")
     logger.info("="*60)
     
-    # Load documents - ensure path is resolved
     documents_folder_resolved = str(Path(documents_folder).resolve())
     logger.info(f"Loading documents from: {documents_folder_resolved}")
     documents = load_documents_from_folder(documents_folder_resolved, include_html=True)
     logger.info(f"Loaded {len(documents)} documents for Stage 2")
     
-    # Update dataset info in results
     results["dataset"]["num_documents"] = len(documents)
     
     stage2 = DomainAdaptation(
@@ -144,7 +133,7 @@ def run_full_pipeline(
     logger.info(f"Stage 2: {results['stage2']['version']} ({results['stage2']['training_time']:.1f}s)")
     logger.info(f"\n✓ Models trained successfully!")
     logger.info(f"✓ Export models using: simrag experiment export")
-    logger.info(f"✓ Test models in Colab notebook: test_model_colab.ipynb")
+    logger.info(f"✓ Test models locally: simrag experiment test")
     
     # Save results
     if output_file:

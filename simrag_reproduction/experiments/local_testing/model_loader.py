@@ -1,7 +1,6 @@
 """
 Model Loader
 Handles loading baseline and fine-tuned models with 4-bit quantization
-Matches Colab notebook exactly
 """
 
 import gc
@@ -24,13 +23,13 @@ logger = get_logger(__name__)
 class ModelLoader:
     """
     Model loader for baseline and fine-tuned models
-    Uses 4-bit quantization to match Colab notebook exactly
+    Uses 4-bit quantization for efficient memory usage
     """
     
     @staticmethod
     def load_baseline_model(base_model_name: str) -> Tuple[Any, Any]:
         """
-        Load baseline model with 4-bit quantization (matches Colab)
+        Load baseline model with 4-bit quantization
         
         Args:
             base_model_name: HuggingFace model name (e.g., "Qwen/Qwen2.5-1.5B-Instruct")
@@ -74,7 +73,7 @@ class ModelLoader:
     @staticmethod
     def load_finetuned_model(adapter_path: str, base_model_name: str) -> Tuple[Any, Any]:
         """
-        Load fine-tuned model (base + PEFT adapters) with 4-bit quantization (matches Colab)
+        Load fine-tuned model (base + PEFT adapters) with 4-bit quantization
         
         Args:
             adapter_path: Path to LoRA adapter directory
@@ -123,7 +122,7 @@ class ModelLoader:
     @staticmethod
     def cleanup_model(model: Any, tokenizer: Any) -> None:
         """
-        Clean up model and free VRAM (matches Colab)
+        Clean up model and free VRAM
         
         Args:
             model: Model to cleanup

@@ -1,6 +1,6 @@
 """
 Local RAG Testing Package
-Modular implementation that mirrors Colab notebook exactly
+Modular implementation for testing fine-tuned models locally
 """
 
 from .tester import LocalRAGTester

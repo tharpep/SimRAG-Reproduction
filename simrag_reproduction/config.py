@@ -17,22 +17,18 @@ class RAGConfig:
     # AI Provider settings (for synthetic QA generation during training)
     # Note: Purdue API is preferred for QA generation, HuggingFace is fallback
     
-    # Vector store settings
     use_persistent: bool = True  # True for persistent storage, False for in-memory only
     collection_name: str = "simrag_docs"  # Name for Qdrant collection
     clear_on_ingest: bool = True  # Clear collection before ingesting new documents
     
-    # Retrieval settings
     top_k: int = 5  # Number of documents to retrieve (1-20 recommended)
     similarity_threshold: float = 0.7  # Minimum similarity score (0.0-1.0)
     
-    # Generation settings
     max_tokens: int = 100  # Maximum tokens in response (50-500 recommended, 100 is sufficient for most answers)
     temperature: float = 0.7  # Creativity level (0.0-1.0, lower = more focused)
     
-    # Local testing settings (matches Colab notebook exactly)
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"  # Embedding model for vector store (384 dimensions)
-    local_testing_max_tokens: int = 512  # Max tokens for local testing (matches Colab, more generous for complete answers)
+    local_testing_max_tokens: int = 512  # Max tokens for local testing (generous for complete answers)
     reuse_baseline: bool = True  # Reuse most recent compatible baseline if available (saves ~5-10 min)
     baseline_max_age_days: int = 7  # Maximum age in days for reusable baseline (default: 7 days)
     

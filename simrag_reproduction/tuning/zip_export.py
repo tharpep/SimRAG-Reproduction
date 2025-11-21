@@ -1,6 +1,6 @@
 """
 Create cross-platform compatible ZIP for model export
-Fixes Windows backslash issue in ZIP archives for Colab compatibility
+Fixes Windows backslash issue in ZIP archives for cross-platform compatibility
 """
 
 import zipfile

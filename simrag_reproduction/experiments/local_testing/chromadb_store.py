@@ -1,7 +1,6 @@
 """
 ChromaDB Vector Store
 Handles ChromaDB setup and document management
-Matches Colab notebook exactly
 """
 
 import chromadb
@@ -15,8 +14,7 @@ logger = get_logger(__name__)
 
 class ChromaDBStore:
     """
-    ChromaDB vector store wrapper
-    Matches Colab notebook setup exactly
+    ChromaDB vector store wrapper for document storage and retrieval
     """
     
     def __init__(self, collection_name: str = "model_test", embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"):
@@ -25,14 +23,13 @@ class ChromaDBStore:
         
         Args:
             collection_name: Name for the collection
-            embedding_model: Embedding model to use (matches Colab default)
+            embedding_model: Embedding model to use for generating embeddings
         """
         logger.info("Initializing ChromaDB...")
         
         self.client = chromadb.Client()
         self.embedding_model = embedding_model
         
-        # CRITICAL: Use exact same embedding model as Colab
         embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
             model_name=embedding_model
         )
