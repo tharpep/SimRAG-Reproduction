@@ -37,7 +37,7 @@
 % - Main findings
 % - Contribution/insights
 
-We present a simplified reproduction of SimRAG, implementing core RAG components (semantic retrieval, Qdrant vector storage, two-stage QLoRA fine-tuning) to verify that RAG + fine-tuning improves domain-specific QA performance. Using consumer hardware (RTX 3080/10GB VRAM) with QLoRA-optimized models (Qwen 2.5 1.5B, Qwen 2.5 7B), we demonstrate feasibility and validate SimRAG's core insights while providing an accessible framework for understanding RAG systems. Fine-tuned models are automatically converted to Ollama format for fast, reliable inference.
+We present a simplified reproduction of SimRAG, implementing core RAG components (semantic retrieval, Qdrant/ChromaDB vector storage, two-stage QLoRA fine-tuning) to verify that RAG + fine-tuning improves domain-specific QA performance. Using consumer hardware (RTX 3080/10GB VRAM) with the QLoRA-optimized Qwen 2.5 1.5B-Instruct model (7B supported but not tested), we demonstrate feasibility and validate SimRAG's core insights while providing an accessible framework for understanding RAG systems. The implementation supports multiple AI providers (Claude, Purdue GenAI API, HuggingFace) for synthetic QA generation and uses HuggingFace Transformers with 4-bit quantization for efficient inference.
 
 \end{abstract}
 
@@ -69,9 +69,9 @@ We present a simplified reproduction of SimRAG, implementing core RAG components
 
 \subsection{Scope and Simplifications}
 
-\textbf{Implemented}: (1) RAG system (sentence-transformers + Qdrant), (2) Stage 1 fine-tuning (Alpaca dataset), (3) Stage 2 domain adaptation (synthetic QA), (4) Baseline vanilla RAG.
+\textbf{Implemented}: (1) RAG system (sentence-transformers + Qdrant/ChromaDB), (2) Stage 1 fine-tuning (Alpaca dataset), (3) Stage 2 domain adaptation (synthetic QA with self-improvement loop), (4) Baseline vanilla RAG, (5) Multi-provider AI gateway (Claude/Purdue/HuggingFace), (6) Docker support for reproducibility.
 
-\textbf{Simplifications}: (1) Smaller models (Qwen 2.5 1.5B, Qwen 2.5 7B), (2) QLoRA fine-tuning (4-bit quantization + LoRA adapters), (3) Smaller corpus (5k–20k chunks), (4) Limited self-improvement rounds. \textbf{Justification}: Verify improvement \textit{trend} rather than match exact numbers; demonstrate hardware accessibility with memory-efficient training.
+\textbf{Simplifications}: (1) Smaller model (Qwen 2.5 1.5B-Instruct; 7B supported but not trained/tested), (2) QLoRA fine-tuning (4-bit quantization + LoRA adapters), (3) Smaller corpus (5k–20k chunks), (4) Limited self-improvement rounds. \textbf{Justification}: Verify improvement \textit{trend} rather than match exact numbers; demonstrate hardware accessibility with memory-efficient training.
 
 \section{Related Work}
 \label{sec:related}
@@ -102,25 +102,25 @@ We present a simplified reproduction of SimRAG, implementing core RAG components
 
 \subsection{System Architecture}
 
-\textbf{Three Subsystems}: (1) \textit{RAG}: VectorStore (Qdrant), DocumentRetriever (embeddings), AIGateway (Ollama/Purdue/HuggingFace), orchestrated by BasicRAG. (2) \textit{Fine-tuning}: InstructionFollowing (Stage 1), SyntheticQAGeneration (QA pairs), DomainAdaptation (Stage 2), all inherit SimRAGBase. QLoRA training (4-bit quantization + LoRA adapters) with automatic Ollama conversion for inference. (3) \textit{Experiment Management}: Model registry (versioning, metadata, experiment run IDs), configuration system (hardware-aware, env var overrides).
+\textbf{Three Subsystems}: (1) \textit{RAG}: VectorStore (Qdrant for training, ChromaDB for testing), DocumentRetriever (embeddings), AIGateway (Claude/Purdue/HuggingFace), orchestrated by BasicRAG. (2) \textit{Fine-tuning}: InstructionFollowing (Stage 1), SyntheticQAGeneration (QA pairs), DomainAdaptation (Stage 2), all inherit SimRAGBase. QLoRA training (4-bit quantization + LoRA adapters) with HuggingFace Transformers for inference. (3) \textit{Experiment Management}: Model registry (versioning, metadata, experiment run IDs with round information), configuration system (hardware-aware, env var overrides).
 
 \subsubsection{Retrieval-Augmented Generation}
 
-\textbf{Components}: (1) \textit{Document ingestion}: HTML/Markdown/text → chunks (200–500 tokens), preserves boundaries. (2) \textit{Embeddings}: sentence-transformers → dense vectors → Qdrant (cosine similarity, in-memory/persistent). (3) \textit{Retrieval}: Query embedding → top-$k=5$ search → filter by threshold (0.7) → return docs + scores. (4) \textit{Generation}: Prompt = "Context: [docs]\n\nQuestion: [query]\n\nAnswer:" → LLM (Ollama for baseline and fine-tuned models via GGUF conversion).
+\textbf{Components}: (1) \textit{Document ingestion}: HTML/Markdown/text → chunks (200–500 tokens), preserves boundaries. (2) \textit{Embeddings}: sentence-transformers → dense vectors → Qdrant (training, in-memory by default) or ChromaDB (local testing). (3) \textit{Retrieval}: Query embedding → top-$k=5$ search → filter by threshold (0.7) → return docs + scores. (4) \textit{Generation}: Prompt = "Context: [docs]\n\nQuestion: [query]\n\nAnswer:" → LLM (HuggingFace Transformers with 4-bit quantization for baseline and fine-tuned models).
 
 \subsubsection{Model Fine-Tuning}
 
-\textbf{Base Models}: Qwen 2.5 1.5B-Instruct, Qwen 2.5 7B-Instruct. HuggingFace Transformers, causal LM objective. QLoRA training: 4-bit quantization (NF4), LoRA adapters (rank=16, alpha=32), target modules (q\_proj, k\_proj, v\_proj, o\_proj).
+\textbf{Base Models}: Primary model: Qwen 2.5 1.5B-Instruct (trained and tested). Qwen 2.5 7B-Instruct is supported by the framework but not trained or tested in this reproduction. HuggingFace Transformers, causal LM objective. QLoRA training: 4-bit quantization (NF4), LoRA adapters (rank=16, alpha=32), target modules (q\_proj, k\_proj, v\_proj, o\_proj).
 
-\textbf{Stage 1}: Alpaca dataset (52K examples), format "Question: [instruction]\nAnswer: [response]". LR=$5 \times 10^{-5}$, batch=8 (GPU), epochs=3. QLoRA adapters saved (~100MB for 1.5B, ~400MB for 7B).
+\textbf{Stage 1}: Alpaca dataset (52K examples), format "Question: [instruction]\nAnswer: [response]". LR=$5 \times 10^{-5}$, batch=8 (GPU), epochs=3. QLoRA adapters saved (~100MB for 1.5B model; 7B would require ~400MB but was not trained).
 
-\textbf{Stage 2}: Continues from Stage 1 adapters. Synthetic QA from domain docs (Ollama/Purdue API for questions, RAG for answers). Filter: context score $\geq 0.7$. Same hyperparams, fewer epochs (1–2). Adapters merged and converted to GGUF for Ollama inference.
+\textbf{Stage 2}: Continues from Stage 1 adapters. Synthetic QA from domain docs (Claude/Purdue API/HuggingFace for questions, RAG for answers). Filter: context score $\geq 0.7$. Same hyperparams, fewer epochs (1–2). Supports self-improvement loop (multiple rounds, each using improved model). Model notes include round information (e.g., "Round 3/5").
 
-\textbf{Optimizations}: QLoRA (4-bit + LoRA) enables training on 10GB VRAM, automatic Ollama conversion for fast inference, gradient accumulation (effective batch=16), mixed precision (FP16), model versioning.
+\textbf{Optimizations}: QLoRA (4-bit + LoRA) enables training on 10GB VRAM, HuggingFace Transformers with 4-bit quantization for efficient inference, gradient accumulation (effective batch=16), mixed precision (FP16), model versioning with round tracking. Docker support for reproducible environments.
 
 \subsection{Baseline Implementation}
 
-\textbf{Vanilla RAG}: Same components as SimRAG (Qdrant, sentence-transformers, top-$k=5$, threshold=0.7) but uses base Ollama model (Qwen 2.5 1.5B) without fine-tuning.
+\textbf{Vanilla RAG}: Same components as SimRAG (ChromaDB for testing, sentence-transformers, top-$k=5$, threshold=0.7) but uses base HuggingFace model (Qwen 2.5 1.5B) with 4-bit quantization, without fine-tuning.
 
 \textbf{Justification}: Isolates fine-tuning effect; identical infrastructure → differences attributed to fine-tuning. Represents standard RAG practice.
 
@@ -136,21 +136,21 @@ We present a simplified reproduction of SimRAG, implementing core RAG components
 
 \textbf{Dataset}: HTML docs (Docker/DevOps/cloud computing), 5k–20k chunks, domain-specific knowledge required.
 
-\textbf{Test Questions}: 10 questions (e.g., "What is Docker?", "How does CI/CD work?"), require retrieval + generation with domain terminology.
+\textbf{Test Questions}: 30 questions covering Docker, CI/CD, DevOps, Google Cloud Platform, and Python (e.g., "What is Docker?", "How does CI/CD work?", "What are Docker layers and how do they optimize image builds?"), require retrieval + generation with domain terminology.
 
 \textbf{Metrics}: (1) \textit{Primary}: Avg context relevance (cosine similarity query↔docs). (2) \textit{Secondary}: Response time, answer length, qualitative assessment (relevance, terminology, coherence).
 
-\textbf{Hardware}: (1) Small model: Qwen 2.5 1.5B, RTX 3080 (10GB VRAM), QLoRA training (~3–4GB VRAM), batch=8. (2) Medium model: Qwen 2.5 7B, RTX 3080 (10GB VRAM), QLoRA training (~8–10GB VRAM), batch=8.
+\textbf{Hardware}: Primary experiments: Qwen 2.5 1.5B-Instruct, RTX 3080 (10GB VRAM), QLoRA training (~3–4GB VRAM), batch=8. The framework supports Qwen 2.5 7B-Instruct (would require ~8–10GB VRAM) but this model was not trained or tested.
 
 \subsection{Implementation Details}
 
-\textbf{Software}: Python 3.12+, PyTorch 2.5+ (CUDA), Transformers 4.30+, sentence-transformers 2.2+, Qdrant 1.7+, datasets library, PEFT (LoRA), bitsandbytes (4-bit quantization), Ollama (inference). Modular package structure.
+\textbf{Software}: Python 3.12+, PyTorch 2.5+ (CUDA), Transformers 4.30+, sentence-transformers 2.2+, Qdrant 1.7+ (training), ChromaDB (testing), datasets library, PEFT (LoRA), bitsandbytes (4-bit quantization), anthropic (optional, for Claude API). Docker support for reproducibility. Modular package structure.
 
-\textbf{Models}: Qwen 2.5 1.5B-Instruct, Qwen 2.5 7B-Instruct. QLoRA: 4-bit NF4 quantization, LoRA rank=16, alpha=32, dropout=0.05. Training: FP16 mixed precision, batch=8, gradient accumulation=2 (effective batch=16), LR=$5 \times 10^{-5}$, max length=512.
+\textbf{Models}: Primary model: Qwen 2.5 1.5B-Instruct (trained and tested). Qwen 2.5 7B-Instruct is supported but not used. QLoRA: 4-bit NF4 quantization, LoRA rank=16, alpha=32, dropout=0.05. Training: FP16 mixed precision, batch=8, gradient accumulation=2 (effective batch=16), LR=$5 \times 10^{-5}$, max length=512.
 
 \textbf{Hyperparameters}: Stage 1: Alpaca (52K examples), causal LM loss, 3 epochs. Stage 2: Synthetic QA (2 per doc, score≥0.7), 1–2 epochs. Both: AdamW, linear LR decay, gradient accumulation, mixed precision (FP16), no gradient checkpointing (to avoid hangs).
 
-\textbf{Retrieval}: Top-$k=5$, threshold=0.7, sentence-transformers (384-dim), Qdrant (cosine similarity, in-memory/persistent).
+\textbf{Retrieval}: Top-$k=5$, threshold=0.7, sentence-transformers (384-dim), Qdrant (training, in-memory by default) or ChromaDB (local testing, in-memory).
 
 \subsection{Evaluation Methodology}
 
@@ -160,7 +160,7 @@ We present a simplified reproduction of SimRAG, implementing core RAG components
 
 \textbf{Qualitative}: Manual inspection: relevance, domain terminology, context grounding, coherence.
 
-\textbf{Limitations}: Small corpus (5k–20k), limited test set (10 questions), no human evaluation, hardware constraints. Sufficient for hypothesis verification.
+\textbf{Limitations}: Small corpus (5k–20k), limited test set (30 questions), no human evaluation, hardware constraints. Sufficient for hypothesis verification.
 
 \section{Results and Analysis}
 \label{sec:results}
