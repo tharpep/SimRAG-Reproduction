@@ -37,12 +37,16 @@ class SyntheticQAGeneration(SimRAGBase):
         super().__init__(model_name, config)
         self.stage_1_model_path = stage_1_model_path
         try:
-            # Use Purdue API for QA generation (fallback to HuggingFace if not available)
+            # Initialize gateway (will auto-select provider based on config and availability)
             self.gateway = AIGateway()
-            # Initialize RAG system with Purdue API for answer generation
+            # Initialize RAG system with preferred provider for answer generation
             self.rag_system = self._initialize_rag_system()
+            rag_config = get_rag_config()
+            preferred_provider = rag_config.qa_provider if hasattr(rag_config, 'qa_provider') else "purdue"
+            available_providers = self.gateway.get_available_providers()
             logger.info("Synthetic QA Generator initialized")
-            logger.info("Using Purdue API for QA generation (fallback to HuggingFace if unavailable)")
+            logger.info(f"Preferred QA provider: {preferred_provider}")
+            logger.info(f"Available providers: {', '.join(available_providers) if available_providers else 'none'}")
             if stage_1_model_path:
                 logger.info(f"Stage 1 model available: {stage_1_model_path}")
         except Exception as e:
@@ -53,10 +57,12 @@ class SyntheticQAGeneration(SimRAGBase):
         """
         Initialize RAG system for synthetic QA generation
         
-        Uses Purdue API for answer generation (fallback to HuggingFace if not available)
+        Uses preferred provider from config (claude, purdue, or huggingface)
         """
-        # Use Purdue API (preferred) or HuggingFace (fallback)
-        return BasicRAG(force_provider="purdue")
+        rag_config = get_rag_config()
+        preferred_provider = rag_config.qa_provider if hasattr(rag_config, 'qa_provider') else "purdue"
+        # Use preferred provider, but allow fallback if not available
+        return BasicRAG(force_provider=preferred_provider)
     
     def generate_questions_from_document(self, document: str, num_questions: int = 3) -> List[str]:
         """
@@ -89,8 +95,10 @@ Generate questions that cover:
 Questions:"""
         
         try:
-            # Use Purdue API for question generation (fallback to HuggingFace if not available)
-            response = self.gateway.chat(prompt, provider="purdue", force_provider=False)
+            # Use preferred provider from config (auto-selects with fallback)
+            rag_config = get_rag_config()
+            preferred_provider = rag_config.qa_provider if hasattr(rag_config, 'qa_provider') else None
+            response = self.gateway.chat(prompt, provider=preferred_provider, force_provider=False)
             questions = self._parse_questions(response)
             result = questions[:num_questions]  # Limit to requested number
             logger.debug(f"Generated {len(result)} questions from document")

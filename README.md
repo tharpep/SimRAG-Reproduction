@@ -22,9 +22,8 @@ SimRAG introduces a self-improving framework that fine-tunes RAG systems through
 - **QLoRA Fine-Tuning**: Memory-efficient training using 4-bit quantization and LoRA adapters
 - **Two-Stage Training**: Instruction following (Stage 1) and domain adaptation with integrated self-improvement (Stage 2)
 - **Self-Improvement Loop**: Stage 2 can run multiple rounds, each using the improved model to generate better synthetic QA
-- **Multiple AI Providers**: Unified interface for Purdue GenAI API and HuggingFace
+- **Multiple AI Providers**: Unified interface for Claude, Purdue GenAI API, and HuggingFace
 - **Synthetic QA Generation**: Self-improving data generation from domain documents
-- **Multiple AI Providers**: Unified interface for Purdue GenAI API and HuggingFace
 - **Hardware-Efficient**: Runs on consumer GPUs (10GB VRAM) with 4-bit quantization
 
 ## Installation
@@ -48,9 +47,11 @@ poetry --version
 # (Most modern Poetry versions include shell support by default)
 ```
 
-**Purdue GenAI API** (optional, for synthetic QA generation):
-- Get API key from your Purdue GenAI account
-- Add to `.env` file: `PURDUE_API_KEY=your-api-key-here`
+**AI Provider for QA Generation** (optional, choose one):
+- **Claude API**: Get API key from https://console.anthropic.com/ - Add to `.env`: `CLAUDE_API_KEY=your-key-here`
+- **Purdue GenAI API**: Get API key from your Purdue GenAI account - Add to `.env`: `PURDUE_API_KEY=your-key-here` (free for Purdue users)
+- **HuggingFace**: Works offline but slower - No API key needed
+- Set `QA_PROVIDER=claude` (or `purdue` or `huggingface`) in `.env` to choose your preferred provider
 - **Note**: If not provided, the system will use HuggingFace for QA generation (slower but works offline)
 
 ### Step 2: Clone Repository
@@ -129,7 +130,9 @@ Create a `.env` file in the project root (optional):
 MODEL_SIZE=small  # "small" for Qwen/Qwen2.5-1.5B-Instruct, "medium" for Qwen/Qwen2.5-7B-Instruct (both non-gated)
 
 # AI Provider (for synthetic QA generation during training)
-PURDUE_API_KEY=your-api-key-here  # Optional - for faster QA generation. If not set, uses HuggingFace
+QA_PROVIDER=purdue  # Options: "claude", "purdue", "huggingface" (default: "purdue")
+CLAUDE_API_KEY=your-claude-api-key-here  # Optional - for Claude API (get from https://console.anthropic.com/)
+PURDUE_API_KEY=your-purdue-api-key-here  # Optional - for Purdue GenAI API (free for Purdue users)
 
 # HuggingFace (optional - only needed if using Llama models)
 HF_TOKEN=your-huggingface-token-here  # Optional: Only needed for gated Llama models. Get from https://huggingface.co/settings/tokens
@@ -235,7 +238,7 @@ print(response)
 
 ```
 simrag_reproduction/
-├── ai_providers/      # LLM clients (Purdue API, HuggingFace)
+├── ai_providers/      # LLM clients (Claude, Purdue API, HuggingFace)
 ├── rag/              # RAG system (ingestion, retrieval, generation)
 ├── simrag/           # SimRAG pipeline (Stage 1 & 2 fine-tuning)
 ├── tuning/            # Model fine-tuning utilities
@@ -363,7 +366,9 @@ mypy simrag_reproduction/
 
 ### Runtime Issues
 
-**No providers available**: The system uses HuggingFace by default. For faster QA generation during training, set `PURDUE_API_KEY` in `.env`. The `test` command always uses HuggingFace directly.
+**No providers available**: The system uses HuggingFace by default. For faster QA generation during training, set `CLAUDE_API_KEY` or `PURDUE_API_KEY` in `.env` and set `QA_PROVIDER=claude` or `QA_PROVIDER=purdue`. The `test` command always uses HuggingFace directly.
+
+**Claude API not working**: If you want to use Claude, install the anthropic package: `pip install anthropic` or `poetry add anthropic`. The package is marked as optional in pyproject.toml.
 
 **CUDA Out of Memory**: 
 - QLoRA is always enabled (4-bit quantization)

@@ -26,6 +26,9 @@ httpx>=0.24.0
 bitsandbytes>=0.41.0
 peft>=0.7.0
 
+# AI Provider SDKs (optional)
+# anthropic>=0.18.0  # Uncomment if using Claude API
+
 # Testing
 pytest>=7.0.0
 pytest-asyncio>=0.21.0

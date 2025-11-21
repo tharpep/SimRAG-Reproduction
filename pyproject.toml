@@ -43,6 +43,9 @@ ruff = "*"
 black = "*"
 mypy = ">=1.0.0"
 
+[tool.poetry.extras]
+claude = ["anthropic>=0.18.0"]
+
 [tool.poetry.scripts]
 simrag = "simrag_reproduction.cli.main:main"
 

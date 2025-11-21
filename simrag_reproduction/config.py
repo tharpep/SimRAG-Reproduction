@@ -15,7 +15,9 @@ class RAGConfig:
     model_size: str = "small"  # "small" for Qwen/Qwen2.5-1.5B-Instruct, "medium" for Qwen/Qwen2.5-7B-Instruct (both non-gated)
     
     # AI Provider settings (for synthetic QA generation during training)
-    # Note: Purdue API is preferred for QA generation, HuggingFace is fallback
+    # Options: "claude", "purdue", "huggingface" (priority order if multiple available)
+    # Default: "purdue" (free for Purdue users), "claude" (if API key provided), "huggingface" (fallback)
+    qa_provider: str = "purdue"  # Preferred provider for QA generation
     
     use_persistent: bool = True  # True for persistent storage, False for in-memory only
     collection_name: str = "simrag_docs"  # Name for Qdrant collection
@@ -139,7 +141,8 @@ def get_rag_config() -> RAGConfig:
     """Get RAG configuration with environment variable overrides
     
     Environment variables that can be set:
-        - MODEL_SIZE: "small" or "medium" (small=Qwen/Qwen2.5-1.5B-Instruct, medium=Qwen/Qwen2.5-7B-Instruct)
+        - MODEL_SIZE: "small" or "medium" (small=Qwen/Qwen2.5-1.5B-Instruct, medium=Qwen2.5-7B-Instruct)
+    - QA_PROVIDER: "claude", "purdue", or "huggingface" (default: "purdue")
     - USE_PERSISTENT: "true" or "false" (persistent vs in-memory storage)
     - COLLECTION_NAME: name for Qdrant collection
     - MAX_TOKENS: maximum tokens in response (default: 100)
@@ -150,6 +153,15 @@ def get_rag_config() -> RAGConfig:
     - BASELINE_MAX_AGE_DAYS: maximum age in days for reusable baseline (default: 7)
     """
     config = RAGConfig()
+    
+    # Override QA provider preference
+    qa_provider_env = os.getenv("QA_PROVIDER")
+    if qa_provider_env:
+        qa_provider_lower = qa_provider_env.lower()
+        if qa_provider_lower in ["claude", "purdue", "huggingface"]:
+            config.qa_provider = qa_provider_lower
+        else:
+            print(f"Warning: Invalid QA_PROVIDER '{qa_provider_env}', must be 'claude', 'purdue', or 'huggingface'. Using default.")
     
     # Override with environment variables if set
     model_size_env = os.getenv("MODEL_SIZE")
