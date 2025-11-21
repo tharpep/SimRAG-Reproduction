@@ -58,12 +58,13 @@ results/
 checkpoints/
 wandb/
 
-# Experiment results (timestamped JSON files)
-simrag_reproduction/experiments/**/results/*.json
-simrag_reproduction/experiments/**/results/*.jsonl
+# Experiment results - KEEP these (committed for cross-device access)
+# simrag_reproduction/experiments/**/results/*.json is intentionally NOT ignored
+# simrag_reproduction/experiments/**/results/*.jsonl is intentionally NOT ignored
 
-# Data files
+# Data files (but allow experiment results - see above)
 *.jsonl
+!simrag_reproduction/experiments/**/results/*.jsonl  # Keep experiment results
 *.csv
 
 # Qdrant database (generated, should not be committed)
@@ -184,12 +185,12 @@ Thumbs.db
 tuned_models/llama_*/
 tuned_models/llama_*/*
 
-# Generated comparison results (from Colab notebook)
-comparison_results/*.json
+# Comparison results - KEEP these (committed for cross-device access)
+# comparison_results/ is intentionally NOT ignored
 
 # Model export ZIPs (generated files, too large for repo)
 *.zip
-!data/documents.zip  # Allow documents.zip if needed for Colab uploads
+# Note: documents.zip in root is ignored. Use data/documents/ folder instead.
 
 # ChromaDB databases (if used locally)
 chroma_db/
@@ -197,3 +198,8 @@ chroma_db/
 
 # Temporary test files with results (keep main notebook)
 test_model_colab_with results.ipynb
+
+# Quarto generated files (HTML outputs and assets)
+project_docs/*_files/
+project_docs/*.html
+# Keep .qmd source files and .tex files (they're source, not generated)
