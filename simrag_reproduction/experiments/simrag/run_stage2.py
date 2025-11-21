@@ -90,14 +90,19 @@ def run_stage2_training(
                 "version": version.version,
                 "training_time_seconds": version.training_time_seconds,
                 "final_loss": version.final_loss,
-                "model_path": stage2.get_model_from_registry(version.version, stage="stage_2")
+                "model_path": stage2.get_model_from_registry(version.version, stage="stage_2"),
+                "total_rounds": config.simrag_improvement_rounds,  # Store total rounds for easy identification
+                "notes": version.notes  # Includes round information
             }
         }
         
         logger.info(f"Stage 2 training completed successfully!")
         logger.info(f"  Version: {version.version}")
         logger.info(f"  Training time: {version.training_time_seconds:.1f}s")
-        logger.info(f"  Final loss: {version.final_loss:.4f if version.final_loss else 'N/A'}")
+        if version.final_loss:
+            logger.info(f"  Final loss: {version.final_loss:.4f}")
+        else:
+            logger.info(f"  Final loss: N/A")
         
         # Save results
         if output_file:

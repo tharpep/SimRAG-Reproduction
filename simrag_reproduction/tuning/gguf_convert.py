@@ -1,238 +1,210 @@
 """
-Convert HuggingFace Model to GGUF Format
-Utility to convert merged models to GGUF format for Ollama
+Convert merged HuggingFace models to GGUF format for Ollama
+This provides much better GPU utilization than loading FP16 models directly
 """
 
 import subprocess
 import logging
 from pathlib import Path
-from typing import Optional
+import os
+import sys
 
 logger = logging.getLogger(__name__)
 
 
 def convert_to_gguf(
     model_path: str,
-    output_path: str,
+    output_path: str = None,
     quantization: str = "Q4_K_M"
 ) -> str:
     """
-    Convert HuggingFace model to GGUF format using llama.cpp
-    
+    Convert a HuggingFace model to GGUF format using llama.cpp
+
     Args:
-        model_path: Path to HuggingFace model directory
-        output_path: Path to save GGUF file
-        quantization: Quantization type (Q4_K_M, Q5_K_M, Q8_0, etc.)
-        
+        model_path: Path to HuggingFace model directory (merged model)
+        output_path: Output path for GGUF file (optional, auto-generated if None)
+        quantization: Quantization level (Q4_K_M, Q5_K_M, Q8_0, F16, etc.)
+
     Returns:
-        Path to GGUF file
+        Path to the converted GGUF file
     """
     model_path = Path(model_path)
-    output_path = Path(output_path)
-    
-    logger.info(f"Converting {model_path} to GGUF format")
-    logger.info(f"Quantization: {quantization}")
-    
-    # Ensure output directory exists
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    # Check if llama.cpp convert script is available
-    # Note: This requires llama.cpp to be installed
-    # Users can install it via: git clone https://github.com/ggerganov/llama.cpp
-    
-    try:
-        # Try using llama-cpp-python's conversion
-        import llama_cpp
-        logger.info("Using llama-cpp-python for conversion")
-        
-        # llama-cpp-python doesn't have built-in conversion
-        # We need to use the llama.cpp convert.py script
-        raise ImportError("llama-cpp-python doesn't support conversion directly")
-        
-    except ImportError:
-        logger.info("llama-cpp-python not available, checking for llama.cpp scripts")
-    
-    # Look for llama.cpp convert script
-    # Common locations
-    possible_paths = [
-        Path.home() / "llama.cpp" / "convert.py",
-        Path("llama.cpp") / "convert.py",
-        Path("../llama.cpp") / "convert.py",
-    ]
-    
-    convert_script = None
-    for path in possible_paths:
-        if path.exists():
-            convert_script = path
-            break
-    
-    if convert_script is None:
-        raise FileNotFoundError(
-            "llama.cpp convert.py not found. Please install llama.cpp:\n"
-            "  git clone https://github.com/ggerganov/llama.cpp\n"
-            "  cd llama.cpp && make\n"
-            "Or use the simpler create_ollama_modelfile() function which doesn't require GGUF conversion."
-        )
-    
-    # Convert to GGUF
-    logger.info(f"Running {convert_script}")
-    
+
+    if not model_path.exists():
+        raise ValueError(f"Model path does not exist: {model_path}")
+
+    # Auto-generate output path if not provided
+    if output_path is None:
+        output_path = model_path.parent / f"{model_path.name}_{quantization.lower()}.gguf"
+    else:
+        output_path = Path(output_path)
+
+    # Check if already converted
+    if output_path.exists():
+        logger.info(f"GGUF model already exists: {output_path}")
+        return str(output_path)
+
+    logger.info(f"Converting {model_path} to GGUF format ({quantization})...")
+    logger.info("This requires llama.cpp. Checking for llama-quantize...")
+
+    # Try to find llama.cpp tools
+    quantize_cmd = _find_llama_cpp_tool()
+
+    if not quantize_cmd:
+        logger.error("llama.cpp not found!")
+        logger.error("Please install llama.cpp:")
+        logger.error("  git clone https://github.com/ggerganov/llama.cpp.git")
+        logger.error("  cd llama.cpp && make -j8")
+        logger.error("Then add it to PATH or set LLAMA_CPP_PATH environment variable")
+        raise RuntimeError("llama.cpp tools not found")
+
     # First convert to F16 GGUF
-    temp_gguf = output_path.parent / f"{output_path.stem}_f16.gguf"
-    
-    cmd_convert = [
-        "python",
-        str(convert_script),
-        str(model_path),
-        "--outfile", str(temp_gguf),
-        "--outtype", "f16"
-    ]
-    
-    logger.info(f"Command: {' '.join(cmd_convert)}")
-    result = subprocess.run(cmd_convert, capture_output=True, text=True)
-    
-    if result.returncode != 0:
-        logger.error(f"Conversion failed: {result.stderr}")
-        raise RuntimeError(f"Failed to convert model: {result.stderr}")
-    
-    # Then quantize to target format
-    quantize_script = convert_script.parent / "quantize"
-    if not quantize_script.exists():
-        quantize_script = convert_script.parent / "quantize.exe"  # Windows
-    
-    if quantize_script.exists():
-        logger.info(f"Quantizing to {quantization}")
-        
-        cmd_quantize = [
-            str(quantize_script),
-            str(temp_gguf),
-            str(output_path),
-            quantization
-        ]
-        
-        logger.info(f"Command: {' '.join(cmd_quantize)}")
-        result = subprocess.run(cmd_quantize, capture_output=True, text=True)
-        
+    f16_path = model_path.parent / f"{model_path.name}_f16.gguf"
+
+    if not f16_path.exists():
+        logger.info("Step 1: Converting to F16 GGUF...")
+
+        # For CMake builds, the script is in the root llama.cpp directory, not build/bin
+        quantize_dir = Path(quantize_cmd).parent
+        if "build" in str(quantize_dir):
+            # Go up to llama.cpp root directory
+            llama_cpp_root = quantize_dir.parent.parent
+        else:
+            llama_cpp_root = quantize_dir
+
+        convert_script = llama_cpp_root / "convert_hf_to_gguf.py"
+
+        if not convert_script.exists():
+            # Try alternative name
+            convert_script = llama_cpp_root / "convert-hf-to-gguf.py"
+
+        if not convert_script.exists():
+            raise RuntimeError(f"convert_hf_to_gguf.py not found in {llama_cpp_root}")
+
+        result = subprocess.run(
+            [sys.executable, str(convert_script), str(model_path), "--outfile", str(f16_path), "--outtype", "f16"],
+            capture_output=True,
+            text=True,
+            timeout=600
+        )
+
+        if result.returncode != 0:
+            logger.error(f"Conversion failed: {result.stderr}")
+            raise RuntimeError(f"Failed to convert to F16 GGUF: {result.stderr}")
+
+        logger.info(f"✓ F16 GGUF created: {f16_path}")
+    else:
+        logger.info(f"Using existing F16 GGUF: {f16_path}")
+
+    # Then quantize if needed
+    if quantization.upper() != "F16":
+        logger.info(f"Step 2: Quantizing to {quantization}...")
+        result = subprocess.run(
+            [quantize_cmd, str(f16_path), str(output_path), quantization],
+            capture_output=True,
+            text=True,
+            timeout=300
+        )
+
         if result.returncode != 0:
             logger.error(f"Quantization failed: {result.stderr}")
-            # Use F16 version if quantization fails
-            logger.warning(f"Using F16 version instead")
-            temp_gguf.rename(output_path)
-        else:
-            # Remove temp file
-            temp_gguf.unlink()
+            raise RuntimeError(f"Failed to quantize: {result.stderr}")
+
+        logger.info(f"✓ Quantized GGUF created: {output_path}")
+
+        # Clean up F16 if we quantized to something else
+        if f16_path.exists() and f16_path != output_path:
+            f16_path.unlink()
+            logger.info(f"Cleaned up intermediate F16 file")
     else:
-        logger.warning("Quantize binary not found, using F16 version")
-        temp_gguf.rename(output_path)
-    
-    logger.info(f"✓ GGUF file saved to {output_path}")
-    
+        # Just use the F16 version
+        output_path = f16_path
+
+    logger.info(f"✓ GGUF conversion complete: {output_path}")
     return str(output_path)
 
 
-def create_ollama_modelfile(
-    model_name: str,
-    base_model: str = "qwen2.5:1.5b",
-    adapter_path: Optional[str] = None,
-    gguf_path: Optional[str] = None,
-    output_path: str = "Modelfile"
-) -> str:
-    """
-    Create Ollama Modelfile (simpler alternative to GGUF conversion)
-    
-    Ollama can use adapters directly or reference merged models!
-    
-    Args:
-        model_name: Name for the model in Ollama
-        base_model: Base model in Ollama (e.g., "qwen2.5:1.5b")
-        adapter_path: Path to LoRA adapters (if using adapters)
-        gguf_path: Path to GGUF file (if using converted model)
-        output_path: Path to save Modelfile
-        
-    Returns:
-        Path to Modelfile
-    """
-    output_path = Path(output_path)
-    
-    logger.info(f"Creating Ollama Modelfile for {model_name}")
-    
-    modelfile_content = f"# Modelfile for {model_name}\n\n"
-    
-    if gguf_path:
-        # Use converted GGUF model
-        modelfile_content += f"FROM {gguf_path}\n"
-    elif adapter_path:
-        # Use base model + adapters
-        modelfile_content += f"FROM {base_model}\n"
-        modelfile_content += f"ADAPTER {adapter_path}/adapter_model.safetensors\n"
-    else:
-        raise ValueError("Either gguf_path or adapter_path must be provided")
-    
-    # Add default parameters
-    modelfile_content += "\n# Parameters\n"
-    modelfile_content += "PARAMETER temperature 0.7\n"
-    modelfile_content += "PARAMETER top_p 0.9\n"
-    modelfile_content += "PARAMETER stop \"<|endoftext|>\"\n"
-    modelfile_content += "PARAMETER stop \"<|im_end|>\"\n"
-    
-    # Add system message
-    modelfile_content += "\n# System message\n"
-    modelfile_content += 'SYSTEM """You are a helpful AI assistant trained to answer questions accurately and concisely based on provided context."""\n'
-    
-    # Write Modelfile
-    with open(output_path, 'w') as f:
-        f.write(modelfile_content)
-    
-    logger.info(f"✓ Modelfile saved to {output_path}")
-    logger.info(f"\nTo create the model in Ollama, run:")
-    logger.info(f"  ollama create {model_name} -f {output_path}")
-    
-    return str(output_path)
+def _find_llama_cpp_tool() -> str:
+    """Find llama.cpp quantize tool"""
+    # Check environment variable
+    llama_cpp_path = os.getenv("LLAMA_CPP_PATH")
+    if llama_cpp_path:
+        # Check both old and new build locations
+        for tool_name in ["llama-quantize", "quantize", "llama-quantize.exe", "quantize.exe"]:
+            quantize_tool = Path(llama_cpp_path) / tool_name
+            if quantize_tool.exists():
+                return str(quantize_tool)
 
+    # Check common locations (both old Makefile and new CMake builds)
+    common_locations = [
+        "llama.cpp/build/bin/llama-quantize",
+        "llama.cpp/build/bin/quantize",
+        "llama.cpp/llama-quantize",
+        "llama.cpp/quantize",
+        "../llama.cpp/build/bin/llama-quantize",
+        "../llama.cpp/build/bin/quantize",
+        "../llama.cpp/llama-quantize",
+        "../llama.cpp/quantize",
+        str(Path.home() / "llama.cpp" / "build" / "bin" / "llama-quantize"),
+        str(Path.home() / "llama.cpp" / "build" / "bin" / "quantize"),
+        str(Path.home() / "llama.cpp" / "llama-quantize"),
+        str(Path.home() / "llama.cpp" / "quantize"),
+    ]
 
-def main():
-    """CLI entry point for GGUF conversion"""
-    import argparse
-    
-    parser = argparse.ArgumentParser(description="Convert model to GGUF or create Ollama Modelfile")
-    subparsers = parser.add_subparsers(dest="command", help="Command to run")
-    
-    # GGUF conversion subcommand
-    gguf_parser = subparsers.add_parser("gguf", help="Convert to GGUF format")
-    gguf_parser.add_argument("model_path", help="Path to HuggingFace model")
-    gguf_parser.add_argument("output_path", help="Path to save GGUF file")
-    gguf_parser.add_argument("--quantization", default="Q4_K_M", help="Quantization type")
-    
-    # Modelfile creation subcommand
-    modelfile_parser = subparsers.add_parser("modelfile", help="Create Ollama Modelfile")
-    modelfile_parser.add_argument("model_name", help="Name for model in Ollama")
-    modelfile_parser.add_argument("--base-model", default="qwen2.5:1.5b", help="Base model in Ollama")
-    modelfile_parser.add_argument("--adapter-path", help="Path to LoRA adapters")
-    modelfile_parser.add_argument("--gguf-path", help="Path to GGUF file")
-    modelfile_parser.add_argument("--output", default="Modelfile", help="Output Modelfile path")
-    
-    args = parser.parse_args()
-    
-    logging.basicConfig(level=logging.INFO)
-    
-    if args.command == "gguf":
-        convert_to_gguf(
-            model_path=args.model_path,
-            output_path=args.output_path,
-            quantization=args.quantization
+    for location in common_locations:
+        path = Path(location)
+        if path.exists():
+            return str(path)
+        # Try with .exe on Windows
+        if os.name == 'nt':
+            path_exe = Path(str(location) + ".exe")
+            if path_exe.exists():
+                return str(path_exe)
+
+    # Try PATH
+    try:
+        result = subprocess.run(
+            ["which", "llama-quantize"],
+            capture_output=True,
+            text=True,
+            timeout=5
         )
-    elif args.command == "modelfile":
-        create_ollama_modelfile(
-            model_name=args.model_name,
-            base_model=args.base_model,
-            adapter_path=args.adapter_path,
-            gguf_path=args.gguf_path,
-            output_path=args.output
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except:
+        pass
+
+    try:
+        result = subprocess.run(
+            ["which", "quantize"],
+            capture_output=True,
+            text=True,
+            timeout=5
         )
-    else:
-        parser.print_help()
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except:
+        pass
+
+    return None
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
 
+    parser = argparse.ArgumentParser(description="Convert HuggingFace model to GGUF")
+    parser.add_argument("model_path", help="Path to HuggingFace model directory")
+    parser.add_argument("--output", "-o", help="Output GGUF file path")
+    parser.add_argument("--quantization", "-q", default="Q4_K_M",
+                       help="Quantization level (Q4_K_M, Q5_K_M, Q8_0, F16)")
+
+    args = parser.parse_args()
+
+    logging.basicConfig(level=logging.INFO)
+
+    try:
+        gguf_path = convert_to_gguf(args.model_path, args.output, args.quantization)
+        print(f"\n✓ Success! GGUF model: {gguf_path}")
+    except Exception as e:
+        logger.error(f"Conversion failed: {e}")
+        sys.exit(1)

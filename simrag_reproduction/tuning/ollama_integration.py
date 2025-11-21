@@ -56,15 +56,29 @@ def create_ollama_model_from_adapter(
     
     # Check if adapter files exist
     adapter_file = adapter_path / "adapter_model.safetensors"
+    adapter_config = adapter_path / "adapter_config.json"
+    
     if not adapter_file.exists():
         logger.error(f"Adapter file not found: {adapter_file}")
         return False
+    
+    if not adapter_config.exists():
+        logger.error(f"Adapter config not found: {adapter_config}")
+        logger.error("Ollama requires adapter_config.json in the same directory as adapter_model.safetensors")
+        return False
+    
+    # Use absolute path for adapter file in Modelfile
+    # Ollama's ADAPTER directive expects the path to the adapter_model.safetensors file
+    # Note: adapter_config.json must be in the same directory as the adapter file
+    # Convert to forward slashes for cross-platform compatibility
+    adapter_file_abs = adapter_file.resolve()
+    adapter_file_str = str(adapter_file_abs).replace('\\', '/')
     
     # Create Modelfile
     modelfile_path = adapter_path / "Modelfile"
     modelfile_content = f"""# Fine-tuned model: {model_name}
 FROM {base_model}
-ADAPTER {adapter_file}
+ADAPTER {adapter_file_str}
 
 # Parameters
 PARAMETER temperature 0.7
@@ -80,18 +94,36 @@ SYSTEM \"\"\"You are a helpful AI assistant trained to answer questions accurate
         f.write(modelfile_content)
     
     logger.info(f"Modelfile created at {modelfile_path}")
+    logger.info(f"Adapter file path: {adapter_file_abs}")
+    logger.info(f"Adapter config path: {adapter_config.resolve()}")
+    logger.info(f"Modelfile content:")
+    logger.info(f"---")
+    for line in modelfile_content.split('\n')[:5]:  # Show first 5 lines
+        logger.info(f"  {line}")
+    logger.info(f"---")
     
     # Create model in Ollama
-    cmd = ["ollama", "create", model_name, "-f", str(modelfile_path)]
+    # Run from adapter directory so Ollama can find adapter_config.json
+    # Ollama needs adapter_config.json in its working directory when processing ADAPTER directive
+    modelfile_path_abs = modelfile_path.resolve()
+    adapter_dir_abs = adapter_path.resolve()
+    cmd = ["ollama", "create", model_name, "-f", str(modelfile_path_abs)]
     
     logger.info(f"Running: {' '.join(cmd)}")
+    logger.info(f"Working directory: {adapter_dir_abs}")
     
     try:
+        # Use UTF-8 encoding with error handling for cross-platform compatibility
+        # Ollama output may contain binary data or special characters
+        # Run from adapter directory so adapter_config.json is in the working directory
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
-            timeout=300  # 5 minutes timeout
+            encoding='utf-8',
+            errors='replace',  # Replace invalid characters instead of failing
+            timeout=300,  # 5 minutes timeout
+            cwd=str(adapter_dir_abs)  # Run from adapter directory
         )
         
         if result.returncode == 0:
@@ -99,7 +131,11 @@ SYSTEM \"\"\"You are a helpful AI assistant trained to answer questions accurate
             logger.info(f"  You can now use it with: ollama run {model_name}")
             return True
         else:
-            logger.error(f"Failed to create Ollama model: {result.stderr}")
+            # Log both stdout and stderr for debugging
+            error_msg = result.stderr if result.stderr else result.stdout
+            logger.error(f"Failed to create Ollama model (exit code {result.returncode})")
+            if error_msg:
+                logger.error(f"Error output: {error_msg[:500]}")  # Limit error message length
             return False
             
     except subprocess.TimeoutExpired:
@@ -127,7 +163,9 @@ def ensure_base_model_pulled(base_model: str) -> bool:
     result = subprocess.run(
         ["ollama", "list"],
         capture_output=True,
-        text=True
+        text=True,
+        encoding='utf-8',
+        errors='replace'
     )
     
     if base_model in result.stdout:
@@ -139,7 +177,9 @@ def ensure_base_model_pulled(base_model: str) -> bool:
     result = subprocess.run(
         ["ollama", "pull", base_model],
         capture_output=True,
-        text=True
+        text=True,
+        encoding='utf-8',
+        errors='replace'
     )
     
     if result.returncode == 0:

@@ -53,6 +53,8 @@ class TuningConfig:
     num_epochs: int = 3  # Number of training epochs (1-10 recommended)
     batch_size: int = 8  # Batch size (8 for better GPU utilization, ~7-8GB VRAM)
     learning_rate: float = 5e-5  # Learning rate (1e-5 to 1e-3 recommended)
+    # Note: 5e-5 is standard for QLoRA. With 3 epochs and effective batch=32, this is optimal.
+    # Can lower to 4e-5 for more stability or raise to 6e-5 for faster convergence if needed.
     
     # QLoRA (Quantized Low-Rank Adaptation) settings
     # Note: QLoRA is always enabled - these settings control QLoRA hyperparameters
@@ -68,10 +70,10 @@ class TuningConfig:
     create_version_dir: bool = True  # Whether to create versioned subdirectories
     
     # SimRAG specific settings
-    simrag_stage_1_epochs: int = 1  # Epochs for Stage 1 (instruction following)
-    simrag_stage_2_epochs: int = 1  # Epochs for Stage 2 (domain adaptation)
-    simrag_improvement_rounds: int = 1  # Number of Stage 2 rounds (1=no self-improvement, 2+=iterative refinement)
-    simrag_questions_per_doc: int = 2  # Questions to generate per document
+    simrag_stage_1_epochs: int = 3  # Epochs for Stage 1 (instruction following) - increased from 1 for better convergence
+    simrag_stage_2_epochs: int = 1  # Epochs for Stage 2 (domain adaptation) - kept at 1 as 2 epochs increased loss
+    simrag_improvement_rounds: int = 5  # Number of Stage 2 rounds (1=no self-improvement, 2+=iterative refinement)
+    simrag_questions_per_doc: int = 2  # Questions to generate per document - kept at 2 as 4 questions increased loss (~18 QA pairs)
     simrag_min_context_score: float = 0.7  # Minimum context similarity threshold
     
     # Reproducibility settings

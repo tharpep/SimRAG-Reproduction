@@ -175,13 +175,13 @@ class DomainAdaptation(SimRAGBase):
             logger.info(f"{'='*60}")
             
             # Update QA generator to use current model (for rounds > 1)
+            # Note: We reuse the existing QA generator to avoid Qdrant lock issues.
+            # The model path is only stored for reference; generation uses the gateway (Purdue API/Ollama).
             if round_num > 1 and current_model_path:
                 logger.info(f"Updating QA generator to use improved model from Round {round_num - 1}")
-                self.qa_generator = SyntheticQAGeneration(
-                    self.model_name,
-                    self.config,
-                    current_model_path
-                )
+                # Just update the stored model path - no need to recreate the QA generator
+                # since the model path isn't used for actual generation (uses gateway instead)
+                self.qa_generator.stage_1_model_path = current_model_path
             
             # Train single round
             try:
@@ -198,9 +198,20 @@ class DomainAdaptation(SimRAGBase):
                 if version:
                     final_version = version
                     final_round_num = round_num  # Update final round number
-                    # Get model path for next round
-                    current_model_path = self.get_model_from_registry(version.version, stage="stage_2")
-                    logger.info(f"✓ Round {round_num} successful - model saved as version {version.version}")
+                    # Get model path for next round - use the actual saved path from training
+                    # This is more reliable than looking it up in the registry
+                    if hasattr(version, '_saved_path') and version._saved_path:
+                        current_model_path = version._saved_path
+                        logger.info(f"✓ Round {round_num} successful - model saved as version {version.version}")
+                        logger.info(f"  Model path: {current_model_path}")
+                    else:
+                        # Fallback to registry lookup if _saved_path not available
+                        current_model_path = self.get_model_from_registry(version.version, stage="stage_2")
+                        if current_model_path:
+                            logger.info(f"✓ Round {round_num} successful - model saved as version {version.version}")
+                        else:
+                            logger.warning(f"⚠️  Could not determine model path for Round {round_num + 1}")
+                            logger.warning("   Next round will use base model (may not follow SimRAG methodology)")
                 else:
                     logger.warning(f"Round {round_num} did not produce a model version - stopping")
                     break
@@ -216,6 +227,17 @@ class DomainAdaptation(SimRAGBase):
                     break
         
         if final_version:
+            # Update final version's notes to include total rounds information
+            # This makes it easy to identify how many rounds a model was trained with
+            if final_round_num > 1:
+                # Append rounds info to notes if not already there
+                if f"({final_round_num} rounds)" not in (final_version.notes or ""):
+                    original_notes = final_version.notes or ""
+                    final_version.notes = f"{original_notes} ({final_round_num} rounds total)".strip()
+                    # Update registry with round information
+                    if self.registry:
+                        self.registry.register_version(final_version)
+            
             logger.info(f"\n{'='*60}")
             logger.info(f"Stage 2 Training Complete!")
             logger.info(f"Total rounds completed: {final_round_num}")

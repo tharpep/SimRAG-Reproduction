@@ -118,9 +118,10 @@ def get_test_questions() -> List[str]:
     Get standard test questions for experiments
     
     Returns:
-        List of test questions
+        List of test questions covering Docker, DevOps, CI/CD, GCP, Python, and RAG topics
     """
     return [
+        # Original questions (1-10)
         "What is Docker?",
         "How does CI/CD work?",
         "What is DevOps?",
@@ -130,7 +131,37 @@ def get_test_questions() -> List[str]:
         "What are the benefits of using containers?",
         "Explain the Python standard library.",
         "What is RAG in generative AI?",
-        "How do you build a Docker image?"
+        "How do you build a Docker image?",
+        
+        # Docker - Technical depth (11-18)
+        "What are Docker layers and how do they optimize image builds?",
+        "How do Docker volumes work and when should you use them?",
+        "What is the difference between Docker COPY and ADD commands?",
+        "How does Docker networking work between containers?",
+        "What are Docker multi-stage builds and why are they useful?",
+        "How do you optimize a Dockerfile for smaller image sizes?",
+        "What is the purpose of the Docker EXPOSE instruction?",
+        "How do you handle environment variables in Docker containers?",
+        
+        # CI/CD - Automation and pipelines (19-23)
+        "What are the key stages in a CI/CD pipeline?",
+        "How do you implement automated testing in CI/CD?",
+        "What is the difference between continuous integration and continuous deployment?",
+        "How do you handle secrets and credentials in CI/CD pipelines?",
+        "What are best practices for CI/CD pipeline design?",
+        
+        # DevOps - Practices and methodologies (24-26)
+        "What are the core principles of DevOps?",
+        "How does infrastructure as code relate to DevOps?",
+        "What is the role of monitoring and logging in DevOps?",
+        
+        # Google Cloud Platform (27-28)
+        "What are the main services offered by Google Cloud Platform?",
+        "How do you deploy applications to Google Cloud Platform?",
+        
+        # Python - Advanced topics (29-30)
+        "What are the key modules in the Python standard library?",
+        "How do you use Python's built-in data structures effectively?"
     ]
 
 
@@ -172,6 +203,14 @@ def evaluate_answer_quality(question: str, answer: str, context: str) -> dict:
     
     This provides automated scoring for answer quality beyond just context similarity.
     Useful for comparing baseline vs fine-tuned model performance.
+    
+    Note: This uses word-overlap (not semantic similarity) for objective, reproducible scoring.
+    Both models are evaluated with identical criteria, ensuring fair comparison.
+    
+    Limitations:
+    - Word-overlap may miss semantic improvements (e.g., better paraphrasing, synonyms)
+    - However, this approach is objective, reproducible, and fair for comparison
+    - For a reproduction project, objective metrics are preferred over subjective evaluation
     
     Args:
         question: The original question
@@ -345,4 +384,66 @@ def get_system_metadata() -> Dict[str, Any]:
         metadata["gpu_count"] = 0
     
     return metadata
+
+
+def find_most_recent_results_file(
+    results_dir: Path,
+    base_filename: str,
+    fallback_filename: str = None
+) -> str:
+    """
+    Find the most recent results file in a directory
+    
+    Searches for files matching the base filename pattern (with or without timestamps).
+    Returns the most recent file based on modification time, or falls back to the
+    default filename if no files are found.
+    
+    Args:
+        results_dir: Directory to search for results files
+        base_filename: Base filename to search for (e.g., "baseline_results.json")
+        fallback_filename: Fallback filename if no files found (defaults to base_filename)
+        
+    Returns:
+        Path to the most recent results file (as string)
+    """
+    if fallback_filename is None:
+        fallback_filename = base_filename
+    
+    results_dir = Path(results_dir)
+    if not results_dir.exists():
+        # Return fallback path even if directory doesn't exist
+        return str(results_dir / fallback_filename)
+    
+    # Extract base name without extension for pattern matching
+    base_name = Path(base_filename).stem
+    extension = Path(base_filename).suffix or ".json"
+    
+    # Find all matching files (with or without timestamps)
+    matching_files = []
+    
+    # Pattern 1: Exact match (no timestamp)
+    exact_match = results_dir / base_filename
+    if exact_match.exists():
+        matching_files.append(exact_match)
+    
+    # Pattern 2: Files with timestamp (baseline_results_YYYY-MM-DD_HH-MM-SS.json)
+    timestamp_pattern = f"{base_name}_*_*{extension}"
+    for file_path in results_dir.glob(timestamp_pattern):
+        if file_path.is_file():
+            matching_files.append(file_path)
+    
+    # Pattern 3: Also try simpler pattern in case format differs
+    simple_pattern = f"{base_name}*{extension}"
+    for file_path in results_dir.glob(simple_pattern):
+        if file_path.is_file() and file_path not in matching_files:
+            matching_files.append(file_path)
+    
+    if not matching_files:
+        # No files found, return fallback path
+        return str(results_dir / fallback_filename)
+    
+    # Sort by modification time (most recent first)
+    matching_files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    
+    return str(matching_files[0])
 

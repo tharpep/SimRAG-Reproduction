@@ -11,7 +11,7 @@ from pathlib import Path
 from ..logging_config import get_logger
 from ..tuning.basic_tuning import BasicTuner
 from ..tuning.model_registry import get_model_registry
-from ..tuning.ollama_integration import register_model_with_ollama
+# Ollama integration removed - testing is done in Colab, not locally with Ollama
 from ..config import get_tuning_config
 from ..rag.rag_setup import BasicRAG
 
@@ -31,7 +31,6 @@ class SimRAGBase:
         """
         self.model_name = model_name
         self.experiment_run_id = None  # Will be set before training to link versions
-        self.ollama_model_name = None  # Will be set after Ollama registration
         try:
             self.config = config or get_tuning_config()
             self.tuner = BasicTuner(model_name, device=self.config.device, config=self.config)
@@ -167,8 +166,9 @@ class SimRAGBase:
                 self.tuner.save_model(version_output_dir)
                 logger.info(f"Model saved to: {version_output_dir}")
                 
-                # Register with Ollama for fast inference
-                self._register_with_ollama(version_output_dir, version.version)
+                # Store the output directory in the version object for easy access
+                # This allows subsequent rounds to use the actual saved path
+                version._saved_path = version_output_dir
             else:
                 logger.warning("Training completed but no version object returned")
             
@@ -177,44 +177,7 @@ class SimRAGBase:
             logger.error(f"Training failed: {e}")
             raise
     
-    def _register_with_ollama(self, model_path: str, version: str):
-        """
-        Register trained model with Ollama for fast inference
-        
-        Args:
-            model_path: Path to model directory with adapters
-            version: Model version string
-        """
-        try:
-            # Determine stage from model path
-            if "stage_1" in model_path:
-                stage = "stage_1"
-            elif "stage_2" in model_path:
-                stage = "stage_2"
-            else:
-                stage = "unknown"
-            
-            logger.info(f"Registering model with Ollama (stage={stage}, version={version})...")
-            
-            ollama_model_name = register_model_with_ollama(
-                adapter_path=model_path,
-                stage=stage,
-                version=version,
-                model_size=self.config.model_size
-            )
-            
-            if ollama_model_name:
-                logger.info(f"✓ Model registered with Ollama: {ollama_model_name}")
-                logger.info(f"  You can test it with: ollama run {ollama_model_name}")
-                # Store the Ollama model name for later use
-                self.ollama_model_name = ollama_model_name
-            else:
-                logger.warning("Could not register model with Ollama (Ollama may not be installed)")
-                self.ollama_model_name = None
-                
-        except Exception as e:
-            logger.warning(f"Failed to register with Ollama: {e}")
-            self.ollama_model_name = None
+    # Ollama registration removed - testing is done in Colab, not locally with Ollama
     
     def get_model_from_registry(self, version: Optional[str] = None, stage: Optional[str] = None) -> Optional[str]:
         """

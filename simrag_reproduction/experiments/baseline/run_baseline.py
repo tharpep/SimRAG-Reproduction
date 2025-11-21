@@ -44,7 +44,7 @@ def run_baseline_test(
     
     # Initialize RAG system - use Ollama for baseline testing (fast and reliable)
     # Note: Ollama is ~10x faster than HuggingFace for inference
-    # SimRAG testing also uses Ollama (with fine-tuned models converted to GGUF format)
+    # SimRAG testing also uses Ollama (with merged fine-tuned models)
     logger.info("Initializing RAG system...")
     rag_config = get_rag_config()
     

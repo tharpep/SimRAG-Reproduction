@@ -116,7 +116,9 @@ typecheck/
 
 # Jupyter Notebooks
 .ipynb_checkpoints/
+# Allow test_model_colab.ipynb to be tracked (it's part of the project)
 *.ipynb
+!test_model_colab.ipynb
 
 # Logs and temporary files
 *.log
@@ -176,4 +178,18 @@ Thumbs.db
 
 # Old/deprecated model directories (if any exist)
 tuned_models/llama_*/
-tuned_models/llama_*/*/
+tuned_models/llama_*/*
+
+# Generated comparison results (from Colab notebook)
+comparison_results/*.json
+
+# Model export ZIPs (generated files, too large for repo)
+*.zip
+!data/documents.zip  # Allow documents.zip if needed for Colab uploads
+
+# ChromaDB databases (if used locally)
+chroma_db/
+*.chroma/
+
+# Temporary test files with results (keep main notebook)
+test_model_colab_with results.ipynb

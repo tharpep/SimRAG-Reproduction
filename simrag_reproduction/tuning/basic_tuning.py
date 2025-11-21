@@ -124,12 +124,56 @@ class BasicTuner:
                     torch_dtype=torch.float16,
                 )
                 
-                # Load LoRA adapters
+                # Prepare base model for k-bit training BEFORE loading adapters
+                # This enables gradients properly
+                base_model = prepare_model_for_kbit_training(base_model)
+                
+                # Load LoRA adapters from previous model (Stage 1 or previous round)
                 print(f"Loading LoRA adapters from {model_path}...")
                 self.model = PeftModel.from_pretrained(base_model, model_path)
                 
-                self.model.train()
+                # Check if "stage2" adapter already exists (from previous round)
+                # If it exists, we continue training it (compounding)
+                # If not, we add a new one (first round of Stage 2)
+                has_stage2_adapter = hasattr(self.model, 'peft_config') and self.model.peft_config and "stage2" in self.model.peft_config
+                
+                if has_stage2_adapter:
+                    # Continue training existing "stage2" adapter (compounding)
+                    # This allows multi-round Stage 2 to build on previous rounds
+                    # Each round modifies the same adapter, compounding the improvements
+                    print("✓ Found existing 'stage2' adapter - continuing training (compounding)")
+                    print("  This round will build on top of previous rounds' improvements")
+                    self.model.set_adapter("stage2")
+                    # Enable training mode for the adapter
+                    self.model.train()
+                else:
+                    # First round of Stage 2: add new adapter on top of Stage 1
+                    # This creates a stacked adapter: Stage 1 (frozen) + Stage 2 (trainable)
+                    target_modules = self.config.lora_target_modules if self.config else None
+                    if target_modules is None:
+                        target_modules = ["q_proj", "k_proj", "v_proj", "o_proj"]
+                    
+                    stage2_lora_config = LoraConfig(
+                        r=self.config.lora_r if self.config else 16,
+                        lora_alpha=self.config.lora_alpha if self.config else 32,
+                        target_modules=target_modules,
+                        lora_dropout=self.config.lora_dropout if self.config else 0.1,
+                        bias="none",
+                        task_type="CAUSAL_LM"
+                    )
+                    
+                    # Add new adapter on top (for Stage 2 training)
+                    # This stacks Stage 2 adapters on top of Stage 1 adapters
+                    self.model.add_adapter("stage2", stage2_lora_config)
+                    self.model.set_adapter("stage2")  # Use the new adapter for training
+                    print("✓ Added new LoRA adapter for Stage 2 (stacked on Stage 1)")
+                    self.model.train()
+                
+                # Print trainable parameters
+                trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+                total_params = sum(p.numel() for p in self.model.parameters())
                 print(f"✓ LoRA adapter model loaded on {self.device}")
+                print(f"✓ Trainable parameters: {trainable_params:,} / {total_params:,} ({100 * trainable_params / total_params:.2f}%)")
                 
         else:
             print("Loading tokenizer...")
@@ -274,7 +318,7 @@ class BasicTuner:
             # Windows: num_workers > 0 causes massive slowdowns due to multiprocessing overhead
             # Linux/Mac: num_workers=2 can help, but Windows multiprocessing is slow
             dataloader_num_workers=0 if sys.platform == "win32" else 2,  # 0 on Windows, 2 on Linux/Mac
-            gradient_accumulation_steps=2,  # Simulate larger batch size (effective batch = batch_size * 2)
+            gradient_accumulation_steps=4,  # Simulate larger batch size (effective batch = batch_size * 4 = 32)
             # Windows: pin_memory can cause issues, disable on Windows
             dataloader_pin_memory=False if sys.platform == "win32" else True,  # False on Windows, True on Linux/Mac
         )
@@ -513,7 +557,9 @@ class BasicTuner:
                 peft_config = peft_config_values[0]  # Get first config
                 info["lora_r"] = peft_config.r
                 info["lora_alpha"] = peft_config.lora_alpha
-                info["lora_target_modules"] = peft_config.target_modules
+                # Convert set to list for JSON serialization
+                target_modules = peft_config.target_modules
+                info["lora_target_modules"] = list(target_modules) if isinstance(target_modules, set) else target_modules
         else:
             info["is_lora"] = False
         

@@ -1,0 +1,58 @@
+{
+  "comparison_type": "baseline_vs_simrag",
+  "timestamp": "2025-11-20T23:42:18.731283",
+  "validation": {
+    "is_valid": true,
+    "baseline_questions": 10,
+    "simrag_questions": 10,
+    "same_questions": true,
+    "baseline_docs": 9,
+    "simrag_docs": 9,
+    "same_docs": true
+  },
+  "baseline": {
+    "avg_context_score": 0.3210810875892639,
+    "context_score_stats": {
+      "mean": 0.3210810875892639,
+      "std": 0.17444223657395755,
+      "ci_lower": 0.2727281665338009,
+      "ci_upper": 0.3694340086447269,
+      "n": 50
+    },
+    "avg_response_time": 34.33212156295777,
+    "avg_answer_quality": 0.794850092548754,
+    "num_questions": 10
+  },
+  "simrag": {
+    "avg_context_score": 0.3210810875892639,
+    "context_score_stats": {
+      "mean": 0.3210810875892639,
+      "std": 0.17444223657395755,
+      "ci_lower": 0.2727281665338009,
+      "ci_upper": 0.3694340086447269,
+      "n": 50
+    },
+    "avg_response_time": 46.22037980556488,
+    "avg_answer_quality": 0.7724878186696584,
+    "num_questions": 10,
+    "model": {
+      "stage": "stage_1",
+      "version": "v1.8",
+      "checkpoint": ".",
+      "base_model": "Qwen/Qwen2.5-1.5B-Instruct"
+    }
+  },
+  "improvement": {
+    "context_score_improvement": 0.0,
+    "context_score_improvement_percent": 0.0,
+    "answer_quality_improvement": -0.022362273879095618,
+    "response_time_change": 11.888258242607115,
+    "response_time_change_percent": 34.6272170241696,
+    "statistical_significance": {
+      "baseline_ci": "[0.273, 0.369]",
+      "simrag_ci": "[0.273, 0.369]",
+      "overlap": true,
+      "note": "If CIs don't overlap, difference is statistically significant at p<0.05"
+    }
+  }
+}

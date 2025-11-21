@@ -1,6 +1,7 @@
 """
 Run Full SimRAG Pipeline
-Orchestrates Stage 1 -> Stage 2 -> Testing
+Orchestrates Stage 1 -> Stage 2 (training only, no testing)
+Testing is done separately in the Colab notebook
 """
 
 import json
@@ -10,9 +11,8 @@ from datetime import datetime
 
 from ...simrag.instruction_following import InstructionFollowing
 from ...simrag.domain_adaptation import DomainAdaptation
-from ...rag.rag_setup import BasicRAG
 from ...config import get_tuning_config, get_rag_config
-from ..utils import load_documents_from_folder, get_test_questions, evaluate_answer_quality, get_system_metadata
+from ..utils import load_documents_from_folder, get_system_metadata
 from ...logging_config import setup_logging, get_logger
 
 # Setup logging
@@ -23,27 +23,25 @@ logger = get_logger(__name__)
 def run_full_pipeline(
     documents_folder: str = "../../data/documents",
     use_real_datasets: bool = True,
-    test_questions: list = None,
     output_file: str = None,
     use_timestamp: bool = True
 ) -> dict:
     """
-    Run full SimRAG pipeline: Stage 1 -> Stage 2 -> Testing
+    Run full SimRAG pipeline: Stage 1 -> Stage 2 (training only)
+    
+    Note: Testing is done separately in the Colab notebook.
+    This function only trains the models.
     
     Args:
         documents_folder: Path to folder containing domain documents
         use_real_datasets: Use Alpaca dataset for Stage 1 (True) or test data (False)
-        test_questions: List of test questions (uses default if None)
         output_file: Path to save results JSON (optional)
         
     Returns:
-        Dictionary with complete pipeline results
+        Dictionary with training results (no testing)
     """
-    logger.info("=== Full SimRAG Pipeline ===")
-    
-    # Get test questions
-    if test_questions is None:
-        test_questions = get_test_questions()
+    logger.info("=== Full SimRAG Pipeline (Training Only) ===")
+    logger.info("Note: Testing is done separately in the Colab notebook")
     
     # Get configs
     tuning_config = get_tuning_config()
@@ -65,12 +63,10 @@ def run_full_pipeline(
         },
         "dataset": {
             "documents_folder": documents_folder,
-            "num_documents": 0,  # Will be updated after loading
-            "test_questions": test_questions  # Store questions for validation
+            "num_documents": 0  # Will be updated after loading
         },
         "stage1": {},
-        "stage2": {},
-        "testing": {}
+        "stage2": {}
     }
     
     # Stage 1: Instruction Following
@@ -141,46 +137,14 @@ def run_full_pipeline(
         "experiment_run_id": experiment_run_id
     }
     
-    # Testing: Evaluate on test questions
     logger.info("\n" + "="*60)
-    logger.info("TESTING: Evaluating SimRAG Performance")
-    logger.info("="*60)
-    
-    # Get the fine-tuned Stage 2 model path (explicitly specify stage_2)
-    stage2_model_path = stage2.get_model_from_registry(version2.version, stage="stage_2")
-    if not stage2_model_path:
-        raise Exception(f"Could not find Stage 2 model path for version {version2.version}")
-    
-    logger.info(f"Using fine-tuned Stage 2 model: {stage2_model_path}")
-    
-    # Initialize RAG with documents - use Ollama model for testing (fast and reliable)
-    # Reuse documents already loaded for Stage 2 (no need to reload)
-    ollama_model_name = stage2.ollama_model_name
-    if ollama_model_name:
-        logger.info(f"Using Ollama model for testing: {ollama_model_name}")
-        rag = BasicRAG(
-            collection_name="simrag_test", 
-            use_persistent=False, 
-            force_provider="ollama",
-            ollama_model_name=ollama_model_name
-        )
-    else:
-        logger.error("Ollama model not available for testing.")
-        logger.error("This usually means model registration with Ollama failed during training.")
-        logger.error(f"Model path: {stage2_model_path}")
-        raise Exception("Cannot test SimRAG model: Ollama model not registered. Check training logs for errors.")
-    rag.add_documents(documents)  # Use documents already loaded above
-    
-    # Test performance
-    test_results = stage2.test_stage_2_performance(rag, test_questions)
-    results["testing"] = test_results
-    
-    logger.info("\n" + "="*60)
-    logger.info("Full Pipeline Complete!")
+    logger.info("Training Pipeline Complete!")
     logger.info("="*60)
     logger.info(f"Stage 1: {results['stage1']['version']} ({results['stage1']['training_time']:.1f}s)")
     logger.info(f"Stage 2: {results['stage2']['version']} ({results['stage2']['training_time']:.1f}s)")
-    logger.info(f"Testing: Avg context score = {test_results.get('avg_context_score', 0):.3f}")
+    logger.info(f"\n✓ Models trained successfully!")
+    logger.info(f"✓ Export models using: simrag experiment export")
+    logger.info(f"✓ Test models in Colab notebook: test_model_colab.ipynb")
     
     # Save results
     if output_file:
