@@ -1,0 +1,111 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+ENV/
+
+# Poetry
+.poetry/
+poetry.lock
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Logs
+*.log
+logs/
+*.tmp
+*.temp
+
+# Model files (too large, will be generated)
+*.bin
+*.safetensors
+*.gguf
+*.pth
+*.pt
+tuned_models/
+.cache/
+transformers_cache/
+.huggingface/
+
+# Data (keep structure, ignore generated)
+data/qdrant_db/
+*.jsonl
+*.csv
+comparison_results/*.json
+
+# Results
+results/
+checkpoints/
+wandb/
+runs/
+tensorboard/
+mlruns/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+!test_model_colab.ipynb
+
+# Documentation builds
+project_docs/*_files/
+*.html
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
+
+# Test files
+test_*.py
+*_test.py
+tests/
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Large files
+*.parquet
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+

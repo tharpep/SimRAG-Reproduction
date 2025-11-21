@@ -1,0 +1,63 @@
+# CPU-only Dockerfile for SimRAG Reproduction
+# Use this if you don't have GPU support or want CPU-only execution
+
+FROM python:3.12-slim AS base
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Poetry
+RUN pip install --no-cache-dir poetry==1.8.3
+
+# Configure Poetry
+ENV POETRY_NO_INTERACTION=1 \
+    POETRY_VENV_IN_PROJECT=1 \
+    POETRY_CACHE_DIR=/tmp/poetry_cache
+
+# Set working directory
+WORKDIR /app
+
+# Copy dependency files
+COPY pyproject.toml poetry.lock* ./
+
+# Install dependencies (without dev dependencies for smaller image)
+# Note: For CPU, we need to override PyTorch CUDA source
+# First install dependencies, then replace torch with CPU version
+RUN poetry install --no-dev --no-interaction --no-ansi && \
+    poetry run pip uninstall -y torch torchvision torchaudio 2>/dev/null || true && \
+    poetry run pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
+    rm -rf $POETRY_CACHE_DIR
+
+# Stage 2: Final image
+FROM base AS final
+
+# Copy application code
+COPY . .
+
+# Install the package in development mode
+RUN poetry install --no-dev --no-interaction --no-ansi
+
+# Create directories for data persistence
+RUN mkdir -p /app/data/qdrant_db \
+    /app/tuned_models \
+    /app/logs/rag \
+    /app/logs/tuning \
+    /app/comparison_results
+
+# Set permissions
+RUN chmod -R 755 /app
+
+# Default command
+CMD ["poetry", "run", "simrag", "--help"]
+

@@ -119,6 +119,88 @@ pip install torch --index-url https://download.pytorch.org/whl/cu121
 
 **Note**: Poetry is recommended as it handles PyTorch CUDA installation automatically and ensures consistent environments.
 
+### Alternative: Docker Installation (Recommended for Reproducibility)
+
+Docker provides the most reproducible environment and is ideal for:
+- Consistent results across different machines
+- Easy setup for graders/reviewers
+- Avoiding dependency conflicts
+- GPU support with automatic CUDA setup
+
+**Prerequisites**:
+- Docker Engine 20.10+ and Docker Compose 2.0+
+- NVIDIA Docker runtime (for GPU support): [Installation Guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
+
+**Quick Start with Docker**:
+
+```bash
+# Clone repository
+git clone <repository-url>
+cd SimRAG-Reproduction
+
+# Create .env file (copy from .env.example and add your API keys)
+cp .env.example .env
+# Edit .env and add your API keys (CLAUDE_API_KEY, PURDUE_API_KEY, etc.)
+
+# Build and run with GPU support
+docker-compose up --build simrag
+
+# Or build and run CPU-only version
+docker-compose up --build simrag-cpu
+
+# Run specific command (example: view config)
+docker-compose run --rm simrag poetry run simrag config
+
+# Run full experiment pipeline
+docker-compose run --rm simrag poetry run simrag experiment run
+
+# Run baseline only
+docker-compose run --rm simrag poetry run simrag experiment baseline
+```
+
+**Docker Commands**:
+
+```bash
+# Build GPU image
+docker-compose build simrag
+
+# Build CPU image
+docker-compose build simrag-cpu
+
+# Run interactive shell
+docker-compose run --rm simrag bash
+
+# View logs
+docker-compose logs -f simrag
+
+# Stop containers
+docker-compose down
+
+# Clean up (remove images)
+docker-compose down --rmi all
+```
+
+**GPU Support**:
+- The default `Dockerfile` includes CUDA 12.1 support
+- Requires NVIDIA Docker runtime (nvidia-docker2)
+- GPU is automatically detected and used when available
+- Set `TUNING_DEVICE=cuda` in `.env` to force GPU usage
+
+**CPU-Only**:
+- Use `Dockerfile.cpu` or `docker-compose up simrag-cpu`
+- Automatically installs CPU-only PyTorch
+- Slower but works on any machine
+
+**Data Persistence**:
+- All data (models, results, logs) is stored in mounted volumes
+- Changes persist between container runs
+- Volumes: `./data`, `./tuned_models`, `./logs`, `./comparison_results`
+
+**Environment Variables**:
+- Create `.env` file in project root (see `.env.example`)
+- Variables are automatically passed to container
+- Can override in `docker-compose.yml` or via command line
+
 ## Configuration
 
 **Note**: A `.env` file is **optional** for basic usage. The project works with sensible defaults. Create a `.env` file only if you need to customize settings.
@@ -369,6 +451,12 @@ mypy simrag_reproduction/
 **No providers available**: The system uses HuggingFace by default. For faster QA generation during training, set `CLAUDE_API_KEY` or `PURDUE_API_KEY` in `.env` and set `QA_PROVIDER=claude` or `QA_PROVIDER=purdue`. The `test` command always uses HuggingFace directly.
 
 **Claude API not working**: If you want to use Claude, install the anthropic package: `pip install anthropic` or `poetry add anthropic`. The package is marked as optional in pyproject.toml.
+
+**Docker issues**:
+- **"nvidia-docker not found"**: Install NVIDIA Docker runtime. For GPU support, you need `nvidia-docker2` or Docker with `--gpus all` support.
+- **"CUDA out of memory"**: Reduce batch size in `.env`: `TUNING_BATCH_SIZE=1` or use CPU version: `docker-compose up simrag-cpu`
+- **"Permission denied"**: Ensure Docker has access to mounted volumes. On Linux, you may need to adjust permissions: `sudo chown -R $USER:$USER ./data ./tuned_models ./logs`
+- **"Container exits immediately"**: Use `docker-compose run --rm simrag bash` for interactive shell, or specify a command: `docker-compose run --rm simrag poetry run simrag --help`
 
 **CUDA Out of Memory**: 
 - QLoRA is always enabled (4-bit quantization)

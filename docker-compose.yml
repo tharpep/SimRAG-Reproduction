@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  simrag:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: simrag:latest
+    container_name: simrag
+    volumes:
+      # Mount data directories for persistence
+      - ./data:/app/data
+      - ./tuned_models:/app/tuned_models
+      - ./logs:/app/logs
+      - ./comparison_results:/app/comparison_results
+      # Mount .env file if it exists (optional)
+      - ./.env:/app/.env:ro
+    environment:
+      # Pass through environment variables (can be overridden in .env)
+      - MODEL_SIZE=${MODEL_SIZE:-small}
+      - QA_PROVIDER=${QA_PROVIDER:-purdue}
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY:-}
+      - PURDUE_API_KEY=${PURDUE_API_KEY:-}
+      - HF_TOKEN=${HF_TOKEN:-}
+      - TUNING_DEVICE=${TUNING_DEVICE:-auto}
+    # GPU support - choose one method based on your Docker setup:
+    # Method 1: Using nvidia-docker2 runtime (uncomment if installed)
+    # runtime: nvidia
+    
+    # Method 2: Using Docker Compose v2.3+ with deploy.resources (recommended)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    # Override command to run specific experiment
+    # Example: command: ["poetry", "run", "simrag", "experiment", "run"]
+    # Default: shows help
+    stdin_open: true
+    tty: true
+
+  simrag-cpu:
+    build:
+      context: .
+      dockerfile: Dockerfile.cpu
+    image: simrag:cpu
+    container_name: simrag-cpu
+    volumes:
+      # Mount data directories for persistence
+      - ./data:/app/data
+      - ./tuned_models:/app/tuned_models
+      - ./logs:/app/logs
+      - ./comparison_results:/app/comparison_results
+      # Mount .env file if it exists (optional)
+      - ./.env:/app/.env:ro
+    environment:
+      # Pass through environment variables (can be overridden in .env)
+      - MODEL_SIZE=${MODEL_SIZE:-small}
+      - QA_PROVIDER=${QA_PROVIDER:-purdue}
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY:-}
+      - PURDUE_API_KEY=${PURDUE_API_KEY:-}
+      - HF_TOKEN=${HF_TOKEN:-}
+      - TUNING_DEVICE=cpu
+    # Override command to run specific experiment
+    # Example: command: ["poetry", "run", "simrag", "experiment", "baseline"]
+    stdin_open: true
+    tty: true
+
