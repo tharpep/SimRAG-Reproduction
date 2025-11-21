@@ -610,7 +610,15 @@ def _run_local_testing(
                 baseline_info = f"✓ Reused (from {results['baseline'].get('timestamp', 'unknown')})"
             typer.echo(f"  Baseline results: {baseline_info}")
             typer.echo(f"  Fine-tuned results: {results['finetuned'].get('_saved_filename', 'N/A')}")
-            typer.echo(f"  Comparison results: {results['comparison'].get('_saved_filename', 'N/A')}")
+            comparison_file = results['comparison'].get('_saved_filename', 'N/A')
+            typer.echo(f"  Comparison results: {comparison_file}")
+            
+            # Automatically display comparison results
+            if comparison_file != 'N/A' and Path(comparison_file).exists():
+                typer.echo("\n" + "="*70)
+                typer.echo("COMPARISON RESULTS")
+                typer.echo("="*70)
+                _display_comparison_results(Path(comparison_file))
 
         else:
             # Interactive mode: choose stage → choose model → run full test
@@ -697,7 +705,15 @@ def _run_local_testing(
                         baseline_info = f"✓ Reused (from {results['baseline'].get('timestamp', 'unknown')})"
                     typer.echo(f"  Baseline results: {baseline_info}")
                     typer.echo(f"  Fine-tuned results: {results['finetuned'].get('_saved_filename', 'N/A')}")
-                    typer.echo(f"  Comparison results: {results['comparison'].get('_saved_filename', 'N/A')}")
+                    comparison_file = results['comparison'].get('_saved_filename', 'N/A')
+                    typer.echo(f"  Comparison results: {comparison_file}")
+                    
+                    # Automatically display comparison results
+                    if comparison_file != 'N/A' and Path(comparison_file).exists():
+                        typer.echo("\n" + "="*70)
+                        typer.echo("COMPARISON RESULTS")
+                        typer.echo("="*70)
+                        _display_comparison_results(Path(comparison_file))
                 else:
                     typer.echo(f"Invalid choice: {model_num}", err=True)
                     raise typer.Exit(1)

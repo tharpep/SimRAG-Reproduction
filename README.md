@@ -269,16 +269,20 @@ simrag config  # View current configuration
 # (Optional) Run tests to verify everything works
 simrag test --all
 
-# Run full experiment pipeline
-simrag experiment run
+# Train both stages automatically
+simrag experiment run          # or: simrag experiment simrag (same thing)
 
 # Or run stages individually
 simrag experiment stage1       # Stage 1 training only (~3-4 hours)
 simrag experiment stage2       # Stage 2 training only (~3-4 hours)
-simrag experiment baseline     # Baseline RAG only (HuggingFace-based, ~2-3 minutes)
-simrag experiment simrag       # SimRAG pipeline only (~6-8 hours for 1.5B)
-simrag experiment test   # Local HuggingFace testing
-simrag experiment compare      # Compare results
+
+# Test and evaluate (automatically displays comparison results)
+simrag experiment test         # Full test: baseline → fine-tuned → comparison
+
+# Other commands
+simrag experiment baseline     # Baseline RAG test only (~2-3 minutes)
+simrag experiment compare      # Compare existing results (if you have JSON files)
+simrag experiment results      # View previously saved comparison results
 ```
 
 **First Run Notes**: 
@@ -293,15 +297,14 @@ simrag experiment compare      # Compare results
 simrag test                    # Interactive test selection
 simrag test --all              # Run all tests
 simrag config                  # View configuration
-simrag experiment run          # Full pipeline
+simrag experiment run          # Train Stage 1 → Stage 2 (same as 'simrag')
 simrag experiment stage1       # Stage 1 training only
 simrag experiment stage2       # Stage 2 training only
-simrag experiment baseline     # Baseline RAG (Ollama-based)
-simrag experiment simrag       # SimRAG pipeline
-simrag experiment compare      # Compare results
+simrag experiment test         # Full test: baseline → fine-tuned → comparison (auto-displays results)
+simrag experiment baseline     # Baseline RAG test only
+simrag experiment compare      # Compare existing results (if you have JSON files)
 simrag experiment export       # Export model for Colab
-simrag experiment results      # View comparison results
-simrag experiment test   # Local HuggingFace testing
+simrag experiment results      # View previously saved comparison results
 ```
 
 ### Programmatic Usage
@@ -335,23 +338,61 @@ simrag_reproduction/
 
 ## Experiments
 
-Run the complete SimRAG pipeline: baseline testing, Stage 1 & 2 training, and performance comparison.
+**Important**: The commands are modular - you can run stages separately or together.
 
-**Full Pipeline** (recommended):
-```bash
-simrag experiment run
-```
+### Training Commands
 
-This runs: baseline test (~2-3 min) → Stage 1 training (~3-4 hrs) → Stage 2 training (~3-4 hrs) → testing → comparison.
+**`experiment run`** or **`experiment simrag`** (same thing):
+- Runs Stage 1 training (instruction following) → Stage 2 training (domain adaptation)
+- **Does NOT run**: baseline testing, local testing, or comparison
+- Time: ~6-8 hours for 1.5B model
+- Use this to train both stages automatically
 
-**Individual Commands**:
+**Individual Training Stages**:
 ```bash
 simrag experiment stage1       # Stage 1 training only (~3-4 hours)
 simrag experiment stage2       # Stage 2 training only (~3-4 hours)
-simrag experiment baseline     # Baseline RAG only (Ollama-based, ~2-3 min)
-simrag experiment simrag       # SimRAG pipeline only (~6-8 hours)
-simrag experiment compare      # Compare existing results
-simrag experiment test        # Local HuggingFace testing
+```
+
+**Note**: `experiment stage2` will prompt you to select a Stage 1 model if you haven't specified one.
+
+### Testing & Evaluation Commands
+
+**`experiment test`** (recommended for evaluation):
+- Runs full test flow: baseline → fine-tuned model → comparison
+- **Automatically displays comparison results** (no need to run `experiment results` separately)
+- Saves results to `comparison_results/` directory
+- Time: ~5-15 minutes (reuses baseline if compatible)
+- Use this after training to evaluate your models
+
+**Other Testing Commands**:
+```bash
+simrag experiment baseline     # Baseline RAG test only (~2-3 min)
+simrag experiment compare      # Compare existing results (if you have baseline/simrag JSON files)
+simrag experiment results      # View previously saved comparison results
+```
+
+### Typical Workflow
+
+**Option 1: Automated Training + Manual Testing**
+```bash
+# Train both stages
+simrag experiment run
+
+# Then test and evaluate
+simrag experiment test
+```
+
+**Option 2: Manual Stage-by-Stage**
+```bash
+# Train Stage 1
+simrag experiment stage1
+
+# Train Stage 2 (uses Stage 1 model)
+simrag experiment stage2
+
+# Test and evaluate
+simrag experiment test
 ```
 
 **Local Testing** (`test`):
@@ -359,6 +400,7 @@ The `test` command provides local HuggingFace model testing:
 - Uses ChromaDB for vector storage (same as Colab)
 - Uses 4-bit quantization with PEFT adapters (same as Colab)
 - Tests baseline model → fine-tuned model → comparison
+- **Automatically displays comparison results** (no need to run `experiment results` separately)
 - Automatically reuses compatible baseline results (saves ~5-10 minutes)
 - Results saved to `comparison_results/` in project root
 
