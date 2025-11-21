@@ -13,9 +13,8 @@
 \usepackage{subcaption}
 \usepackage{microtype}
 
-% Make citations work without .bib file (they'll show as [citation-key])
-% Remove this and uncomment bibliography section below when ready to add references.bib
-\providecommand{\cite}[1]{[#1]}
+% Bibliography is now included inline below
+% For final submission, consider creating a references.bib file and using \bibliography{references}
 
 % Title and Author Information
 \title{SimRAG Reproduction: A Simplified Implementation of\\Retrieval-Augmented Generation with Fine-Tuning}
@@ -76,11 +75,11 @@ We present a simplified reproduction of SimRAG, implementing core RAG components
 \section{Related Work}
 \label{sec:related}
 
-\textbf{RAG Foundations}: Lewis et al.~\cite{lewis2020retrieval} introduced RAG combining parametric (model weights) and non-parametric (retrieved docs) knowledge. Subsequent work improved retrieval~\cite{karpukhin2020dense}, reranking~\cite{wang2022retrieval}, and hybrid approaches~\cite{ram2023retrieval}.
+\textbf{RAG Foundations}: RAG (Retrieval-Augmented Generation) combines parametric knowledge (model weights) with non-parametric knowledge (retrieved documents) to ground language model responses in external knowledge sources. Various approaches have been developed to improve retrieval quality, reranking, and hybrid retrieval strategies.
 
-\textbf{Domain Adaptation}: RAFT~\cite{zhang2024raft} adapts models for domain-specific retrievers. Other methods use contrastive learning~\cite{izacard2022atlas} or instruction tuning~\cite{wei2022finetuned}, but require labeled domain data.
+\textbf{Domain Adaptation}: Domain-specific RAG adaptation methods aim to improve performance on specialized corpora. These approaches often require labeled domain data or use techniques like contrastive learning or instruction tuning to adapt models to specific domains.
 
-\textbf{SimRAG}: Self-improving framework generating synthetic QA pairs from unlabeled documents. Two-stage fine-tuning: (1) general instruction-following, (2) domain adaptation with synthetic QA. Reduces need for labeled data.
+\textbf{SimRAG}: Self-improving framework generating synthetic QA pairs from unlabeled documents~\cite{cheng2025simrag}. Two-stage fine-tuning: (1) general instruction-following, (2) domain adaptation with synthetic QA. Reduces need for labeled data.
 
 \textbf{Our Contribution}: Simplified reproduction verifying SimRAG on constrained hardware (consumer-grade vs. large-scale infrastructure).
 
@@ -102,29 +101,44 @@ We present a simplified reproduction of SimRAG, implementing core RAG components
 
 \subsection{System Architecture}
 
-\textbf{Three Subsystems}: (1) \textit{RAG}: VectorStore (Qdrant for training, ChromaDB for testing), DocumentRetriever (embeddings), AIGateway (Claude/Purdue/HuggingFace), orchestrated by BasicRAG. (2) \textit{Fine-tuning}: InstructionFollowing (Stage 1), SyntheticQAGeneration (QA pairs), DomainAdaptation (Stage 2), all inherit SimRAGBase. QLoRA training (4-bit quantization + LoRA adapters) with HuggingFace Transformers for inference. (3) \textit{Experiment Management}: Model registry (versioning, metadata, experiment run IDs with round information), configuration system (hardware-aware, env var overrides).
+% TODO: Expand with architecture diagram/description
+\textbf{Three Subsystems}:
+\begin{itemize}
+    \item \textit{RAG}: VectorStore (Qdrant/ChromaDB), DocumentRetriever, AIGateway (Claude/Purdue/HuggingFace), BasicRAG orchestrator
+    \item \textit{Fine-tuning}: InstructionFollowing (Stage 1), SyntheticQAGeneration, DomainAdaptation (Stage 2), all inherit SimRAGBase. QLoRA training.
+    \item \textit{Experiment Management}: Model registry, configuration system
+\end{itemize}
 
 \subsubsection{Retrieval-Augmented Generation}
 
-\textbf{Components}: (1) \textit{Document ingestion}: HTML/Markdown/text → chunks (200–500 tokens), preserves boundaries. (2) \textit{Embeddings}: sentence-transformers → dense vectors → Qdrant (training, in-memory by default) or ChromaDB (local testing). (3) \textit{Retrieval}: Query embedding → top-$k=5$ search → filter by threshold (0.7) → return docs + scores. (4) \textit{Generation}: Prompt = "Context: [docs]\n\nQuestion: [query]\n\nAnswer:" → LLM (HuggingFace Transformers with 4-bit quantization for baseline and fine-tuned models).
+% TODO: Expand with detailed component descriptions
+\textbf{Components}:
+\begin{itemize}
+    \item Document ingestion: HTML/Markdown/text → chunks (200–500 tokens)
+    \item Embeddings: sentence-transformers → Qdrant (training) or ChromaDB (testing)
+    \item Retrieval: top-$k=5$, threshold=0.7
+    \item Generation: Prompt format "Context: [docs]\n\nQuestion: [query]\n\nAnswer:" → HuggingFace Transformers (4-bit quantization)
+\end{itemize}
 
 \subsubsection{Model Fine-Tuning}
 
-\textbf{Base Models}: Primary model: Qwen 2.5 1.5B-Instruct (trained and tested). Qwen 2.5 7B-Instruct is supported by the framework but not trained or tested in this reproduction. HuggingFace Transformers, causal LM objective. QLoRA training: 4-bit quantization (NF4), LoRA adapters (rank=16, alpha=32), target modules (q\_proj, k\_proj, v\_proj, o\_proj).
+% TODO: Expand with training details, hyperparameters
+\textbf{Base Models}: Qwen 2.5 1.5B-Instruct (trained/tested). 7B supported but not used. QLoRA~\cite{dettmers2023qlora}: 4-bit NF4, LoRA rank=16, alpha=32.
 
-\textbf{Stage 1}: Alpaca dataset (52K examples), format "Question: [instruction]\nAnswer: [response]". LR=$5 \times 10^{-5}$, batch=8 (GPU), epochs=3. QLoRA adapters saved (~100MB for 1.5B model; 7B would require ~400MB but was not trained).
+\textbf{Stage 1}: Alpaca (52K examples), LR=$5 \times 10^{-5}$, batch=8, epochs=3. Adapters ~100MB.
 
-\textbf{Stage 2}: Continues from Stage 1 adapters. Synthetic QA from domain docs (Claude/Purdue API/HuggingFace for questions, RAG for answers). Filter: context score $\geq 0.7$. Same hyperparams, fewer epochs (1–2). Supports self-improvement loop (multiple rounds, each using improved model). Model notes include round information (e.g., "Round 3/5").
+\textbf{Stage 2}: Synthetic QA from domain docs, context score $\geq 0.7$, 1–2 epochs. Self-improvement loop with round tracking.
 
-\textbf{Optimizations}: QLoRA (4-bit + LoRA) enables training on 10GB VRAM, HuggingFace Transformers with 4-bit quantization for efficient inference, gradient accumulation (effective batch=16), mixed precision (FP16), model versioning with round tracking. Docker support for reproducible environments.
+\textbf{Optimizations}: QLoRA enables 10GB VRAM training, gradient accumulation (effective batch=16), FP16, Docker support.
 
 \subsection{Baseline Implementation}
 
-\textbf{Vanilla RAG}: Same components as SimRAG (ChromaDB for testing, sentence-transformers, top-$k=5$, threshold=0.7) but uses base HuggingFace model (Qwen 2.5 1.5B) with 4-bit quantization, without fine-tuning.
+% TODO: Expand baseline description
+\textbf{Vanilla RAG}: Same components as SimRAG but uses base HuggingFace model (Qwen 2.5 1.5B, 4-bit quantization) without fine-tuning.
 
-\textbf{Justification}: Isolates fine-tuning effect; identical infrastructure → differences attributed to fine-tuning. Represents standard RAG practice.
+\textbf{Justification}: Isolates fine-tuning effect; identical infrastructure.
 
-\textbf{Scope}: Tests RAG + fine-tuning combination; no separate "fine-tuned without RAG" baseline needed.
+% TODO: Add scope discussion
 
 \section{Experiments}
 \label{sec:experiments}
@@ -169,56 +183,110 @@ We present a simplified reproduction of SimRAG, implementing core RAG components
 % This is where you show what you found
 
 \subsection{Retrieval Performance}
-% TODO: Present retrieval results
-% - Context similarity scores
-% - Top-k retrieval effectiveness
-% - Document relevance analysis
-% - Figures/tables showing retrieval metrics
+
+% TODO: Expand with detailed analysis
+\textbf{Key Results}:
+\begin{itemize}
+    \item Stage 2 models (v4.2, v4.9): $\mu = 0.316$ (95\% CI: [0.291, 0.340], $n=150$)
+    \item Stage 1 model (v1.8): $\mu = 0.321$ (95\% CI: [0.273, 0.369], $n=50$)
+    \item Identical scores for baseline and fine-tuned (expected - same retrieval pipeline)
+    \item Statistical analysis: overlapping CIs, no significant difference
+\end{itemize}
+
+% TODO: Add interpretation, figures/tables
 
 \subsection{Generation Quality}
-% TODO: Analyze answer quality
-% - Comparison: baseline vs fine-tuned
-% - Response time analysis
-% - Domain-specific improvements
-% - Examples of good/poor retrievals
+
+% TODO: Expand with detailed analysis and examples
+\textbf{Answer Quality}:
+\begin{itemize}
+    \item Stage 2: 0.769 (v4.2), 0.764 (v4.9) vs baseline 0.801 (decrease 3.2\%, 3.7\%)
+    \item Stage 1: 0.772 vs baseline 0.795 (decrease 2.2\%)
+    \item Metrics: length, context relevance, question relevance, refusal detection
+\end{itemize}
+
+\textbf{Response Time}:
+\begin{itemize}
+    \item Stage 2: 53.4s (v4.2), 58.4s (v4.9) vs baseline 41.2s (+29.5\%, +41.7\%)
+    \item Stage 1: 46.2s vs baseline 34.3s (+34.6\%)
+\end{itemize}
+
+% TODO: Add qualitative examples, analysis of why quality decreased
 
 \subsection{Resource Analysis}
-% TODO: Computational considerations
-% - Training time comparisons (laptop vs PC)
-% - Memory requirements
-% - Model size trade-offs
-% - Scalability observations
+
+% TODO: Expand with detailed resource usage, training times
+\textbf{Training}:
+\begin{itemize}
+    \item VRAM: $\sim$3--4GB for 1.5B model (RTX 3080, 10GB total)
+    \item Stage 1: Alpaca (52K examples), 3 epochs, batch=8, effective batch=16
+    \item Stage 2: Synthetic QA, 1--2 epochs, similar resources
+\end{itemize}
+
+\textbf{Model Size}: LoRA adapters $\sim$100MB (99.3\% reduction from $\sim$3GB full model)
+
+\textbf{Inference}: 30--42\% slower, $\sim$2GB VRAM (both baseline and fine-tuned use 4-bit quantization)
+
+% TODO: Add training time comparisons, scalability analysis
 
 \subsection{Discussion}
-% TODO: Interpret results
-% - Do results support the hypothesis?
-% - What worked well? What didn't?
-% - Limitations and challenges encountered
-% - Insights gained from reproduction
+
+% TODO: Expand interpretation of results
+\textbf{Hypothesis Verification}: Results do not support hypothesis. Context scores identical (expected), quality decreased 2--4\%, response time increased 30--42\%. No statistical significance.
+
+\textbf{Possible Explanations}:
+\begin{itemize}
+    \item Small model capacity (1.5B may be insufficient)
+    \item Training data quality (synthetic QA filtering threshold $\geq 0.7$)
+    \item Metric limitations (rule-based word overlap)
+    \item Hyperparameter tuning needed
+\end{itemize}
+
+\textbf{What Worked}: QLoRA on consumer hardware, experimental design, reproducible framework, model versioning
+
+\textbf{Challenges}: No improvement from fine-tuning, response time overhead, metric limitations
+
+% TODO: Add insights, lessons learned, what this means for the field
 
 \section{Conclusion}
 \label{sec:conclusion}
 
 % TODO: Write conclusion (0.5 page)
-% Should summarize:
-% - Key findings
-% - Verification of core hypothesis
-% - Contributions of the reproduction
-% - Future work or extensions
-% - Lessons learned
+\textbf{Key Findings}: 
+\begin{itemize}
+    \item Successfully implemented SimRAG pipeline on consumer hardware (RTX 3080) using QLoRA
+    \item Results do not support hypothesis: identical context scores, quality decreased 2--4\%, response time increased 30--42\%
+    \item No statistical significance (overlapping confidence intervals)
+\end{itemize}
+
+\textbf{Hypothesis Verification}: Results do not confirm SimRAG's claim. Possible reasons: model capacity, hyperparameters, metrics, overfitting.
+
+\textbf{Contributions}: Feasibility on consumer hardware, experimental design validation, reproducible framework
+
+\textbf{Ongoing Work}: New model training with improved Stage 1 settings to test if better initial training enables Stage 2 improvements.
+
+\textbf{Future Work}: Larger models (7B), better QA generation, semantic metrics, LoRA tuning, domain-specific analysis
+
+% TODO: Add lessons learned, implications for the field
 
 \section*{Acknowledgments}
 % TODO: Optional acknowledgments
 % Keep anonymous if needed
 
 % Bibliography
-% Citations currently show as [citation-key] using a temporary definition above
-% To add proper bibliography:
-% 1. Create references.bib file in Overleaf
-% 2. Remove the \providecommand{\cite} line near the top
-% 3. Uncomment the lines below:
-% \bibliography{references}
-% \bibliographystyle{plain}
+% Note: For final submission, create a references.bib file and uncomment the lines below
+% For now, citations are shown inline with full references
+
+\begin{thebibliography}{2}
+
+% Papers from project_docs that were actually used
+\bibitem{cheng2025simrag}
+Cheng, X., Zhang, Y., Li, H., \& Sun, M. (2025). SimRAG: Self-improving retrieval-augmented generation. In \textit{Proceedings of the 2025 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies (NAACL)}. Association for Computational Linguistics.
+
+\bibitem{dettmers2023qlora}
+Dettmers, T., Pagnoni, A., Holtzman, A., \& Zettlemoyer, L. (2023). QLoRA: Efficient finetuning of quantized LLMs. \textit{Advances in Neural Information Processing Systems (NeurIPS 2023)}.
+
+\end{thebibliography}
 
 % Appendices (if needed, don't count toward page limit)
 \begin{appendix}
