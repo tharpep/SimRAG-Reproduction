@@ -414,6 +414,22 @@ Trained models are stored in `tuned_models/` as LoRA adapters (~100MB for 1.5B, 
 
 Logs are automatically created in `logs/rag/` and `logs/tuning/` during experiments. They include query details, training metrics, and performance data. Logs rotate at 1MB (keeps 3 backups) and are git-ignored.
 
+## Code Attribution
+
+**Original Implementation**: All code in this repository was written from scratch for this reproduction study. The SimRAG paper does not provide a public implementation, so all code was developed independently based on the paper's methodology.
+
+**Third-Party Libraries Used**:
+- PyTorch, Transformers (HuggingFace) - Model training and inference
+- PEFT, bitsandbytes - QLoRA fine-tuning and 4-bit quantization
+- ChromaDB, Qdrant - Vector stores for document retrieval
+- sentence-transformers - Embedding generation
+- Poetry - Dependency management
+- Typer - CLI framework
+
+**AI-Assisted Development**: Claude Sonnet 4.5 (via Cursor IDE) was used as a development assistant for code generation, debugging, and documentation. All architectural decisions and implementations are original.
+
+**Adapted Code**: None - all implementation is original work for this reproduction study.
+
 ## Citation
 
 If you use this code, please cite the original SimRAG paper:
@@ -427,6 +443,26 @@ If you use this code, please cite the original SimRAG paper:
   url={https://arxiv.org/abs/2501.12345}
 }
 ```
+
+## Creating Submission ZIP
+
+To create a ZIP file of the codebase for submission (excludes `.gitignore` patterns, `project_docs/`, and `.github/`):
+
+```bash
+python create_submission_zip.py
+```
+
+Or specify a custom output name:
+
+```bash
+python create_submission_zip.py SimRAG-Submission.zip
+```
+
+The script will:
+- Exclude all files/folders listed in `.gitignore`
+- Exclude `project_docs/` folder
+- Exclude `.github/` folder
+- Create a timestamped ZIP file in the project root
 
 ## License
 
