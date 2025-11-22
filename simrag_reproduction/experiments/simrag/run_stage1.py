@@ -74,7 +74,8 @@ def run_stage1_training(
         logger.info(f"Stage 1 training completed successfully!")
         logger.info(f"  Version: {version.version}")
         logger.info(f"  Training time: {version.training_time_seconds:.1f}s")
-        logger.info(f"  Final loss: {version.final_loss:.4f if version.final_loss else 'N/A'}")
+        loss_str = f"{version.final_loss:.4f}" if version.final_loss is not None else "N/A"
+        logger.info(f"  Final loss: {loss_str}")
         
         # Save results
         if output_file:

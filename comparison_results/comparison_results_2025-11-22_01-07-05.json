@@ -1,0 +1,63 @@
+{
+  "comparison_type": "baseline_vs_simrag",
+  "timestamp": "2025-11-22T01:07:05.675851",
+  "validation": {
+    "is_valid": true,
+    "baseline_questions": 30,
+    "simrag_questions": 30,
+    "same_questions": true,
+    "baseline_docs": 9,
+    "simrag_docs": 9,
+    "same_docs": true
+  },
+  "baseline": {
+    "avg_context_score": 0.3156422257423401,
+    "context_score_stats": {
+      "mean": 0.3156422257423401,
+      "std": 0.1535468747686791,
+      "ci_lower": 0.2910696080832303,
+      "ci_upper": 0.34021484340144986,
+      "n": 150
+    },
+    "avg_response_time": 41.21097399393717,
+    "avg_answer_quality": 0.8011583234821888,
+    "num_questions": 30
+  },
+  "simrag": {
+    "avg_context_score": 0.3156422257423401,
+    "context_score_stats": {
+      "mean": 0.3156422257423401,
+      "std": 0.1535468747686791,
+      "ci_lower": 0.2910696080832303,
+      "ci_upper": 0.34021484340144986,
+      "n": 150
+    },
+    "avg_response_time": 62.615727623303734,
+    "avg_answer_quality": 0.7998270292452841,
+    "num_questions": 30,
+    "model": {
+      "path": "SimRAG-Reproduction/tuned_models/model_1b/stage_1/v6.1",
+      "stage": "stage_1",
+      "version": "v6.1",
+      "checkpoint": null,
+      "provider": "transformers_4bit",
+      "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
+      "model_size": "small",
+      "lora_r": 16,
+      "lora_alpha": 32
+    }
+  },
+  "improvement": {
+    "context_score_improvement": 0.0,
+    "context_score_improvement_percent": 0.0,
+    "answer_quality_improvement": -0.001331294236904701,
+    "response_time_change": 21.40475362936656,
+    "response_time_change_percent": 51.93945096399701,
+    "statistical_significance": {
+      "baseline_ci": "[0.291, 0.340]",
+      "simrag_ci": "[0.291, 0.340]",
+      "overlap": true,
+      "note": "If CIs don't overlap, difference is statistically significant at p<0.05"
+    }
+  }
+}
