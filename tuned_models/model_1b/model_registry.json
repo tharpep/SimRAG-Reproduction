@@ -738,5 +738,25 @@
     "lora_r": 16,
     "lora_alpha": 32,
     "adapter_path": null
+  },
+  "v6.7": {
+    "version": "v6.7",
+    "model_name": "Qwen/Qwen2.5-1.5B-Instruct",
+    "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
+    "created_at": "2025-11-23T15:30:23.360511",
+    "training_epochs": 1,
+    "batch_size": 8,
+    "learning_rate": 5e-05,
+    "device": "cuda",
+    "training_time_seconds": null,
+    "final_loss": null,
+    "model_size_mb": null,
+    "notes": "SimRAG Stage 1 - Instruction Following",
+    "is_active": true,
+    "experiment_run_id": null,
+    "is_lora": true,
+    "lora_r": 16,
+    "lora_alpha": 32,
+    "adapter_path": null
   }
 }

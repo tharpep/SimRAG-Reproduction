@@ -12,17 +12,22 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # Install system dependencies
+# Note: Python 3.12 is not in Ubuntu 22.04 default repos, so we use deadsnakes PPA
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3.12 \
-    python3.12-dev \
-    python3-pip \
+    software-properties-common \
     curl \
     git \
     build-essential \
+    && add-apt-repository ppa:deadsnakes/ppa -y \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+    python3.12 \
+    python3.12-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Create symlink for python
-RUN ln -s /usr/bin/python3.12 /usr/bin/python
+# Create symlink for python and install pip for Python 3.12
+RUN ln -s /usr/bin/python3.12 /usr/bin/python \
+    && curl -sS https://bootstrap.pypa.io/get-pip.py | python3.12
 
 # Install Poetry
 RUN pip install --no-cache-dir poetry==1.8.3

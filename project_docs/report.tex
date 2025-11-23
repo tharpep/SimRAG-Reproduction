@@ -48,41 +48,19 @@ SimRAG was selected for reproduction because it presents a clear, testable hypot
 
 \subsection{Scope and Simplifications}
 
-To make this reproduction feasible on consumer hardware while preserving the core methodology, several strategic simplifications are implemented:
-
-\textbf{Implemented Components}: (1) Complete RAG system with semantic retrieval using sentence-transformers and vector storage (Qdrant for training, ChromaDB for testing), (2) Stage 1 fine-tuning on Alpaca instruction-following dataset (52K examples), (3) Stage 2 domain adaptation with synthetic QA generation and filtering, (4) Baseline vanilla RAG system for comparison, (5) Multi-provider AI gateway supporting Claude, Purdue GenAI API, and HuggingFace, (6) Docker containerization for reproducibility.
-
-\textbf{Key Simplifications}: (1) \textit{Model size}: Qwen 2.5 1.5B-Instruct (vs. original's 8B/27B)---7B is supported but not tested, (2) \textit{Training method}: QLoRA with 4-bit quantization (vs. full fine-tuning), (3) \textit{Dataset}: Single instruction dataset (Alpaca) vs. original's blended multi-dataset approach, (4) \textit{Corpus size}: 5K--20K document chunks vs. large-scale corpora, (5) \textit{Self-improvement rounds}: Limited to 1--2 rounds vs. multiple iterations.
-
-\textbf{Justification}: These simplifications preserve the core experimental narrative---testing whether fine-tuning improves domain-specific RAG---while making the reproduction accessible on consumer hardware. The focus is on verifying the improvement \textit{direction} and methodology rather than matching exact numerical results, which would require identical hardware and model sizes.
+Key simplifications enable consumer hardware implementation: Qwen 2.5 1.5B-Instruct (vs. original 8B/27B), QLoRA 4-bit quantization (vs. full fine-tuning), single instruction dataset (Alpaca), and smaller corpus (5K--20K chunks). These preserve the core experimental narrative while making reproduction accessible on RTX 3080 (10GB VRAM).
 
 \section{Related Work}
 \label{sec:related}
 
-Retrieval-Augmented Generation (RAG) combines parametric knowledge stored in model weights with non-parametric knowledge retrieved from external corpora, enabling models to ground their responses in relevant source material and access up-to-date information beyond training cutoffs.
-
-Domain adaptation for RAG systems has been explored through various approaches, including fine-tuning retriever components to better match domain-specific queries and adapting generators through instruction tuning or contrastive learning. However, these approaches typically require labeled domain-specific training data, which can be expensive or unavailable for specialized fields.
-
-SimRAG~\citep{xu2024simrag} introduces a self-improving framework that addresses the labeled data scarcity problem by generating synthetic question-answer pairs from unlabeled domain corpora. The method employs a two-stage fine-tuning approach: Stage 1 trains the model on general instruction-following and retrieval-oriented tasks, while Stage 2 adapts the model to specific domains using synthetically generated QA pairs. The key innovation is that the fine-tuned model itself is used to generate higher-quality synthetic training data, creating a self-improvement loop.
-
-This contribution is a simplified reproduction of SimRAG that demonstrates the method's feasibility on consumer hardware while providing insights into the challenges of scaling down large-scale RAG fine-tuning approaches. The focus is on verifying the core hypothesis that two-stage fine-tuning improves domain-specific RAG performance, even when constrained by model size and computational resources.
+SimRAG~\citep{xu2024simrag} introduces a self-improving RAG framework that generates synthetic QA pairs from unlabeled domain corpora for fine-tuning. The two-stage approach trains models on instruction-following (Stage 1) then domain-specific synthetic data (Stage 2), with the fine-tuned model generating improved training data in subsequent rounds. This work reproduces SimRAG on consumer hardware to verify whether two-stage fine-tuning improves domain-specific RAG performance when scaled down to smaller models.
 
 \section{Method}
 \label{sec:method}
 
 \subsection{System Architecture}
 
-The implementation consists of three main subsystems that work together to realize the SimRAG pipeline:
-
-\textbf{RAG Subsystem}: The retrieval-augmented generation component includes (1) \textit{VectorStore}: Manages document embeddings using Qdrant~\citep{qdrant2024} (for training) or ChromaDB~\citep{chromadb2024} (for local testing), both supporting in-memory and persistent storage modes, (2) \textit{DocumentRetriever}: Generates embeddings using sentence-transformers~\citep{reimers2019sentence} (all-MiniLM-L6-v2, 384 dimensions) and performs semantic search, (3) \textit{AIGateway}: Unified interface supporting multiple LLM providers (Claude API, Purdue GenAI API, HuggingFace Transformers~\citep{wolf2019transformers}) with automatic fallback, (4) \textit{BasicRAG}: Orchestrator that coordinates document ingestion, retrieval, and context-aware generation.
-
-\textbf{Fine-Tuning Subsystem}: The model adaptation component implements (1) \textit{InstructionFollowing}: Stage 1 trainer that fine-tunes on general instruction-following datasets, (2) \textit{SyntheticQAGeneration}: Generates question-answer pairs from domain documents using the fine-tuned model, (3) \textit{DomainAdaptation}: Stage 2 trainer that fine-tunes on synthetic QA pairs with optional self-improvement loops, (4) \textit{SimRAGBase}: Base class providing common functionality (model loading, data preparation, training orchestration) for all stages.
-
-\textbf{Experiment Management}: Configuration system with environment variable overrides, model registry for version tracking, and experiment result comparison utilities.
-
-\subsubsection{Retrieval-Augmented Generation}
-
-The RAG pipeline processes documents through several stages: (1) \textit{Document Ingestion}: HTML, Markdown, or plain text files are parsed and chunked into segments of 200--500 tokens, preserving semantic boundaries where possible, (2) \textit{Embedding Generation}: Each chunk is encoded using sentence-transformers~\citep{reimers2019sentence} (all-MiniLM-L6-v2) to produce 384-dimensional vectors, (3) \textit{Vector Storage}: Embeddings are indexed in Qdrant~\citep{qdrant2024} (training) or ChromaDB~\citep{chromadb2024} (testing) with cosine similarity as the distance metric, (4) \textit{Retrieval}: For each query, the top-$k=5$ documents are retrieved with similarity scores above threshold=0.7, (5) \textit{Generation}: Retrieved documents are formatted as context in the prompt "Context: [retrieved docs]\n\nQuestion: [query]\n\nAnswer:", and the model generates a response using HuggingFace Transformers~\citep{wolf2019transformers} with 4-bit quantization for efficient inference.
+The implementation uses Qdrant~\citep{qdrant2024} or ChromaDB~\citep{chromadb2024} for vector storage, sentence-transformers~\citep{reimers2019sentence} (all-MiniLM-L6-v2) for embeddings, and HuggingFace Transformers~\citep{wolf2019transformers} for generation. Documents are chunked (200--500 tokens), embedded (384 dimensions), and retrieved using cosine similarity (top-$k=5$, threshold=0.7). Fine-tuning uses QLoRA with Stage 1 for instruction-following and Stage 2 for domain adaptation with synthetic QA pairs.
 
 \subsubsection{Model Fine-Tuning}
 
@@ -143,11 +121,9 @@ Stage 2 (v6.6) & 0.316 & [0.291, 0.340] & 150 \\
 \end{tabular}
 \end{table}
 
-The identical scores confirm that the experimental design successfully isolates the generator fine-tuning effect. Any performance differences must come from how the model utilizes the retrieved context, not from retrieval quality itself. Statistical analysis shows overlapping confidence intervals, indicating no significant difference in retrieval performance (as expected).
-
 \subsection{Generation Quality}
 
-Table~\ref{tab:generation_results} presents answer quality and response time metrics. Contrary to the hypothesis, fine-tuned models show a slight decrease in answer quality compared to the baseline.
+Table~\ref{tab:generation_results} presents answer quality and response time metrics.
 
 \begin{table}[h]
 \centering
@@ -164,28 +140,17 @@ Stage 2 (v6.6) & 0.786 & 63.2 & -1.9\% \\
 \end{tabular}
 \end{table}
 
-\textbf{Answer Quality}: Stage 1 model achieves quality score 0.800 (0.1\% decrease from baseline 0.801), while Stage 2 model achieves 0.786 (1.9\% decrease). The answer quality metric combines multiple factors: answer length, context relevance, question relevance, and refusal detection. The decrease suggests that fine-tuning may have introduced slight overfitting or reduced the model's ability to generate high-quality answers, possibly due to the smaller model capacity (1.5B parameters) being insufficient to capture the complexity of domain adaptation.
-
-\textbf{Response Time}: Fine-tuned models show significantly increased response times: Stage 1 requires 62.6s (+52\% vs. baseline 41.2s), and Stage 2 requires 63.2s (+53\%). This overhead likely comes from loading and applying LoRA adapters during inference, as well as potential inefficiencies in the inference pipeline. Both baseline and fine-tuned models use 4-bit quantization, so the difference is primarily due to adapter overhead.
+Contrary to the hypothesis, fine-tuned models show decreased quality (Stage 1: -0.1\%, Stage 2: -1.9\%) and increased response time (+52--53\%), likely due to insufficient model capacity (1.5B vs. 8B/27B) and LoRA adapter overhead during inference.
 
 \subsection{Training Dynamics}
 
-Figure~\ref{fig:training_loss} shows the training loss curves for Stage 1 fine-tuning on the Alpaca dataset. The loss decreases steadily from approximately 1.84 to 0.65 over 3 epochs (4,878 steps), indicating successful convergence. The smooth decrease suggests stable training dynamics with QLoRA, despite the memory constraints of consumer hardware.
+Figure~\ref{fig:training_loss} shows the training loss curve for Stage 1 fine-tuning on the Alpaca dataset. The loss decreases steadily from 1.84 to 0.65 over 3 epochs (4,878 steps), demonstrating successful convergence. The smooth decrease indicates stable training dynamics with QLoRA on consumer hardware, despite memory constraints.
 
-\begin{figure}[h]
+\begin{figure}[t]
 \centering
-\includegraphics[width=0.8\textwidth]{training_loss_stage1.pdf}
-\caption{Training loss curve for Stage 1 fine-tuning on Alpaca dataset (52K examples, 3 epochs). Loss decreases from 1.84 to 0.65, demonstrating stable convergence with QLoRA on consumer hardware.}
+\includegraphics[width=0.75\textwidth]{training_loss_stage1.pdf}
+\caption{Training loss for Stage 1 fine-tuning on Alpaca (52K examples, 3 epochs). Smooth convergence from 1.84 to 0.65 demonstrates QLoRA stability on RTX 3080.}
 \label{fig:training_loss}
-\end{figure}
-
-Figure~\ref{fig:quality_comparison} visualizes the answer quality comparison across models. The bar chart clearly shows the slight degradation in quality for fine-tuned models compared to baseline, supporting the quantitative findings.
-
-\begin{figure}[h]
-\centering
-\includegraphics[width=0.6\textwidth]{quality_comparison.pdf}
-\caption{Answer quality scores across models. Baseline achieves 0.801, Stage 1 (v6.1) achieves 0.800 (-0.1\%), and Stage 2 (v6.6) achieves 0.786 (-1.9\%). Error bars represent 95\% confidence intervals.}
-\label{fig:quality_comparison}
 \end{figure}
 
 \subsection{Resource Analysis}
@@ -228,11 +193,11 @@ The open-source community is thanked for providing the tools and libraries that 
 % Note: For final submission, create a references.bib file and uncomment the lines below
 % For now, citations are shown inline with full references
 
-\begin{thebibliography}{9}
+\begin{thebibliography}{99}
 
 % Papers from project_docs that were actually used
 \bibitem{xu2024simrag}
-Xu, R., Liu, H., Nag, S., Dai, Z., Xie, Y., Tang, X., Luo, C., Li, Y., Ho, J. C., Yang, C., \& He, Q. (2025). SimRAG: Self-Improving Retrieval-Augmented Generation for Adapting Large Language Models to Specialized Domains. In \textit{Proceedings of the 2025 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies (NAACL)}. Association for Computational Linguistics. \url{https://arxiv.org/abs/2410.17952}
+Xu, R., Liu, H., Nag, S., Dai, Z., Xie, Y., Tang, X., Luo, C., Li, Y., Ho, J. C., Yang, C., \& He, Q. (2024). SimRAG: Self-Improving Retrieval-Augmented Generation for Adapting Large Language Models to Specialized Domains. \textit{arXiv preprint arXiv:2410.17952}. \url{https://arxiv.org/abs/2410.17952}
 
 \bibitem{dettmers2023qlora}
 Dettmers, T., Pagnoni, A., Holtzman, A., \& Zettlemoyer, L. (2023). QLoRA: Efficient finetuning of quantized LLMs. \textit{Advances in Neural Information Processing Systems (NeurIPS 2023)}. \url{https://arxiv.org/abs/2305.14314}
@@ -241,10 +206,10 @@ Dettmers, T., Pagnoni, A., Holtzman, A., \& Zettlemoyer, L. (2023). QLoRA: Effic
 Reimers, N., \& Gurevych, I. (2019). Sentence-BERT: Sentence embeddings using siamese BERT-networks. In \textit{Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing and the 9th International Joint Conference on Natural Language Processing (EMNLP-IJCNLP)} (pp. 3982--3992). Association for Computational Linguistics. \url{https://arxiv.org/abs/1908.10084}
 
 \bibitem{qdrant2024}
-Qdrant Team. (2024). Qdrant: Vector similarity search engine. \url{https://qdrant.tech/}
+Qdrant. (2024). Qdrant: Vector similarity search engine. Retrieved from \url{https://qdrant.tech/}
 
 \bibitem{chromadb2024}
-ChromaDB Team. (2024). ChromaDB: The AI-native open-source embedding database. \url{https://www.trychroma.com/}
+ChromaDB. (2024). ChromaDB: The AI-native open-source embedding database. Retrieved from \url{https://www.trychroma.com/}
 
 \bibitem{wolf2019transformers}
 Wolf, T., Debut, L., Sanh, V., Chaumond, J., Delangue, C., Moi, A., Cistac, P., Rault, T., Louf, R., Funtowicz, M., Davison, J., Shleifer, S., von Platen, P., Ma, C., Jernite, Y., Plu, J., Xu, C., Scao, T. L., Gugger, S., ... \& Rush, A. M. (2019). HuggingFace's transformers: State-of-the-art natural language processing. \textit{arXiv preprint arXiv:1910.03771}. \url{https://arxiv.org/abs/1910.03771}

@@ -28,6 +28,17 @@ EXCLUDE_DIRS = {'project_docs', '.github', '__pycache__', '.git'}
 # Specific files to exclude
 EXCLUDE_FILES = {'CLAUDE.md'}
 
+# Files to explicitly include (even if .gitignore would exclude them)
+# These are critical for project setup and reproducibility
+EXPLICIT_INCLUDE_FILES = {
+    '.env.example',  # Configuration template (README references it)
+    'test_model_colab.ipynb',  # Colab notebook (explicitly included in .gitignore)
+    'LICENSE',  # License file
+    '.dockerignore',  # Docker ignore file (needed for Docker builds)
+    'poetry.lock',  # Lock file for reproducible builds
+    'requirements.txt',  # Backup dependency file
+}
+
 # Model weight file extensions to exclude
 MODEL_WEIGHT_EXTENSIONS = {'.safetensors', '.bin', '.pt', '.pth'}
 
@@ -121,7 +132,46 @@ def should_ignore(path, gitignore_patterns, root_dir):
     rel_str = str(rel_path).replace('\\', '/')
     rel_parts = rel_str.split('/')
     
-    # Check if any parent directory is excluded
+    # First check if there's an explicit include pattern (negation) that matches
+    # Negation patterns override exclusion patterns (gitignore rule: later patterns override earlier ones)
+    # We check includes first because they have higher priority
+    for pattern_type, pattern in gitignore_patterns:
+        if pattern_type == 'include':
+            # Handle ** wildcards (match zero or more directories)
+            if '**' in pattern:
+                # Convert **/* pattern to match any path structure
+                # e.g., "tuned_models/**/model_registry.json" should match "tuned_models/model_1b/stage_1/v1.0/model_registry.json"
+                pattern_parts = pattern.split('**')
+                if len(pattern_parts) == 2:
+                    prefix = pattern_parts[0].rstrip('/')
+                    suffix = pattern_parts[1].lstrip('/')
+                    # Check if path starts with prefix and ends with suffix
+                    if rel_str.startswith(prefix) and rel_str.endswith(suffix):
+                        # Check that the middle part doesn't contain excluded patterns
+                        return False  # Explicitly included
+                    # Also check if any part of the path matches
+                    if prefix in rel_str and suffix in rel_str:
+                        # Verify the order is correct (prefix before suffix)
+                        prefix_idx = rel_str.find(prefix)
+                        suffix_idx = rel_str.rfind(suffix)
+                        if prefix_idx != -1 and suffix_idx != -1 and prefix_idx < suffix_idx:
+                            return False  # Explicitly included
+                else:
+                    # Multiple **, use simpler matching
+                    fnmatch_pattern = pattern.replace('**', '*')
+                    if fnmatch.fnmatch(rel_str, fnmatch_pattern):
+                        return False
+            else:
+                # Simple pattern matching without **
+                if fnmatch.fnmatch(rel_str, pattern):
+                    return False  # Explicitly included, don't ignore
+                # Check if any parent directory matches the include pattern
+                for i in range(len(rel_parts)):
+                    partial_path = '/'.join(rel_parts[:i+1])
+                    if fnmatch.fnmatch(partial_path, pattern):
+                        return False  # Parent is included, don't ignore
+    
+    # Then check exclusion patterns
     for i in range(len(rel_parts)):
         partial_path = '/'.join(rel_parts[:i+1])
         for pattern_type, pattern in gitignore_patterns:
@@ -132,8 +182,26 @@ def should_ignore(path, gitignore_patterns, root_dir):
                 # Check directory patterns (ending with /)
                 if pattern.endswith('/') and partial_path.startswith(pattern.rstrip('/')):
                     return True
-            # Note: We're not handling include patterns (!) in this simple version
-            # as they're more complex and require proper gitignore parsing
+                # Handle ** wildcard patterns in exclusion rules
+                if '**' in pattern:
+                    pattern_parts = pattern.split('**')
+                    if len(pattern_parts) == 2:
+                        prefix = pattern_parts[0].rstrip('/')
+                        suffix = pattern_parts[1].lstrip('/')
+                        if prefix and suffix:
+                            if rel_str.startswith(prefix) and rel_str.endswith(suffix):
+                                return True
+                        elif prefix:
+                            if rel_str.startswith(prefix):
+                                return True
+                        elif suffix:
+                            if rel_str.endswith(suffix):
+                                return True
+                    else:
+                        # Multiple **, use simpler matching
+                        fnmatch_pattern = pattern.replace('**', '*')
+                        if fnmatch.fnmatch(partial_path, fnmatch_pattern) or fnmatch.fnmatch(rel_str, fnmatch_pattern):
+                            return True
     
     return False
 
@@ -201,6 +269,20 @@ def create_submission_zip(output_name=None):
                 if any(excluded in file_path.parts for excluded in EXCLUDE_DIRS):
                     files_skipped += 1
                     continue
+                
+                # Explicitly include critical files (override .gitignore)
+                if file_path.name in EXPLICIT_INCLUDE_FILES:
+                    try:
+                        arcname = file_path.relative_to(root_dir)
+                        zipf.write(file_path, arcname)
+                        files_added += 1
+                        if files_added % 50 == 0:
+                            print(f"  Added {files_added} files...", end='\r')
+                        continue
+                    except Exception as e:
+                        print(f"\nWarning: Could not add {file_path}: {e}")
+                        files_skipped += 1
+                        continue
                 
                 # Special handling for tuned_models files
                 if is_tuned_models_file(file_path, root_dir):

@@ -35,7 +35,7 @@ SimRAG introduces a self-improving framework that fine-tunes RAG systems through
 
 **Prerequisites**:
 - Docker Engine 20.10+ and Docker Compose 2.0+
-- NVIDIA Docker runtime (for GPU support): [Installation Guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
+- (Optional) NVIDIA Docker runtime for GPU acceleration: [Installation Guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
 
 **Quick Start with Docker**:
 
@@ -48,34 +48,36 @@ cd SimRAG-Reproduction
 cp .env.example .env
 # Edit .env and add your API keys if desired (optional - HuggingFace works without)
 
-# 3. Build and run (CPU version - works on any machine)
-docker-compose up --build simrag-cpu
+# 3. Build the Docker image
+docker-compose build simrag
 
-# Or for GPU support (if you have NVIDIA GPU):
-docker-compose up --build simrag
+# 4. Run commands (works on both GPU and CPU - automatically detects)
+docker-compose run --rm simrag poetry run simrag config
 ```
 
 **Run Commands in Docker**:
 
 ```bash
 # View configuration
-docker-compose run --rm simrag-cpu poetry run simrag config
+docker-compose run --rm simrag poetry run simrag config
 
 # Run the recommended workflow
-docker-compose run --rm simrag-cpu poetry run simrag experiment stage1
-docker-compose run --rm simrag-cpu poetry run simrag experiment stage2
-docker-compose run --rm simrag-cpu poetry run simrag experiment test
+docker-compose run --rm simrag poetry run simrag experiment stage1
+docker-compose run --rm simrag poetry run simrag experiment stage2
+docker-compose run --rm simrag poetry run simrag experiment test
 
 # Or use interactive shell
-docker-compose run --rm simrag-cpu bash
-# Then run: simrag experiment stage1, etc.
+docker-compose run --rm simrag bash
+# Then run: poetry run simrag experiment stage1, etc.
 ```
+
+**Note**: The Docker image works on both GPU and CPU systems. If you have an NVIDIA GPU with Docker GPU support, it will automatically use the GPU. Otherwise, it will fall back to CPU (slower but works fine).
 
 **Docker Benefits**:
 - ✅ No Python/Poetry setup required
 - ✅ Consistent environment across machines
 - ✅ Automatic dependency management
-- ✅ GPU support included (with nvidia-docker2)
+- ✅ GPU support when available (automatically detects)
 - ✅ Perfect for reproducibility
 
 **Data Persistence**: All data (models, results, logs) is stored in mounted volumes (`./data`, `./tuned_models`, `./logs`, `./comparison_results`) and persists between container runs.
@@ -181,9 +183,9 @@ After installation (see [Installation](#installation) above), run the recommende
 
 ```bash
 # Using Docker (recommended for new users)
-docker-compose run --rm simrag-cpu poetry run simrag experiment stage1
-docker-compose run --rm simrag-cpu poetry run simrag experiment stage2
-docker-compose run --rm simrag-cpu poetry run simrag experiment test
+docker-compose run --rm simrag poetry run simrag experiment stage1
+docker-compose run --rm simrag poetry run simrag experiment stage2
+docker-compose run --rm simrag poetry run simrag experiment test
 
 # Using Poetry
 poetry shell  # Activate environment first
@@ -385,8 +387,8 @@ mypy simrag_reproduction/
 **Claude API not working**: If you want to use Claude, install the anthropic package: `pip install anthropic` or `poetry add anthropic`. The package is marked as optional in pyproject.toml.
 
 **Docker issues**:
-- **"nvidia-docker not found"**: Install NVIDIA Docker runtime. For GPU support, you need `nvidia-docker2` or Docker with `--gpus all` support.
-- **"CUDA out of memory"**: Reduce batch size in `.env`: `TUNING_BATCH_SIZE=1` or use CPU version: `docker-compose up simrag-cpu`
+- **"nvidia-docker not found"**: GPU support is optional. The container will work on CPU if NVIDIA Docker runtime is not available (just slower). To enable GPU, install NVIDIA Docker runtime: [Installation Guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
+- **"CUDA out of memory"**: Reduce batch size in `.env`: `TUNING_BATCH_SIZE=1` or set `TUNING_DEVICE=cpu` to force CPU mode
 - **"Permission denied"**: Ensure Docker has access to mounted volumes. On Linux, you may need to adjust permissions: `sudo chown -R $USER:$USER ./data ./tuned_models ./logs`
 - **"Container exits immediately"**: Use `docker-compose run --rm simrag bash` for interactive shell, or specify a command: `docker-compose run --rm simrag poetry run simrag --help`
 
