@@ -384,7 +384,7 @@ Standard libraries used as dependencies (unmodified):
 
 ### AI-Assisted Development
 
-Claude Sonnet 4.5 (via Cursor IDE) was used for code generation, debugging, and documentation. All architectural decisions are original.
+LLMs (via Cursor IDE and Claude Code) were used to assist code generation, debugging, and documentation. All architectural decisions are original.
 
 ## Citation
 
