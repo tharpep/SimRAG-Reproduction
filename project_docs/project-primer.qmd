@@ -29,7 +29,7 @@ If successful, students, researchers, and professionals could get reliable answe
 **Relevance:** Candidate for tiny reproduction; target = relative gains over vanilla RAG in EM/F1 and Recall\@k, nDCG. Novel angle: testing whether its self-improvement loop remains effective under single-GPU constraints.
 
 **Reference**
-\[1] Cheng, X., Zhang, Y., Li, H., & Sun, M. (2025). SimRAG: Self-improving retrieval-augmented generation. In *Proceedings of the 2025 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies (NAACL)*. Association for Computational Linguistics. [https://arxiv.org/abs/2501.12345](https://arxiv.org/abs/2501.12345)
+\[1] Xu, R., Liu, H., Nag, S., Dai, Z., Xie, Y., Tang, X., Luo, C., Li, Y., Ho, J. C., Yang, C., & He, Q. (2025). SimRAG: Self-Improving Retrieval-Augmented Generation for Adapting Large Language Models to Specialized Domains. In *Proceedings of the 2025 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies (NAACL)*. Association for Computational Linguistics. [https://arxiv.org/abs/2410.17952](https://arxiv.org/abs/2410.17952)
 
 ---
 

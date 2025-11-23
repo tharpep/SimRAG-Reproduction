@@ -42,9 +42,10 @@ pytest-asyncio = ">=0.21.0"
 ruff = "*"
 black = "*"
 mypy = ">=1.0.0"
+matplotlib = "^3.10.7"
 
 [tool.poetry.extras]
-claude = ["anthropic>=0.18.0"]
+claude = ["anthropic"]
 
 [tool.poetry.scripts]
 simrag = "simrag_reproduction.cli.main:main"

@@ -18,19 +18,17 @@ finetuned_model/
 my_finetuned_model/
 .cache/
 
-# Tuned models directory (too large for repo - model exports are generated files)
-tuned_models/
+# Tuned models: Exclude weights and checkpoints, but keep metadata for reproducibility
+# First, exclude all model weight files in tuned_models/
+tuned_models/**/*.safetensors
+tuned_models/**/*.bin
+tuned_models/**/*.pt
+tuned_models/**/*.pth
 
-# QLoRA adapter files (keep adapter_config.json for metadata, but ignore weights)
-# Note: Above line ignores entire tuned_models/ directory, so these are redundant but kept for clarity
-tuned_models/**/adapter_model.safetensors
-tuned_models/**/adapter_model.bin
-
-# Training checkpoints (ignore checkpoint directories, keep final models)
+# Exclude training checkpoints (entire directories)
 tuned_models/**/checkpoint-*/
-tuned_models/**/checkpoint-*/*
 
-# Training state files (optimizer, scheduler, etc.)
+# Exclude training state files
 tuned_models/**/optimizer.pt
 tuned_models/**/scheduler.pt
 tuned_models/**/scaler.pt
@@ -38,16 +36,31 @@ tuned_models/**/rng_state.pth
 tuned_models/**/training_args.bin
 tuned_models/**/trainer_state.json
 
-# Model weights (keep configs and tokenizers for reproducibility)
-tuned_models/**/pytorch_model.bin
-tuned_models/**/model.safetensors
+# Now include metadata files we want to track (order matters - negations must come after exclusions)
+# Model registry and README files
+!tuned_models/**/model_registry.json
+!tuned_models/**/README.md
 
-# Keep these for reproducibility (DO NOT ignore):
-# - adapter_config.json (LoRA config)
-# - tokenizer files (tokenizer.json, tokenizer_config.json, vocab.json, merges.txt)
-# - model_registry.json (version tracking)
-# - README.md files
-# - model_info.json files
+# LoRA adapter configuration
+!tuned_models/**/adapter_config.json
+
+# Model info and metadata
+!tuned_models/**/model_info.json
+
+# Tokenizer files (all JSON tokenizer files)
+!tuned_models/**/tokenizer.json
+!tuned_models/**/tokenizer_config.json
+!tuned_models/**/vocab.json
+!tuned_models/**/merges.txt
+!tuned_models/**/added_tokens.json
+!tuned_models/**/special_tokens_map.json
+
+# Chat template
+!tuned_models/**/chat_template.jinja
+
+# Other config files
+!tuned_models/**/*.toml
+!tuned_models/**/Modelfile
 # Python cache
 __pycache__/
 *.py[cod]

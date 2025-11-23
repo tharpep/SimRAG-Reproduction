@@ -2,9 +2,18 @@
 """
 Create a ZIP file of the codebase for submission.
 Excludes:
-- Everything in .gitignore
+- Everything in .gitignore (except tuned_models metadata)
 - project_docs/ folder
 - .github/ folder
+- CLAUDE.md file
+- Model weights (*.safetensors, *.bin) from tuned_models/
+- Training checkpoints (checkpoint-*/) from tuned_models/
+Includes:
+- Model metadata (adapter_config.json, model_info.json, model_registry.json)
+- Tokenizer files (tokenizer*.json, vocab.json, merges.txt, etc.)
+- README.md files in tuned_models/
+- comparison_results/ JSON files
+- data/documents/ source files
 """
 
 import os
@@ -15,6 +24,24 @@ from datetime import datetime
 
 # Directories to always exclude
 EXCLUDE_DIRS = {'project_docs', '.github', '__pycache__', '.git'}
+
+# Specific files to exclude
+EXCLUDE_FILES = {'CLAUDE.md'}
+
+# Model weight file extensions to exclude
+MODEL_WEIGHT_EXTENSIONS = {'.safetensors', '.bin', '.pt', '.pth'}
+
+# Files to include from tuned_models/ (metadata only)
+TUNED_MODELS_INCLUDE_PATTERNS = [
+    '*.json',  # adapter_config.json, model_info.json, model_registry.json, tokenizer files
+    '*.txt',   # vocab.json, merges.txt, added_tokens.json
+    '*.md',    # README.md
+    '*.jinja', # chat_template.jinja
+    '*.toml',  # Any config files
+]
+
+# Directories to exclude from tuned_models/
+TUNED_MODELS_EXCLUDE_DIRS = ['checkpoint-*']
 
 def parse_gitignore(gitignore_path):
     """Parse .gitignore file and return a list of patterns."""
@@ -36,8 +63,55 @@ def parse_gitignore(gitignore_path):
     
     return patterns
 
+def is_tuned_models_file(file_path, root_dir):
+    """Check if a file is in tuned_models/ directory."""
+    try:
+        rel_path = file_path.relative_to(root_dir)
+        return 'tuned_models' in rel_path.parts
+    except ValueError:
+        return False
+
+def should_include_tuned_models_file(file_path):
+    """Check if a file in tuned_models/ should be included (metadata only, no weights)."""
+    # Exclude checkpoint directories
+    rel_str = str(file_path).replace('\\', '/')
+    if 'checkpoint-' in rel_str:
+        return False
+    
+    # Exclude model weight files
+    if file_path.suffix.lower() in MODEL_WEIGHT_EXTENSIONS:
+        return False
+    
+    # Include metadata files
+    file_name = file_path.name.lower()
+    for pattern in TUNED_MODELS_INCLUDE_PATTERNS:
+        if fnmatch.fnmatch(file_name, pattern):
+            return True
+    
+    # Include specific important files
+    important_files = ['model_registry.json', 'adapter_config.json', 'model_info.json', 
+                      'README.md', 'tokenizer.json', 'tokenizer_config.json', 
+                      'vocab.json', 'merges.txt', 'added_tokens.json', 
+                      'special_tokens_map.json', 'chat_template.jinja']
+    if file_name in important_files:
+        return True
+    
+    return False
+
 def should_ignore(path, gitignore_patterns, root_dir):
     """Check if a path should be ignored based on .gitignore patterns."""
+    # Special handling for tuned_models/ - override .gitignore for metadata files
+    if is_tuned_models_file(path, root_dir):
+        # For directories in tuned_models, check if they're checkpoint dirs
+        if path.is_dir():
+            rel_str = str(path.relative_to(root_dir)).replace('\\', '/')
+            if any(fnmatch.fnmatch(rel_str, pattern) for pattern in TUNED_MODELS_EXCLUDE_DIRS):
+                return True
+            # Don't exclude tuned_models directories themselves, let file-level check handle it
+            return False
+        # For files in tuned_models, use our custom logic
+        return not should_include_tuned_models_file(path)
+    
     # Convert to relative path from root
     try:
         rel_path = path.relative_to(root_dir)
@@ -81,6 +155,7 @@ def create_submission_zip(output_name=None):
     print(f"Creating submission ZIP: {output_name}")
     print(f"Root directory: {root_dir}")
     print(f"Excluding: project_docs/, .github/, and .gitignore patterns")
+    print(f"Including: tuned_models/ metadata (configs, tokenizers, registry) - excluding weights")
     print()
     
     files_added = 0
@@ -99,9 +174,16 @@ def create_submission_zip(output_name=None):
             if any(excluded in rel_root.parts for excluded in EXCLUDE_DIRS):
                 continue
             
-            # Check if root directory should be ignored
-            if should_ignore(root_path, gitignore_patterns, root_dir):
-                continue
+            # Special handling for tuned_models: don't skip the directory, but filter files
+            is_tuned_models_dir = 'tuned_models' in rel_root.parts
+            
+            # For non-tuned_models directories, check if should be ignored
+            if not is_tuned_models_dir:
+                if should_ignore(root_path, gitignore_patterns, root_dir):
+                    continue
+            else:
+                # For tuned_models, filter out checkpoint directories
+                dirs[:] = [d for d in dirs if not fnmatch.fnmatch(d, 'checkpoint-*')]
             
             for file in files:
                 file_path = root_path / file
@@ -110,15 +192,26 @@ def create_submission_zip(output_name=None):
                 if file_path == output_path:
                     continue
                 
+                # Skip excluded files
+                if file_path.name in EXCLUDE_FILES:
+                    files_skipped += 1
+                    continue
+                
                 # Skip if in excluded directories
                 if any(excluded in file_path.parts for excluded in EXCLUDE_DIRS):
                     files_skipped += 1
                     continue
                 
-                # Check .gitignore patterns
-                if should_ignore(file_path, gitignore_patterns, root_dir):
-                    files_skipped += 1
-                    continue
+                # Special handling for tuned_models files
+                if is_tuned_models_file(file_path, root_dir):
+                    if not should_include_tuned_models_file(file_path):
+                        files_skipped += 1
+                        continue
+                else:
+                    # For non-tuned_models files, check .gitignore patterns
+                    if should_ignore(file_path, gitignore_patterns, root_dir):
+                        files_skipped += 1
+                        continue
                 
                 # Add file to zip
                 try:
@@ -135,6 +228,8 @@ def create_submission_zip(output_name=None):
     print(f"  Files added: {files_added}")
     print(f"  Files skipped: {files_skipped}")
     print(f"  File size: {output_path.stat().st_size / (1024*1024):.2f} MB")
+    print(f"\nNote: Model weights (*.safetensors, *.bin) and checkpoints were excluded.")
+    print(f"      Included model metadata (configs, tokenizers, registry) for reproducibility.")
     
     return output_path
 

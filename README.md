@@ -3,16 +3,16 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
 
-A simplified, educational implementation of **SimRAG: Self-improving Retrieval-Augmented Generation** for learning RAG and fine-tuning concepts. This project reproduces the core methodology from the [SimRAG paper](https://arxiv.org/abs/2501.12345) (Cheng et al., NAACL 2025) on consumer hardware.
+A simplified, educational implementation of **SimRAG: Self-improving Retrieval-Augmented Generation** for learning RAG and fine-tuning concepts. This project reproduces the core methodology from the [SimRAG paper](https://arxiv.org/abs/2410.17952) (Xu et al., NAACL 2025) on consumer hardware.
 
 ## About SimRAG
 
 This implementation is based on the research paper:
 
-> **SimRAG: Self-improving Retrieval-Augmented Generation**  
-> X. Cheng, Y. Zhang, H. Li, M. Sun  
+> **SimRAG: Self-Improving Retrieval-Augmented Generation for Adapting Large Language Models to Specialized Domains**  
+> Ran Xu, Hui Liu, Sreyashi Nag, Zhenwei Dai, Yaochen Xie, Xianfeng Tang, Chen Luo, Yang Li, Joyce C. Ho, Carl Yang, Qi He  
 > *Proceedings of NAACL 2025*  
-> [arXiv:2501.12345](https://arxiv.org/abs/2501.12345)
+> [arXiv:2410.17952](https://arxiv.org/abs/2410.17952)
 
 SimRAG introduces a self-improving framework that fine-tunes RAG systems through two stages: (1) general instruction-following, and (2) domain adaptation using synthetically generated QA pairs. This reproduction verifies the core hypothesis that two-stage fine-tuning improves RAG performance on domain-specific documents compared to vanilla RAG.
 
@@ -172,6 +172,8 @@ RANDOM_SEED=42  # Random seed for reproducible results (default: 42)
 **Model Selection**:
 - **Default (Qwen 2.5 Instruct)**: No authentication needed - works out of the box! Uses standard generation (non-thinking mode) ✅
 - **Llama models**: If you prefer Llama, set `HF_TOKEN` in `.env` and accept license at https://huggingface.co/meta-llama/Llama-3.2-1B
+
+**Note on Model Testing**: This reproduction was tested and validated using the **1.5B model** (`Qwen/Qwen2.5-1.5B-Instruct`). While the codebase supports 7B models and can be adapted for other models, only the 1.5B model was used for experimental validation and conclusions in this reproduction study.
 
 ## Quick Start
 
@@ -340,6 +342,8 @@ mypy simrag_reproduction/
 
 **Note**: Without QLoRA, memory requirements are 3-5x higher and may not fit on consumer GPUs.
 
+**Testing Note**: This reproduction was validated using the **1.5B model only**. The 7B model configuration is provided for users who want to experiment, but experimental results and conclusions are based solely on 1.5B model testing.
+
 ### Software Environment
 
 **Python**: 3.12 (required for PyTorch CUDA support)
@@ -416,31 +420,50 @@ Logs are automatically created in `logs/rag/` and `logs/tuning/` during experime
 
 ## Code Attribution
 
-**Original Implementation**: All code in this repository was written from scratch for this reproduction study. The SimRAG paper does not provide a public implementation, so all code was developed independently based on the paper's methodology.
+### Original Code Written for This Project
 
-**Third-Party Libraries Used**:
-- PyTorch, Transformers (HuggingFace) - Model training and inference
-- PEFT, bitsandbytes - QLoRA fine-tuning and 4-bit quantization
-- ChromaDB, Qdrant - Vector stores for document retrieval
-- sentence-transformers - Embedding generation
-- Poetry - Dependency management
-- Typer - CLI framework
+All code in this repository was written from scratch for this reproduction study. The SimRAG paper does not provide a public implementation, so all code was developed independently based on the paper's methodology.
 
-**AI-Assisted Development**: Claude Sonnet 4.5 (via Cursor IDE) was used as a development assistant for code generation, debugging, and documentation. All architectural decisions and implementations are original.
+**Original Implementation Components:**
+- **SimRAG Pipeline** (`simrag_reproduction/simrag/`): Two-stage training pipeline including instruction following (Stage 1) and domain adaptation (Stage 2)
+- **Synthetic QA Generation** (`simrag_reproduction/simrag/synthetic_qa_generation.py`): Logic for generating question-answer pairs from domain documents with filtering
+- **Experiment Orchestration** (`simrag_reproduction/experiments/`): Baseline testing, SimRAG training, and result comparison utilities
+- **RAG System** (`simrag_reproduction/rag/`): Document ingestion, vector storage, retrieval, and context-aware generation
+- **Model Fine-Tuning** (`simrag_reproduction/tuning/`): QLoRA training utilities, model registry, and adapter management
+- **CLI Interface** (`simrag_reproduction/cli/`): Command-line interface for running experiments
+- **Configuration Management** (`simrag_reproduction/config.py`): Configuration system with environment variable overrides
+- **AI Provider Gateway** (`simrag_reproduction/ai_providers/`): Unified interface for multiple LLM providers (Claude, Purdue API, HuggingFace)
 
-**Adapted Code**: None - all implementation is original work for this reproduction study.
+### Third-Party Libraries Used (Not Modified)
+
+These libraries are used as dependencies but were not modified:
+- **PyTorch, Transformers (HuggingFace)** - Model training and inference
+- **PEFT, bitsandbytes** - QLoRA fine-tuning and 4-bit quantization
+- **ChromaDB, Qdrant** - Vector stores for document retrieval
+- **sentence-transformers** - Embedding generation
+- **Poetry** - Dependency management
+- **Typer** - CLI framework
+- **datasets** - Dataset loading and processing
+
+### AI-Assisted Development
+
+Claude Sonnet 4.5 (via Cursor IDE) was used as a development assistant for code generation, debugging, and documentation. All architectural decisions and implementations are original.
+
+### Adapted Code
+
+**None** - All implementation is original work for this reproduction study. No code was copied or adapted from other repositories.
 
 ## Citation
 
 If you use this code, please cite the original SimRAG paper:
 
 ```bibtex
-@article{cheng2025simrag,
-  title={SimRAG: Self-improving retrieval-augmented generation},
-  author={Cheng, X. and Zhang, Y. and Li, H. and Sun, M.},
+@article{xu2024simrag,
+  title={SimRAG: Self-Improving Retrieval-Augmented Generation for Adapting Large Language Models to Specialized Domains},
+  author={Xu, Ran and Liu, Hui and Nag, Sreyashi and Dai, Zhenwei and Xie, Yaochen and Tang, Xianfeng and Luo, Chen and Li, Yang and Ho, Joyce C. and Yang, Carl and He, Qi},
   journal={Proceedings of NAACL 2025},
   year={2025},
-  url={https://arxiv.org/abs/2501.12345}
+  url={https://arxiv.org/abs/2410.17952}
 }
 ```
 

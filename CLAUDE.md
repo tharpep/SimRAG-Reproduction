@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-SimRAG Reproduction is an educational implementation of the SimRAG paper (Cheng et al., NAACL 2025), demonstrating self-improving Retrieval-Augmented Generation through two-stage fine-tuning of language models. The core innovation is that Stage 2 can run multiple rounds, each using the improved model from the previous round to generate better synthetic QA pairs.
+SimRAG Reproduction is an educational implementation of the SimRAG paper (Xu et al., NAACL 2025), demonstrating self-improving Retrieval-Augmented Generation through two-stage fine-tuning of language models. The core innovation is that Stage 2 can run multiple rounds, each using the improved model from the previous round to generate better synthetic QA pairs.
 
 ## Development Commands
 
