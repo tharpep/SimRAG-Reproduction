@@ -68,7 +68,7 @@ The implementation uses Qdrant~\citep{qdrant2024} or ChromaDB~\citep{chromadb202
 
 \textbf{Stage 1 Training}: Fine-tuning on the Alpaca instruction-following dataset (52K examples) with learning rate $5 \times 10^{-5}$, batch size=8, gradient accumulation=2 (effective batch=16), and 3 epochs. The resulting LoRA adapters are approximately 100MB, representing a 99.3\% reduction from the full model size.
 
-\textbf{Stage 2 Training}: Domain adaptation using synthetically generated QA pairs from domain documents. For each document, 2 questions are generated using the Stage 1 model, pairs are filtered where the answer appears in the top-$k$ retrieved contexts (context score $\geq 0.7$), and fine-tuning is performed for 1--2 epochs. The self-improvement loop allows multiple rounds where each round uses the improved model from the previous round to generate better synthetic data.
+\textbf{Stage 2 Training}: Domain adaptation using synthetically generated QA pairs from domain documents. For each document, 2 questions are generated using the Stage 1 model, pairs are filtered where the answer appears in the top-$k$ retrieved contexts (context score $\geq 0.7$), and fine-tuning is performed for 1 epoch. The self-improvement loop allows multiple rounds where each round uses the improved model from the previous round to generate better synthetic data.
 
 \textbf{Optimizations}: QLoRA enables training on 10GB VRAM GPUs, gradient accumulation allows larger effective batch sizes, FP16 mixed precision reduces memory usage, and Docker containerization ensures reproducibility across different environments.
 
@@ -87,13 +87,13 @@ The baseline uses identical infrastructure to SimRAG (same retriever, vector sto
 
 \textbf{Metrics}: The primary metric is average context relevance, measured as the mean cosine similarity between query embeddings and all retrieved document embeddings. This metric captures how well the retrieval system identifies relevant context. Secondary metrics include (1) response time (wall-clock time for complete query processing), (2) answer quality score (rule-based metric combining length, context relevance, question relevance, and refusal detection), and (3) qualitative assessment through manual inspection of answer relevance, domain terminology usage, context grounding, and coherence.
 
-\textbf{Hardware}: Primary experiments were conducted using Qwen 2.5 1.5B-Instruct on an RTX 3080 GPU (10GB VRAM). QLoRA training consumes approximately 3--4GB VRAM, leaving headroom for other processes. The framework supports Qwen 2.5 7B-Instruct (requiring ~8--10GB VRAM), but this model was not trained or tested due to time and resource constraints.
+\textbf{Hardware}: Primary experiments were conducted using Qwen 2.5 1.5B-Instruct on an RTX 3080 GPU (10GB VRAM). Stage 1 QLoRA training uses ~9.7GB VRAM (near full capacity), while Stage 2 uses ~3--4GB VRAM. The framework supports Qwen 2.5 7B-Instruct (requiring ~8--10GB VRAM), but this model was not trained or tested due to time and resource constraints.
 
 \subsection{Implementation Details}
 
 \textbf{Software}: Python 3.12+, PyTorch 2.5+ (CUDA 12.1), Transformers~\citep{wolf2019transformers}, sentence-transformers~\citep{reimers2019sentence}, Qdrant~\citep{qdrant2024}, PEFT, bitsandbytes. Docker containerization ensures reproducibility.
 
-\textbf{Configuration}: QLoRA with 4-bit NF4 quantization, LoRA rank=16, alpha=32, dropout=0.05. Training: batch size=8, gradient accumulation=2, learning rate=$5 \times 10^{-5}$, max sequence length=512. Stage 1: Alpaca (52K examples), 3 epochs, AdamW optimizer. Stage 2: synthetic QA pairs (filtered by context score $\geq 0.7$), 1--2 epochs. Retrieval: top-$k=5$, threshold=0.7, cosine similarity.
+\textbf{Configuration}: QLoRA with 4-bit NF4 quantization, LoRA rank=16, alpha=32, dropout=0.05. Training: batch size=8, gradient accumulation=2, learning rate=$5 \times 10^{-5}$, max sequence length=512. Stage 1: Alpaca (52K examples), 3 epochs, AdamW optimizer. Stage 2: synthetic QA pairs (filtered by context score $\geq 0.7$), 1 epoch. Retrieval: top-$k=5$, threshold=0.7, cosine similarity.
 
 \subsection{Evaluation Methodology}
 
@@ -155,7 +155,7 @@ Figure~\ref{fig:training_loss} shows the training loss curve for Stage 1 fine-tu
 
 \subsection{Resource Analysis}
 
-QLoRA enables efficient training: 3--4GB VRAM (RTX 3080), 3--4 hours per stage. LoRA adapters: ~100MB (99.3\% reduction from 3GB full model). Inference: 2GB VRAM, but 52--53\% slower due to adapter overhead.
+QLoRA enables efficient training on RTX 3080 (10GB VRAM): Stage 1 uses ~9.7GB VRAM (Alpaca dataset, 52K examples), Stage 2 uses ~3--4GB VRAM (smaller synthetic dataset). Training time: Stage 1 requires 6--7 hours, while Stage 2 fine-tuning is much faster (minutes per round, though QA generation adds overhead). LoRA adapters: ~100MB (99.3\% reduction from 3GB full model). Inference: 2GB VRAM, but 52--53\% slower due to adapter overhead.
 
 \subsection{Discussion}
 
@@ -164,7 +164,7 @@ Results do not support the hypothesis. Possible explanations: (1) insufficient m
 \section{Conclusion}
 \label{sec:conclusion}
 
-This work presents a simplified reproduction of SimRAG that successfully implements the full two-stage fine-tuning pipeline on consumer hardware using QLoRA. The implementation demonstrates technical feasibility: the system runs efficiently on an RTX 3080 GPU (10GB VRAM), completes training in reasonable time (3--4 hours per stage), and produces compact model adapters (~100MB per stage).
+This work presents a simplified reproduction of SimRAG that successfully implements the full two-stage fine-tuning pipeline on consumer hardware using QLoRA. The implementation demonstrates technical feasibility: the system runs efficiently on an RTX 3080 GPU (10GB VRAM), completes training in reasonable time (Stage 1: 6--7 hours; Stage 2: minutes per round), and produces compact model adapters (~100MB per stage).
 
 However, the experimental results do not support the hypothesis that two-stage fine-tuning improves RAG performance on domain-specific documents. Context relevance scores remain identical between baseline and fine-tuned models (as expected, since only the generator is fine-tuned), answer quality shows a slight decrease (0.1--1.9\%), and response time increases significantly (52--53\%). Statistical analysis reveals no significant differences, with overlapping confidence intervals indicating that observed changes are within normal variation.
 
@@ -180,7 +180,7 @@ However, the experimental results do not support the hypothesis that two-stage f
 
 (4) \textit{Reproducible Framework}: Provides a complete, reproducible framework (Docker, model registry, comprehensive logging) for RAG fine-tuning research that can serve as a foundation for future studies.
 
-(5) \textit{Practical Insights}: Identifies key practical challenges when scaling down large-scale methods, including model capacity requirements, retriever-generator coupling, inference overhead, and synthetic data quality---insights that inform future research directions.
+(5) \textit{Practical Insights}: Identifies key practical challenges when scaling down large-scale methods, including model capacity requirements, retriever-generator coupling, inference overhead, and synthetic data quality.
 
 \textbf{Future Work}: Testing larger models (7B), improving synthetic QA generation, developing semantic evaluation metrics, exploring joint retriever-generator fine-tuning, and hyperparameter optimization for smaller models.
 
