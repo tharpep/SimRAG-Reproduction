@@ -144,12 +144,12 @@ Contrary to the hypothesis, fine-tuned models show decreased quality (Stage 1: -
 
 \subsection{Training Dynamics}
 
-Figure~\ref{fig:training_loss} shows the training loss curve for Stage 1 fine-tuning on the Alpaca dataset. The loss decreases steadily from 1.84 to 0.65 over 3 epochs (4,878 steps), demonstrating successful convergence. The smooth decrease indicates stable training dynamics with QLoRA on consumer hardware, despite memory constraints.
+Figure~\ref{fig:training_loss} shows the training loss curve for Stage 1 fine-tuning on the Alpaca dataset. The loss decreases from 1.84 to 1.421 over 3 epochs (4,878 steps), demonstrating convergence. The loss plateaus in later epochs, indicating stable training dynamics with QLoRA on consumer hardware, despite memory constraints.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.75\textwidth]{training_loss_stage1.pdf}
-\caption{Training loss for Stage 1 fine-tuning on Alpaca (52K examples, 3 epochs). Smooth convergence from 1.84 to 0.65 demonstrates QLoRA stability on RTX 3080.}
+\caption{Training loss for Stage 1 fine-tuning on Alpaca (52K examples, 3 epochs). Loss decreases from 1.84 to 1.421, demonstrating QLoRA stability on RTX 3080.}
 \label{fig:training_loss}
 \end{figure}
 
