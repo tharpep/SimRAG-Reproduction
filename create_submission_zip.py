@@ -306,7 +306,7 @@ def create_submission_zip(output_name=None):
                     print(f"\nWarning: Could not add {file_path}: {e}")
                     files_skipped += 1
     
-    print(f"\n\n✓ Submission ZIP created: {output_path}")
+    print(f"\n\n[SUCCESS] Submission ZIP created: {output_path}")
     print(f"  Files added: {files_added}")
     print(f"  Files skipped: {files_skipped}")
     print(f"  File size: {output_path.stat().st_size / (1024*1024):.2f} MB")
